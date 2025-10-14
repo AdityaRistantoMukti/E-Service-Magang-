@@ -103,12 +103,27 @@ class _CekHargaPageState extends State<CekHargaPage> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Rp. 5.000.000',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: const Text(
+                                'Rp. 5.000.000',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.grey.shade200,
+                              ),
+                              child: const Icon(Icons.laptop_mac, size: 50, color: Color(0xFF1E4DB7)),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 80), // Space for button
                       ],
@@ -126,19 +141,6 @@ class _CekHargaPageState extends State<CekHargaPage> {
                       ),
                       onPressed: () {},
                       child: const Text('Tawar', style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey.shade200,
-                      ),
-                      child: const Icon(Icons.laptop_mac, size: 50, color: Color(0xFF1E4DB7)),
                     ),
                   ),
                 ],
