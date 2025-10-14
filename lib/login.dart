@@ -54,15 +54,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
                           height: isLandscape ? screenSize.height * 0.15 : screenSize.height * 0.12,
                         ),
-                        SizedBox(height: screenSize.height * 0.01),
-                        Text(
-                          'Service | Penjualan | Pengadaan',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: screenSize.width * 0.035,
-                            fontWeight: FontWeight.w500,
+                        Container(
+                          width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
+                          margin: const EdgeInsets.only(top: 5),
+                          child: Text(
+                            'Service | Penjualan | Pengadaan',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: screenSize.width * 0.035,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),

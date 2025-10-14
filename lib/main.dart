@@ -113,15 +113,18 @@ class _SplashScreenState extends State<SplashScreen>
                             width: isLandscape ? screenSize.width * 0.15 : screenSize.width * 0.4,
                             height: isLandscape ? screenSize.height * 0.2 : screenSize.height * 0.15,
                           ),
-                          SizedBox(height: screenSize.height * 0.02),
-                          Text(
-                            'Service | Penjualan | Pengadaan',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: screenSize.width * 0.04,
-                              fontWeight: FontWeight.w500,
+                          Container(
+                            width: isLandscape ? screenSize.width * 0.15 : screenSize.width * 0.4,
+                            margin: const EdgeInsets.only(top: 5),
+                            child: Text(
+                              'Service | Penjualan | Pengadaan',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: screenSize.width * 0.04,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
