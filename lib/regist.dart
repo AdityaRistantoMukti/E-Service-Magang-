@@ -27,10 +27,25 @@ class _AuthPageState extends State<AuthPage> {
             // Header logo + title
             SizedBox(height: screenSize.height * 0.05),
             Center(
-              child: Image.asset(
-                'assets/image/logo.png',
-                width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
-                height: isLandscape ? screenSize.height * 0.15 : screenSize.height * 0.12,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/image/logo.png',
+                    width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
+                    height: isLandscape ? screenSize.height * 0.15 : screenSize.height * 0.12,
+                  ),
+                  SizedBox(height: screenSize.height * 0.01),
+                  Text(
+                    'Service | Penjualan | Pengadaan',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: screenSize.width * 0.035,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
 
