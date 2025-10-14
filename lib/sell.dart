@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'Service.dart';
 import 'Shop.dart';
 import 'Home.dart';
@@ -144,12 +145,9 @@ class _CekHargaPageState extends State<CekHargaPage> {
         ),
       ),
 
-      // === BOTTOM NAVBAR ===
+      // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF1E4DB7),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 3,
+        currentIndex: currentIndex,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushReplacement(
@@ -161,15 +159,10 @@ class _CekHargaPageState extends State<CekHargaPage> {
               context,
               MaterialPageRoute(builder: (context) => const MarketplacePage()),
             );
-          } else if (index == 2) {
+          } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
-            );
-          } else if (index == 4) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
+              MaterialPageRoute(builder: (context) => const CekHargaPage()),
             );
           } else {
             setState(() {
@@ -177,12 +170,31 @@ class _CekHargaPageState extends State<CekHargaPage> {
             });
           }
         },
+        backgroundColor: const Color(0xFF1E4DB7),
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        showUnselectedLabels: true,
+        selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
+        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.build), label: 'Service'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Beli'),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.sell), label: 'Jual'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.build_circle_outlined),
+            label: 'Service',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart_outlined),
+            label: 'Beli',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sell_outlined),
+            label: 'Jual',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
         ],
       ),
     );
