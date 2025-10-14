@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'Service.dart';
 import 'Shop.dart';
 import 'Home.dart';
+import 'profile.dart';
 
 class CekHargaPage extends StatefulWidget {
   const CekHargaPage({super.key});
@@ -87,40 +88,58 @@ class _CekHargaPageState extends State<CekHargaPage> {
 
             // === HASIL CEK HARGA ===
             if (submitted)
-              Column(
+              Stack(
                 children: [
-                  const Text(
-                    'Informasi terkait harga yang disetujui nanti di sini',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Rp. 5.000.000',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E4DB7),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    onPressed: () {},
-                    child: const Text('Tawar'),
-                  ),
-                  const SizedBox(height: 16),
                   Container(
-                    width: 100,
-                    height: 100,
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
                       color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(Icons.laptop_mac, size: 60, color: Color(0xFF1E4DB7)),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Informasi terkait harga yang disetujui nanti di sini',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Rp. 5.000.000',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
+                        const SizedBox(height: 80), // Space for button
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E4DB7),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      onPressed: () {},
+                      child: const Text('Tawar', style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.grey.shade200,
+                      ),
+                      child: const Icon(Icons.laptop_mac, size: 50, color: Color(0xFF1E4DB7)),
+                    ),
                   ),
                 ],
               ),
@@ -149,6 +168,11 @@ class _CekHargaPageState extends State<CekHargaPage> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const HomePage()),
+            );
+          } else if (index == 4) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             );
           } else {
             setState(() {
