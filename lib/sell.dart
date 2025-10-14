@@ -28,14 +28,19 @@ class _CekHargaPageState extends State<CekHargaPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E4DB7),
+        backgroundColor: const Color(0xFF1976D2),
         elevation: 0,
+        leading: null,
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
-        actions: const [
-          Icon(Icons.language, color: Colors.white),
-          SizedBox(width: 8),
-          Icon(Icons.chat_bubble_outline, color: Colors.white),
-          SizedBox(width: 12),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.support_agent, color: Colors.white),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+            onPressed: () {},
+          ),
         ],
       ),
       body: SingleChildScrollView(
