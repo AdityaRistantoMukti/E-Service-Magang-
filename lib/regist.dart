@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'login.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -37,12 +38,12 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                   Container(
                     width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
-                    margin: const EdgeInsets.only(top: 5),
+                    margin: const EdgeInsets.only(top: 0.4),
                     child: Text(
                       'Service | Penjualan | Pengadaan',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: screenSize.width * 0.035,
+                        fontSize: screenSize.width * 0.02,
                         fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.center,
@@ -78,7 +79,10 @@ class _AuthPageState extends State<AuthPage> {
                         children: [
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => setState(() => isLogin = true),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              ),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: isLogin

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'regist.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -9,7 +10,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _obscurePassword = true;
+  bool isLogin = true;
+  bool showPassword = false;
 
   @override
   Widget build(BuildContext context) {
@@ -18,263 +20,228 @@ class _LoginScreenState extends State<LoginScreen> {
     final padding = screenSize.width * 0.06; // 6% of screen width
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
+      backgroundColor: const Color(0xFF0D47A1),
+      body: SafeArea(
         child: Column(
           children: [
-            // ====================== HEADER ======================
-            Stack(
-              children: [
-                Container(
-                  height: isLandscape ? screenSize.height * 0.4 : screenSize.height * 0.3,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1E52B4),
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(40),
-                      bottomRight: Radius.circular(40),
+            // Header logo + title
+            SizedBox(height: screenSize.height * 0.05),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/image/logo.png',
+                    width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
+                    height: isLandscape ? screenSize.height * 0.15 : screenSize.height * 0.12,
+                  ),
+                  Container(
+                    width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
+                    margin: const EdgeInsets.only(top: 0.4),
+                    child: Text(
+                      'Service | Penjualan | Pengadaan',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: screenSize.width * 0.02,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-
-                Positioned.fill(
-                  child: CustomPaint(painter: _BubblePainter()),
-                ),
-
-                // Logo
-                Positioned(
-                  top: isLandscape ? screenSize.height * 0.1 : screenSize.height * 0.08,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          'assets/image/logo.png',
-                          width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
-                          height: isLandscape ? screenSize.height * 0.15 : screenSize.height * 0.12,
-                        ),
-                        Container(
-                          width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
-                          margin: const EdgeInsets.only(top: 5),
-                          child: Text(
-                            'Service | Penjualan | Pengadaan',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: screenSize.width * 0.035,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
 
-            SizedBox(height: screenSize.height * 0.03),
+            SizedBox(height: screenSize.height * 0.04),
 
-            // ====================== FORM LOGIN ======================
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: padding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Tab Masuk/Daftar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE3EEFF),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.015),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E52B4),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Masuk',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: screenSize.width * 0.04,
+            // White container
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                ),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(horizontal: padding, vertical: screenSize.height * 0.04),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                    // Toggle buttons
+                    Container(
+                      height: screenSize.height * 0.06,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE3F2FD),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => isLogin = true),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isLogin
+                                      ? const Color(0xFF1976D2)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const AuthPage()),
-                            ),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.015),
-                              child: Center(
+                                alignment: Alignment.center,
                                 child: Text(
-                                  'Daftar',
-                                  style: TextStyle(
-                                    color: const Color(0xFF4A8DFF),
-                                    fontWeight: FontWeight.w600,
+                                  'Masuk',
+                                  style: GoogleFonts.poppins(
+                                    color: isLogin ? Colors.white : Colors.black54,
+                                    fontWeight: FontWeight.w500,
                                     fontSize: screenSize.width * 0.04,
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: screenSize.height * 0.045),
-
-                  Text(
-                    'Alamat E-Mail',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: screenSize.width * 0.04,
-                    ),
-                  ),
-                  SizedBox(height: screenSize.height * 0.01),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Masukan E-Mail',
-                      filled: true,
-                      fillColor: const Color(0xFF1E52B4),
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      contentPadding: EdgeInsets.symmetric(
-                        vertical: screenSize.height * 0.02,
-                        horizontal: screenSize.width * 0.05,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const AuthPage()),
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: !isLogin
+                                      ? const Color(0xFF1976D2)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Daftar',
+                                  style: GoogleFonts.poppins(
+                                    color: !isLogin ? Colors.white : Colors.black54,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: screenSize.width * 0.04,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                    const SizedBox(height: 24),
 
-                  SizedBox(height: screenSize.height * 0.03),
+                    // Form fields
+                    _buildTextField('Alamat E-Mail', false, icon: Icons.email),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildTextField('Kata sandi', true),
 
-                  Text(
-                    'Kata sandi',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: screenSize.width * 0.04,
-                    ),
-                  ),
-                  SizedBox(height: screenSize.height * 0.01),
-                  TextField(
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      hintText: 'Masukan Kata Sandi',
-                      filled: true,
-                      fillColor: const Color(0xFF1E52B4),
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      contentPadding: EdgeInsets.symmetric(
-                        vertical: screenSize.height * 0.02,
-                        horizontal: screenSize.width * 0.05,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: Colors.white70,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        'Lupa Kata Sandi',
-                        style: TextStyle(
-                          color: const Color(0xFF4A8DFF),
-                          fontSize: screenSize.width * 0.035,
+                    if (isLogin)
+                      Padding(
+                        padding: EdgeInsets.only(top: screenSize.height * 0.01),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            'Lupa Kata Sandi',
+                            style: GoogleFonts.poppins(
+                              color: const Color(0xFF1976D2),
+                              fontSize: screenSize.width * 0.035,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    SizedBox(height: screenSize.height * 0.03),
 
-                  SizedBox(height: screenSize.height * 0.015),
-
-                  // Tombol Masuk
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {},
+                    // Tombol utama
+                    ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E52B4),
+                        backgroundColor: isLogin ? Colors.white : const Color(0xFF1976D2),
+                        foregroundColor:
+                            isLogin ? const Color(0xFF1976D2) : Colors.white,
+                        side: const BorderSide(color: Color(0xFF1976D2)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
+                      onPressed: () {},
                       child: Text(
-                        'Masuk',
-                        style: TextStyle(
+                        isLogin ? 'Masuk' : 'Daftar',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
                           fontSize: screenSize.width * 0.04,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ),
+                    SizedBox(height: screenSize.height * 0.02),
 
-                  SizedBox(height: screenSize.height * 0.024),
-
-                  // Tombol Google
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
+                    // Tombol Google
+                    OutlinedButton.icon(
                       icon: Image.asset(
                         'assets/image/google.png',
-                        width: screenSize.width * 0.05,
+                        width: screenSize.width * 0.06,
+                        height: screenSize.width * 0.06,
                       ),
                       label: Text(
                         'Masuk menggunakan Akun Google',
-                        style: TextStyle(
-                          color: const Color(0xFF1E52B4),
-                          fontWeight: FontWeight.w600,
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF1976D2),
+                          fontWeight: FontWeight.w500,
                           fontSize: screenSize.width * 0.035,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF1E52B4)),
+                        side: const BorderSide(color: Color(0xFF1976D2)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
+                      onPressed: () {},
                     ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-            SizedBox(height: screenSize.height * 0.05), // Bottom padding
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(String hint, bool isPassword, {IconData? icon}) {
+    final screenSize = MediaQuery.of(context).size;
+    return TextField(
+      obscureText: isPassword && !showPassword,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.poppins(
+          fontSize: screenSize.width * 0.035,
+          color: Colors.black54,
+        ),
+        filled: true,
+        fillColor: const Color(0xFF1976D2).withValues(alpha: 0.15),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  showPassword ? Icons.visibility : Icons.visibility_off,
+                  color: const Color(0xFF0D47A1),
+                  size: screenSize.width * 0.05,
+                ),
+                onPressed: () {
+                  setState(() {
+                    showPassword = !showPassword;
+                  });
+                },
+              )
+            : (icon != null
+                ? Icon(icon, color: const Color(0xFF0D47A1), size: screenSize.width * 0.05)
+                : null),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          vertical: screenSize.height * 0.02,
+          horizontal: screenSize.width * 0.04,
         ),
       ),
     );
