@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'regist.dart';
+import 'auth_service.dart';
+import 'Home.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +14,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool isLogin = true;
   bool showPassword = false;
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +164,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
+                      },
                       child: Text(
                         isLogin ? 'Masuk' : 'Daftar',
                         style: GoogleFonts.poppins(
@@ -194,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
-                      onPressed: () {},
+                      onPressed: _signInWithGoogle,
                     ),
                     ],
                   ),
@@ -246,27 +251,44 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-}
 
-// ====================== GELEMBUNG DI LATAR BELAKANG ======================
-class _BubblePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF3C6FD6).withValues(alpha: 0.25);
-
-    final bubbles = [
-      const Offset(50, 100),
-      const Offset(200, 50),
-      const Offset(300, 150),
-      const Offset(100, 200),
-      const Offset(250, 220),
-    ];
-
-    for (var bubble in bubbles) {
-      canvas.drawCircle(bubble, 25, paint);
+  Future<void> _signInWithGoogle() async {
+    try {
+      final account = await _authService.signInWithGoogle();
+      if (account != null) {
+        // Successfully signed in
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Welcome, ${account.displayName}!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Navigate to home screen or next screen
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
+        }
+      } else {
+        // Sign in failed
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google Sign-In failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+

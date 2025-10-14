@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login.dart';
+import 'auth_service.dart';
+import 'Home.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -13,6 +15,7 @@ class _AuthPageState extends State<AuthPage> {
   bool isLogin = false;
   bool showPassword = false;
   bool showConfirmPassword = false;
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +173,9 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
+                      },
                       child: Text(
                         isLogin ? 'Masuk' : 'Daftar',
                         style: GoogleFonts.poppins(
@@ -203,7 +208,7 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
-                      onPressed: () {},
+                      onPressed: _signInWithGoogle,
                     ),
                     ],
                   ),
@@ -262,5 +267,43 @@ class _AuthPageState extends State<AuthPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      final account = await _authService.signInWithGoogle();
+      if (account != null) {
+        // Successfully signed in
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Welcome, ${account.displayName}!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Navigate to home screen or next screen
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
+        }
+      } else {
+        // Sign in failed
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google Sign-In failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

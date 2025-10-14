@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'Service.dart';
+import 'Shop.dart';
+import 'sell.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -18,22 +21,11 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1976D2),
         elevation: 0,
-        title: Row(
-          children: [
-            const Icon(Icons.layers, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              'Azzahra',
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+        leading: null,
+        title: Image.asset('assets/image/logo.png', width: 95, height: 30),
         actions: [
           IconButton(
-            icon: const Icon(Icons.language, color: Colors.white),
+            icon: const Icon(Icons.support_agent, color: Colors.white),
             onPressed: () {},
           ),
           IconButton(
@@ -130,9 +122,26 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {
-          setState(() {
-            currentIndex = index;
-          });
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ServicePage()),
+            );
+          } else if (index == 1) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MarketplacePage()),
+            );
+          } else if (index == 3) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const CekHargaPage()),
+            );
+          } else {
+            setState(() {
+              currentIndex = index;
+            });
+          }
         },
         backgroundColor: const Color(0xFF1976D2),
         type: BottomNavigationBarType.fixed,
@@ -150,10 +159,7 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.shopping_cart_outlined),
             label: 'Beli',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.sell_outlined),
             label: 'Jual',

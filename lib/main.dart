@@ -43,13 +43,11 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(seconds: 3),
     );
 
-    // Animasi lingkaran membesar
     _circleAnimation = CurvedAnimation(
       parent: _controller,
       curve: const Interval(0.0, 0.8, curve: Curves.easeInOutCubic),
     );
-
-    // Animasi logo muncul setelah lingkaran menutupi layar
+ 
     _logoAnimation = CurvedAnimation(
       parent: _controller,
       curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack),
@@ -102,9 +100,9 @@ class _SplashScreenState extends State<SplashScreen>
               if (logoVisible)
                 Center(
                   child: Opacity(
-                    opacity: _logoAnimation.value,
+                    opacity: _logoAnimation.value.clamp(0.0, 1.0),
                     child: Transform.scale(
-                      scale: _logoAnimation.value,
+                      scale: _logoAnimation.value.clamp(0.0, 1.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -113,19 +111,7 @@ class _SplashScreenState extends State<SplashScreen>
                             width: isLandscape ? screenSize.width * 0.15 : screenSize.width * 0.4,
                             height: isLandscape ? screenSize.height * 0.2 : screenSize.height * 0.15,
                           ),
-                          Container(
-                            width: isLandscape ? screenSize.width * 0.15 : screenSize.width * 0.4,
-                            margin: const EdgeInsets.only(top: 0.4),
-                            child: Text(
-                              'Service | Penjualan | Pengadaan',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: screenSize.width * 0.03,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+
                         ],
                       ),
                     ),
