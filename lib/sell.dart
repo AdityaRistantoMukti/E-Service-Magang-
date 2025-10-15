@@ -21,7 +21,7 @@ class _CekHargaPageState extends State<CekHargaPage> {
   String? selectedDevice;
   bool submitted = false;
 
-   int currentIndex = 2; // posisi default: Home
+   int currentIndex = 3; // posisi default: Jual
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +68,7 @@ class _CekHargaPageState extends State<CekHargaPage> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E4DB7),
+                      backgroundColor: const Color(0xFF1976D2),
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
@@ -122,7 +122,7 @@ class _CekHargaPageState extends State<CekHargaPage> {
                                 borderRadius: BorderRadius.circular(12),
                                 color: Colors.grey.shade200,
                               ),
-                              child: const Icon(Icons.laptop_mac, size: 50, color: Color(0xFF1E4DB7)),
+                              child: const Icon(Icons.laptop_mac, size: 50, color: Color(0xFF1976D2)),
                             ),
                           ],
                         ),
@@ -135,7 +135,7 @@ class _CekHargaPageState extends State<CekHargaPage> {
                     left: 16,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E4DB7),
+                        backgroundColor: const Color(0xFF1976D2),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(24),
                         ),
@@ -164,10 +164,20 @@ class _CekHargaPageState extends State<CekHargaPage> {
               context,
               MaterialPageRoute(builder: (context) => const MarketplacePage()),
             );
+          } else if (index == 2) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            );
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const CekHargaPage()),
+            );
+          } else if (index == 4) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             );
           } else {
             setState(() {
@@ -175,7 +185,7 @@ class _CekHargaPageState extends State<CekHargaPage> {
             });
           }
         },
-        backgroundColor: const Color(0xFF1E4DB7),
+        backgroundColor: const Color(0xFF1976D2),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,

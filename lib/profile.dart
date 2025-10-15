@@ -4,6 +4,11 @@ import 'Service.dart';
 import 'Shop.dart';
 import 'Home.dart';
 import 'sell.dart';
+import 'edit_profile.dart';
+import 'scan_qr.dart';
+import 'edit_name.dart';
+import 'edit_birthday.dart';
+import 'edit_nmtlpn.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -49,7 +54,7 @@ class _ProfilePageState extends State<ProfilePage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF1E4DB7), width: 2),
+                border: Border.all(color: const Color(0xFF1976D2), width: 2),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -61,24 +66,40 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 children: [
                   Stack(
-                    alignment: Alignment.center,
                     children: [
                       const CircleAvatar(
                         radius: 35,
                         backgroundColor: Colors.black12,
-                        child: Icon(Icons.person, size: 50, color: Colors.black),
+                        child: Icon(
+                          Icons.person,
+                          size: 50,
+                          color: Colors.black,
+                        ),
                       ),
                       Positioned(
-                        right: 0,
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.edit, color: Color(0xFF1E4DB7)),
-                            iconSize: 20,
+                        top: -8,
+                        right: -8,
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const EditProfilePage(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.edit,
+                              color: Color(0xFF1976D2),
+                              size: 15,
+                            ),
                           ),
                         ),
                       ),
@@ -94,14 +115,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     style: TextStyle(color: Colors.black54, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Poin', style: TextStyle(fontWeight: FontWeight.w500)),
-                      SizedBox(width: 10),
-                      Text('25', style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(width: 4),
-                      Icon(Icons.monetization_on, size: 16, color: Colors.blue),
+                      const Text(
+                        'Poin',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        '25',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 4),
+                      Image.asset(
+                        'assets/image/coin.png',
+                        width: 16,
+                        height: 16,
+                      ),
                     ],
                   ),
                 ],
@@ -110,12 +141,52 @@ class _ProfilePageState extends State<ProfilePage> {
 
             const SizedBox(height: 24),
 
+            // ==== INFO TILES ====
+            _infoTile(Icons.person, 'Nama', 'Udin', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const EditNamaPage()),
+              );
+            }),
+            const SizedBox(height: 12),
+            _infoTile(
+              Icons.calendar_month,
+              'Tanggal Lahir',
+              '01 - Juli - 2004',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const EditBirthdayPage()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _infoTile(Icons.phone, 'Nomor Telpon', '081292303471', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const EditNmtlpnPage()),
+              );
+            }),
+
+            const SizedBox(height: 24),
+
             // ==== QR BUTTONS ====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _qrBox(Icons.qr_code, 'Tunjukan QR'),
-                _qrBox(Icons.qr_code_scanner, 'Scan QR'),
+                _qrBox(
+                  Icons.qr_code_scanner,
+                  'Scan QR',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ScanQrPage(),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
 
@@ -153,13 +224,18 @@ class _ProfilePageState extends State<ProfilePage> {
               context,
               MaterialPageRoute(builder: (context) => const CekHargaPage()),
             );
+          } else if (index == 4) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
+            );
           } else {
             setState(() {
               currentIndex = index;
             });
           }
         },
-        backgroundColor: const Color(0xFF1E4DB7),
+        backgroundColor: const Color(0xFF1976D2),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,
@@ -190,28 +266,31 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // ==== WIDGET KHUSUS ====
-  Widget _qrBox(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
+  Widget _qrBox(IconData icon, String label, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(icon, size: 60, color: Colors.black),
           ),
-          child: Icon(icon, size: 60, color: Colors.black),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-      ],
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 
@@ -231,11 +310,45 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF1E4DB7)),
+          Icon(icon, color: const Color(0xFF1976D2)),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-          Icon(actionIcon, color: const Color(0xFF1E4DB7)),
+          Icon(actionIcon, color: const Color(0xFF1976D2)),
         ],
+      ),
+    );
+  }
+
+  Widget _infoTile(IconData icon, String label, String value, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap ?? () {},
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF1976D2)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

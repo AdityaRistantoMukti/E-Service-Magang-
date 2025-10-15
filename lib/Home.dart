@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'Service.dart';
 import 'Shop.dart';
 import 'sell.dart';
+import 'profile.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -136,6 +137,11 @@ class _HomePageState extends State<HomePage> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const CekHargaPage()),
+            );
+          } else if (index == 4) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             );
           } else {
             setState(() {

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'Service.dart';
 import 'Home.dart';
 import 'sell.dart';
+import 'profile.dart';
 
 class MarketplacePage extends StatefulWidget {
   const MarketplacePage({Key? key}) : super(key: key);
@@ -121,6 +122,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const CekHargaPage()),
+            );
+          } else if (index == 4) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             );
           } else {
             setState(() {
