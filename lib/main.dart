@@ -47,24 +47,25 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _controller,
       curve: const Interval(0.0, 0.8, curve: Curves.easeInOutCubic),
     );
- 
+
     _logoAnimation = CurvedAnimation(
       parent: _controller,
       curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack),
     );
 
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
+          }
+        });
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => LoginScreen()),
-              );
-            }
-          });
-        }
-      });
       _controller.forward();
     });
   }

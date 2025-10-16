@@ -18,13 +18,10 @@ class _EditBirthdayPageState extends State<EditBirthdayPage> {
 
       // === APP BAR ===
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E4DB7),
+        backgroundColor: const Color(0xFF1976D2),
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
-          'Azzahra',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: Image.asset('assets/image/logo.png', width: 95, height: 30),
         actions: const [
           Icon(Icons.chat_bubble_outline, color: Colors.white),
           SizedBox(width: 12),
@@ -60,14 +57,14 @@ class _EditBirthdayPageState extends State<EditBirthdayPage> {
               decoration: InputDecoration(
                 labelText: 'Tanggal Lahir',
                 labelStyle: const TextStyle(color: Colors.black54),
-                suffixIcon: const Icon(Icons.calendar_today, color: Color(0xFF1E4DB7)),
+                suffixIcon: const Icon(Icons.calendar_today, color: Color(0xFF1976D2)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF1E4DB7), width: 2),
+                  borderSide: const BorderSide(color: Color(0xFF1976D2), width: 2),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF1E4DB7), width: 1),
+                  borderSide: const BorderSide(color: Color(0xFF1976D2), width: 1),
                 ),
               ),
               onTap: _selectDate,
@@ -82,7 +79,7 @@ class _EditBirthdayPageState extends State<EditBirthdayPage> {
                 height: 45,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E4DB7),
+                    backgroundColor: const Color(0xFF1976D2),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),

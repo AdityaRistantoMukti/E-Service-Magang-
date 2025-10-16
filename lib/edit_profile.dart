@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:intl/intl.dart';
 import 'edit_name.dart';
 import 'edit_nmtlpn.dart';
 
@@ -36,7 +35,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         backgroundColor: const Color(0xFF1976D2),
         elevation: 0,
         automaticallyImplyLeading: true,
-        title: Image.asset('assets/image/logo.png', width: 95, height: 30),
+        title: const Text('Edit Profile'),
         actions: [
           IconButton(
             icon: const Icon(Icons.support_agent, color: Colors.white),
@@ -107,7 +106,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       Icons.calendar_month,
                       "Tanggal Lahir",
                       tanggalController.text,
-                      onTap: _selectDate,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -174,11 +172,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
       height: 80,
       padding: EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+                  BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 3),
           ),
@@ -235,22 +234,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
-      });
-    }
-  }
-
-  Future<void> _selectDate() async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (pickedDate != null) {
-      setState(() {
-        tanggalController.text = DateFormat(
-          'dd - MMMM - yyyy',
-        ).format(pickedDate);
       });
     }
   }

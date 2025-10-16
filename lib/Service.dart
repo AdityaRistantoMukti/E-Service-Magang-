@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'Home.dart';
 import 'Shop.dart';
-import 'sell.dart';
+import 'reward.dart';
 import 'profile.dart';
+import 'order_service.dart';
+import 'tracking_driver.dart';
 
 class ServicePage extends StatefulWidget {
-  const ServicePage({Key? key}) : super(key: key);
+  const ServicePage({super.key});
 
   @override
   State<ServicePage> createState() => _ServicePageState();
@@ -50,6 +52,12 @@ class _ServicePageState extends State<ServicePage> {
                 children: [
                   Expanded(
                     child: TextField(
+                      onSubmitted: (value) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const TrackingPage()),
+                        );
+                      },
                       decoration: InputDecoration(
                         hintText: 'Masukan Nomor Antrean',
                         hintStyle: GoogleFonts.poppins(
@@ -61,7 +69,12 @@ class _ServicePageState extends State<ServicePage> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const TrackingPage()),
+                      );
+                    },
                     icon: const Icon(Icons.search, color: Colors.black54),
                   ),
                 ],
@@ -118,7 +131,12 @@ class _ServicePageState extends State<ServicePage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PesanServicePage()),
+                );
+              },
               child: Text(
                 'Pesan Servis',
                 style: GoogleFonts.poppins(
@@ -149,7 +167,7 @@ class _ServicePageState extends State<ServicePage> {
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const CekHargaPage()),
+              MaterialPageRoute(builder: (context) => const TukarPoinPage()),
             );
           } else if (index == 4) {
             Navigator.pushReplacement(
@@ -169,7 +187,7 @@ class _ServicePageState extends State<ServicePage> {
         showUnselectedLabels: true,
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.build_circle),
             label: 'Service',
@@ -183,8 +201,8 @@ class _ServicePageState extends State<ServicePage> {
             label: 'Beranda',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.sell_outlined),
-            label: 'Jual',
+            icon: currentIndex == 3 ? Image.asset('assets/image/promo.png', width: 24, height: 24) : Opacity(opacity: 0.6, child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
+            label: 'Promo',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
