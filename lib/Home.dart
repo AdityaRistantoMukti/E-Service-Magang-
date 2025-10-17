@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'Service.dart';
+import 'service.dart';
 import 'Shop.dart';
 import 'sell.dart';
 import 'profile.dart';
+import 'scan_qr_admin.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});

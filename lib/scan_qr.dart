@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:e_service/user_point_data.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -84,7 +87,7 @@ class _ScanQrPageState extends State<ScanQrPage> {
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Text(
                         "Poin ",
                         style: TextStyle(color: Colors.black54),
@@ -96,7 +99,12 @@ class _ScanQrPageState extends State<ScanQrPage> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Icon(Icons.monetization_on, size: 18, color: Color(0xFF1976D2)),
+                      const SizedBox(width: 4),
+                      Image.asset(
+                        'assets/image/coin.png',
+                        width: 16,
+                        height: 16,
+                      ),
                     ],
                   ),
                 ],
@@ -127,19 +135,44 @@ class _ScanQrPageState extends State<ScanQrPage> {
                     children: [
                       MobileScanner(
                         controller: controller,
-                        onDetect: (capture) {
+                       onDetect: (capture) async {
                           final List<Barcode> barcodes = capture.barcodes;
                           for (final barcode in barcodes) {
                             if (barcode.rawValue != null) {
                               final String code = barcode.rawValue!;
-                              setState(() {
-                                scannedResult = code;
-                              });
                               controller.stop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('QR Terdeteksi: $code')),
-                              );
-                              break; // Stop after first detection
+
+                              try {
+                                // Decode data JSON dari QR
+                                final data = jsonDecode(code);
+
+                                // Ambil poin dari data QR (misalnya: {"points":10})
+                                final int pointsFromQR = data['reward_points'] ?? 0;
+
+                                // Tambahkan ke poin user
+                                UserPointData.addPoints(pointsFromQR);
+
+                                // Tampilkan notifikasi
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('🎉 Berhasil! Kamu mendapatkan $pointsFromQR poin'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+
+                                // Tunggu sebentar, lalu kembali ke halaman profile
+                                await Future.delayed(const Duration(seconds: 1));
+                                if (mounted) Navigator.pop(context);
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('QR tidak valid: $code'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+
+                              break;
                             }
                           }
                         },

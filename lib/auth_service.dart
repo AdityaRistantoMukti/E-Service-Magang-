@@ -22,4 +22,7 @@ class AuthService {
   }
 
   GoogleSignInAccount? get currentUser => _googleSignIn.currentUser;
+
+  
+  
 }

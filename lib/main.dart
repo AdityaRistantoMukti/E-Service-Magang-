@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
+import 'Home.dart';
+import 'session_manager.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  bool isLoggedIn = await SessionManager.isLoggedIn();
+
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -16,13 +23,14 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const SplashScreen(),
+      home: SplashScreen(isLoggedIn: isLoggedIn),
     );
   }
 }
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final bool isLoggedIn;
+  const SplashScreen({super.key, required this.isLoggedIn});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -47,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _controller,
       curve: const Interval(0.0, 0.8, curve: Curves.easeInOutCubic),
     );
- 
+
     _logoAnimation = CurvedAnimation(
       parent: _controller,
       curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack),
@@ -58,9 +66,16 @@ class _SplashScreenState extends State<SplashScreen>
         if (status == AnimationStatus.completed) {
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => LoginScreen()),
-              );
+              // 🔹 Cek status login di sini
+              if (widget.isLoggedIn) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
+              } else {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
+                );
+              }
             }
           });
         }
@@ -108,10 +123,13 @@ class _SplashScreenState extends State<SplashScreen>
                         children: [
                           Image.asset(
                             'assets/image/logo.png',
-                            width: isLandscape ? screenSize.width * 0.15 : screenSize.width * 0.4,
-                            height: isLandscape ? screenSize.height * 0.2 : screenSize.height * 0.15,
+                            width: isLandscape
+                                ? screenSize.width * 0.15
+                                : screenSize.width * 0.4,
+                            height: isLandscape
+                                ? screenSize.height * 0.2
+                                : screenSize.height * 0.15,
                           ),
-
                         ],
                       ),
                     ),
@@ -133,8 +151,8 @@ class CircleRevealPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = const Color(0xFF1E52B4);
 
-    
-    final maxRadius = (size.width > size.height ? size.width : size.height) * 1.2;
+    final maxRadius =
+        (size.width > size.height ? size.width : size.height) * 1.2;
     final radius = maxRadius * progress;
 
     final center = Offset(size.width / 2, size.height / 2);

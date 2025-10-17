@@ -1,9 +1,11 @@
+import 'package:e_service/services/api_service.dart';
+import 'package:e_service/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login.dart';
 import 'auth_service.dart';
 import 'Home.dart';
-
+import 'auth_service.dart';
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
 
@@ -17,6 +19,9 @@ class _AuthPageState extends State<AuthPage> {
   bool showConfirmPassword = false;
   final AuthService _authService = AuthService();
 
+  final nameController = TextEditingController();                        
+  final passwordController = TextEditingController();
+  final confirmController = TextEditingController();
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -136,13 +141,11 @@ class _AuthPageState extends State<AuthPage> {
                     if (!isLogin) ...[
                       _buildTextField('Nama Lengkap', false),
                       SizedBox(height: screenSize.height * 0.02),
-                    ],
-                    _buildTextField('Alamat E-Mail', false, icon: Icons.email),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildTextField('Kata sandi', true),
+                    ],                    
+                    _buildTextField('Kata Sandi', true),
                     if (!isLogin) ...[
                       SizedBox(height: screenSize.height * 0.02),
-                      _buildTextField('Konfirmasi Kata sandi', true),
+                      _buildTextField('Konfirmasi Kata Sandi', true),
                     ],
 
                     if (isLogin)
@@ -173,8 +176,51 @@ class _AuthPageState extends State<AuthPage> {
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
-                      onPressed: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
+                      onPressed: () async {                       
+                        // Validasi input
+                        if (nameController.text.isEmpty || passwordController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Nama dan password wajib diisi')),
+                          );
+                          return;
+                          }
+
+                        if (passwordController.text != confirmController.text) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Password tidak sama')),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final result = await ApiService().registerUser(
+                            nameController.text,                            
+                            passwordController.text,
+                          );
+
+                         if (result['success'] == true) {
+                              await SessionManager.saveUserSession(
+                                result['user']['id_customer'].toString(),
+                                result['user']['cos_nama'],
+                              );
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Registrasi berhasil!')),
+                              );
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => const HomePage()),
+                              );
+                            } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(result['message'] ?? 'Gagal register')),
+                            );
+                          }
+                        } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
                       },
                       child: Text(
                         isLogin ? 'Masuk' : 'Daftar',
@@ -222,52 +268,77 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Widget _buildTextField(String hint, bool isPassword, {IconData? icon}) {
-    final screenSize = MediaQuery.of(context).size;
-    bool isConfirm = hint.contains('Ulang');
-    return TextField(
-      obscureText: isPassword &&
-          ((isConfirm && !showConfirmPassword) || (!isConfirm && !showPassword)),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.poppins(
-          fontSize: screenSize.width * 0.035,
-          color: Colors.black54,
-        ),
-        filled: true,
-        fillColor: const Color(0xFF1976D2).withValues(alpha: 0.15),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  (isConfirm ? showConfirmPassword : showPassword)
-                      ? Icons.visibility
-                      : Icons.visibility_off,
+  final screenSize = MediaQuery.of(context).size;
+
+  // Deteksi apakah field ini adalah "Konfirmasi Kata Sandi"
+  bool isConfirm = hint.toLowerCase().contains('konfirmasi');
+
+  // Pilih controller berdasarkan hint
+  TextEditingController? controller;
+  if (hint == 'Nama Lengkap') {
+    controller = nameController;
+  } else if (hint == 'Kata Sandi') {
+    controller = passwordController;
+  } else if (hint == 'Konfirmasi Kata Sandi') {
+    controller = confirmController;
+  }
+
+  return TextField(
+    controller: controller,
+    obscureText: isPassword &&
+        ((isConfirm && !showConfirmPassword) ||
+         (!isConfirm && !showPassword)),
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.poppins(
+        fontSize: screenSize.width * 0.035,
+        color: Colors.black54,
+      ),
+      filled: true,
+      fillColor: const Color(0xFF1976D2).withValues(alpha: 0.15),
+
+      // Icon untuk toggle visibility password
+      suffixIcon: isPassword
+          ? IconButton(
+              icon: Icon(
+                (isConfirm ? showConfirmPassword : showPassword)
+                    ? Icons.visibility
+                    : Icons.visibility_off,
+                color: const Color(0xFF0D47A1),
+                size: screenSize.width * 0.05,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (isConfirm) {
+                    showConfirmPassword = !showConfirmPassword;
+                  } else {
+                    showPassword = !showPassword;
+                  }
+                });
+              },
+            )
+          : (icon != null
+              ? Icon(
+                  icon,
                   color: const Color(0xFF0D47A1),
                   size: screenSize.width * 0.05,
-                ),
-                onPressed: () {
-                  setState(() {
-                    if (isConfirm) {
-                      showConfirmPassword = !showConfirmPassword;
-                    } else {
-                      showPassword = !showPassword;
-                    }
-                  });
-                },
-              )
-            : (icon != null
-                ? Icon(icon, color: const Color(0xFF0D47A1), size: screenSize.width * 0.05)
-                : null),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: EdgeInsets.symmetric(
-          vertical: screenSize.height * 0.02,
-          horizontal: screenSize.width * 0.04,
-        ),
+                )
+              : null),
+
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
       ),
-    );
-  }
+      contentPadding: EdgeInsets.symmetric(
+        vertical: screenSize.height * 0.02,
+        horizontal: screenSize.width * 0.04,
+      ),
+    ),
+  );
+}
+
+
+
 
   Future<void> _signInWithGoogle() async {
     try {

@@ -1,14 +1,20 @@
+import 'package:e_service/scan_qr_admin.dart';
+import 'package:e_service/show_qr_addcoin.dart';
+import 'package:e_service/show_qr_detail.dart';
+import 'package:e_service/user_point_data.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'Service.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <--- tambahkan ini
+import 'service.dart';
 import 'Shop.dart';
-import 'Home.dart';
+import 'home.dart';
 import 'sell.dart';
 import 'edit_profile.dart';
 import 'scan_qr.dart';
 import 'edit_name.dart';
 import 'edit_birthday.dart';
 import 'edit_nmtlpn.dart';
+import 'login.dart'; // <--- pastikan file login.dart ada
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,6 +25,18 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   int currentIndex = 4; // Tab aktif: Profile
+
+  // ==== LOGOUT FUNCTION ====
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // hapus semua data login (bisa disesuaikan)
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,9 +141,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         style: TextStyle(fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(width: 10),
-                      const Text(
-                        '25',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ValueListenableBuilder<int>(
+                        valueListenable: UserPointData.userPoints,
+                        builder: (context, points, _) {
+                          return Text(
+                            '$points',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          );
+                        },
                       ),
                       const SizedBox(width: 4),
                       Image.asset(
@@ -156,7 +179,8 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const EditBirthdayPage()),
+                  MaterialPageRoute(
+                      builder: (context) => const EditBirthdayPage()),
                 );
               },
             ),
@@ -174,7 +198,18 @@ class _ProfilePageState extends State<ProfilePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _qrBox(Icons.qr_code, 'Tunjukan QR'),
+                _qrBox(
+                  Icons.qr_code,
+                  'Tunjukan QR',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ShowQrToAddCoins(),
+                      ),
+                    );
+                  },
+                ),
                 _qrBox(
                   Icons.qr_code_scanner,
                   'Scan QR',
@@ -195,12 +230,32 @@ class _ProfilePageState extends State<ProfilePage> {
             // ==== KONTAK ====
             _contactTile(Icons.phone, '081292303471', Icons.chat),
             const SizedBox(height: 12),
-            _contactTile(Icons.email_outlined, 'udin123@gmail.com', Icons.chat),
+            _contactTile(
+                Icons.email_outlined, 'udin123@gmail.com', Icons.chat),
+
+            const SizedBox(height: 32),
+
+            // ==== LOGOUT BUTTON ====
+            ElevatedButton.icon(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
 
-      // Bottom Navigation Bar
+      // ==== Bottom Navigation Bar ====
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {
@@ -225,11 +280,6 @@ class _ProfilePageState extends State<ProfilePage> {
               MaterialPageRoute(builder: (context) => const CekHargaPage()),
             );
           } else if (index == 4) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
-            );
-          } else {
             setState(() {
               currentIndex = index;
             });
@@ -319,7 +369,8 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _infoTile(IconData icon, String label, String value, {VoidCallback? onTap}) {
+  Widget _infoTile(IconData icon, String label, String value,
+      {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap ?? () {},
       child: Padding(
@@ -335,7 +386,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    style:
+                        const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                   Text(
                     value,

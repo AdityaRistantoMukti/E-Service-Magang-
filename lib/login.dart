@@ -1,3 +1,5 @@
+import 'package:e_service/services/api_service.dart';
+import 'package:e_service/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'regist.dart';
@@ -16,6 +18,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool showPassword = false;
   final AuthService _authService = AuthService();
 
+  TextEditingController _namaController = TextEditingController();
+  TextEditingController _passwordController = TextEditingController();
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -132,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Form fields
-                    _buildTextField('Alamat E-Mail', false, icon: Icons.email),
+                    _buildTextField('Nama', false, icon: Icons.person),
                     SizedBox(height: screenSize.height * 0.02),
                     _buildTextField('Kata sandi', true),
 
@@ -164,9 +168,44 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
-                      onPressed: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
-                      },
+                      onPressed: () async {
+                          String nama = _namaController.text.trim();
+                          String password = _passwordController.text.trim();
+
+                          if (nama.isEmpty || password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Nama dan password wajib diisi')),
+                            );
+                            return;
+                          }
+                                            
+                      try {
+                          final result = await ApiService.login(nama, password);
+
+                          if (result['success']) {
+                            // Simpan session
+                            await SessionManager.saveUserSession(
+                              result['user']['id_customer'].toString(),
+                              result['user']['cos_nama'],
+                            );
+
+                            // Login berhasil
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => const HomePage()),
+                            );
+                          } else {
+                            // Login gagal
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(result['message'])),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      },              
                       child: Text(
                         isLogin ? 'Masuk' : 'Daftar',
                         style: GoogleFonts.poppins(
@@ -214,7 +253,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildTextField(String hint, bool isPassword, {IconData? icon}) {
     final screenSize = MediaQuery.of(context).size;
+    final controller = hint == 'Nama' ? _namaController : _passwordController;
     return TextField(
+      controller: controller,
       obscureText: isPassword && !showPassword,
       decoration: InputDecoration(
         hintText: hint,
