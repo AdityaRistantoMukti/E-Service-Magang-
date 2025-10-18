@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'Service.dart';
-import 'Home.dart';
-import 'reward.dart';
+import 'service.dart';
+import 'home.dart';
+import 'promo.dart';
 import 'profile.dart';
-import 'detial_produk.dart' as detail;
+import 'detail_produk.dart' as detail;
+import 'notifikasi.dart';
 
 class MarketplacePage extends StatefulWidget {
   const MarketplacePage({super.key});
@@ -22,7 +23,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         elevation: 0,
         leading: null,
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
@@ -33,7 +34,12 @@ class _MarketplacePageState extends State<MarketplacePage> {
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationPage()),
+              );
+            },
           ),
         ],
       ),
@@ -135,7 +141,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             });
           }
         },
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,
@@ -190,7 +196,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFF0D47A1),
+            color: Colors.blue,
           ),
         ),
       ),

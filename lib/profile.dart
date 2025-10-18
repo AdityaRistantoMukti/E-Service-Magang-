@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'Service.dart';
-import 'Shop.dart';
-import 'Home.dart';
-import 'reward.dart';
+import 'service.dart';
+import 'shop.dart';
+import 'home.dart';
+import 'promo.dart';
 import 'edit_profile.dart';
 import 'scan_qr.dart';
 import 'edit_name.dart';
 import 'edit_birthday.dart';
 import 'edit_nmtlpn.dart';
+import 'notifikasi.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -36,7 +37,7 @@ class _ProfilePageState extends State<ProfilePage> {
             height: 160,
             child: Container(
               decoration: const BoxDecoration(
-                color: Color(0xFF1976D2),
+                color: Colors.blue,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(20),
                   bottomRight: Radius.circular(20),
@@ -53,7 +54,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NotificationPage()),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -99,7 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             shape: BoxShape.circle,
                           ),
                           child: IconButton(
-                            icon: const Icon(Icons.edit, color: Color(0xFF1976D2), size: 20),
+                            icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
                             onPressed: () {
                               Navigator.push(
                                 context,
@@ -217,7 +223,7 @@ class _ProfilePageState extends State<ProfilePage> {
             });
           }
         },
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,
@@ -292,10 +298,10 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF1976D2)),
+          Icon(icon, color: Colors.blue),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-          Icon(actionIcon, color: const Color(0xFF1976D2)),
+          Icon(actionIcon, color: Colors.blue),
         ],
       ),
     );
@@ -320,7 +326,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF1976D2)),
+            Icon(icon, color: Colors.blue),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
