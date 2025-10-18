@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'service.dart';
 import 'Shop.dart';
-import 'sell.dart';
+import 'promo.dart';
 import 'profile.dart';
 import 'scan_qr_admin.dart';
 import 'package:shimmer/shimmer.dart';
@@ -130,7 +130,7 @@ class _HomePageState extends State<HomePage> {
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const CekHargaPage()),
+              MaterialPageRoute(builder: (context) => const TukarPoinPage()),
             );
           } else if (index == 4) {
             Navigator.pushReplacement(
@@ -150,7 +150,7 @@ class _HomePageState extends State<HomePage> {
         showUnselectedLabels: true,
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.build_circle_outlined),
             label: 'Service',
@@ -161,8 +161,8 @@ class _HomePageState extends State<HomePage> {
           ),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.sell_outlined),
-            label: 'Jual',
+            icon: currentIndex == 3 ? Image.asset('assets/image/promo.png', width: 24, height: 24) : Opacity(opacity: 0.6, child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
+            label: 'Promo',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

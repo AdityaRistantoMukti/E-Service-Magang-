@@ -1,3 +1,4 @@
+import 'package:e_service/promo.dart';
 import 'package:e_service/scan_qr_admin.dart';
 import 'package:e_service/services/api_service.dart';
 import 'package:e_service/session_manager.dart';
@@ -10,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import 'service.dart';
 import 'Shop.dart';
-import 'home.dart';
+import 'Home.dart';
 import 'sell.dart';
 import 'edit_profile.dart';
 import 'scan_qr.dart';
@@ -91,7 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final nama = userData?['cos_nama'] ?? '-';
-    final id = userData?['id_costomer'] ?? '-';
+    final id = userData?['id_costomer'] != null ? 'Id ${userData!['id_costomer']}' : '-';
     final nohp = userData?['cos_hp'] ?? '-';
     final tglLahir = userData?['cos_tgl_lahir'] ?? '-';
 
@@ -113,128 +114,95 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // PROFILE CARD
-            LoadingWrapper(
-              isLoading: isLoading,
-              shimmer: _buildShimmerProfileCard(),
-              child: _buildProfileCard(nama, id),
-            ),
-            const SizedBox(height: 24),
-
-            // INFO TILES
-            LoadingWrapper(
-              isLoading: isLoading,
-              shimmer: Column(
-                children: List.generate(
-                  3,
-                  (index) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: _buildShimmerInfoTile(),
-                  ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  _infoTile(Icons.person, 'Nama', nama),
-                  const SizedBox(height: 12),
-                  _infoTile(Icons.calendar_today, 'Tanggal Lahir', tglLahir),
-                  const SizedBox(height: 12),
-                  _infoTile(Icons.phone, 'Nomor HP', nohp),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // QR BOXES
-            LoadingWrapper(
-              isLoading: isLoading,
-              shimmer: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(
-                  2,
-                  (index) => _buildShimmerQRBox(),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _qrBox(Icons.qr_code, 'Tunjukan QR', onTap: () {
+      body: LoadingWrapper(
+        isLoading: isLoading,
+        shimmer: _buildShimmerBody(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              _buildProfileCard(nama, id),
+              const SizedBox(height: 24),
+              _infoTile(Icons.person, 'Nama', nama, onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const EditNamaPage()),
+                );
+              }),
+              const SizedBox(height: 12),
+              _infoTile(Icons.calendar_month, 'Tanggal Lahir', tglLahir, onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const EditBirthdayPage()),
+                );
+              }),
+              const SizedBox(height: 12),
+              _infoTile(Icons.phone, 'Nomor Telpon', nohp, onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const EditNmtlpnPage()),
+                );
+              }),
+              const SizedBox(height: 24),
+             // ==== QR BUTTONS ====
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _qrBox(
+                  Icons.qr_code,
+                  'Tunjukan QR',
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const ShowQrToAddCoins()),
+                        builder: (context) => const ShowQrToAddCoins(),
+                      ),
                     );
-                  }),
-                  _qrBox(Icons.qr_code_scanner, 'Scan QR', onTap: () {
+                  },
+                ),
+                _qrBox(
+                  Icons.qr_code_scanner,
+                  'Scan QR',
+                  onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const ScanQrPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const ScanQrPage(),
+                      ),
                     );
-                  }),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // LOGOUT BUTTON
-            LoadingWrapper(
-              isLoading: isLoading,
-              shimmer: Shimmer.fromColors(
-                baseColor: Colors.grey[300]!,
-                highlightColor: Colors.grey[100]!,
-                child: Container(
-                  width: double.infinity,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  },
                 ),
-              ),
-              child: ElevatedButton.icon(
-                onPressed: _logout,
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
+              ],
             ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+              _contactTile(Icons.phone, nohp, Icons.chat),
+              const SizedBox(height: 12),
+              _contactTile(Icons.email_outlined, userData?['cos_email'] ?? '-', Icons.chat),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const ServicePage()));
-          } else if (index == 1) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const MarketplacePage()));
-          } else if (index == 2) {
-            Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const HomePage()));
-          } else if (index == 3) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const CekHargaPage()));
-          } else if (index == 4) {
-            setState(() {
-              currentIndex = index;
-            });
+          if (index != currentIndex) {
+            if (index == 0) {
+              Navigator.pushReplacement(context,
+                  MaterialPageRoute(builder: (context) => const ServicePage()));
+            } else if (index == 1) {
+              Navigator.pushReplacement(context,
+                  MaterialPageRoute(builder: (context) => const MarketplacePage()));
+            } else if (index == 2) {
+              Navigator.pushReplacement(context,
+                  MaterialPageRoute(builder: (context) => const HomePage()));
+            } else if (index == 3) {
+              Navigator.pushReplacement(context,
+                  MaterialPageRoute(builder: (context) => const TukarPoinPage()));
+            } else if (index == 4) {
+              setState(() {
+                currentIndex = index;
+              });
+            }
           }
         },
         backgroundColor: const Color(0xFF1976D2),
@@ -244,30 +212,48 @@ class _ProfilePageState extends State<ProfilePage> {
         showUnselectedLabels: true,
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        items: const [
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.build_circle_outlined), label: 'Service'),
+          const BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: 'Beli'),
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.build_circle_outlined),
-            label: 'Service',
+            icon: currentIndex == 3
+                ? Image.asset('assets/image/promo.png', width: 24, height: 24)
+                : Opacity(
+                    opacity: 0.6,
+                    child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
+            label: 'Promo',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            label: 'Beli',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sell_outlined),
-            label: 'Jual',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
       ),
     );
   }
 
-  // ==== SHIMMER WIDGETS ====
+  // ==================== SHIMMER WIDGETS ====================
+  Widget _buildShimmerBody() {
+    return Column(
+      children: [
+        _buildShimmerProfileCard(),
+        const SizedBox(height: 24),
+        _buildShimmerInfoTile(),
+        const SizedBox(height: 12),
+        _buildShimmerInfoTile(),
+        const SizedBox(height: 12),
+        _buildShimmerInfoTile(),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [_buildShimmerQRBox(), _buildShimmerQRBox()],
+        ),
+        const SizedBox(height: 24),
+        _buildShimmerInfoTile(),
+        const SizedBox(height: 12),
+        _buildShimmerInfoTile(),
+      ],
+    );
+  }
+
   Widget _buildShimmerProfileCard() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
@@ -310,7 +296,7 @@ class _ProfilePageState extends State<ProfilePage> {
         height: 50,
         decoration: BoxDecoration(
           color: Colors.grey[300],
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(30),
         ),
       ),
     );
@@ -331,7 +317,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ==== NORMAL WIDGETS ====
+  // ==================== NORMAL WIDGETS ====================
   Widget _buildProfileCard(String nama, String id) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
@@ -354,11 +340,7 @@ class _ProfilePageState extends State<ProfilePage> {
               const CircleAvatar(
                 radius: 35,
                 backgroundColor: Colors.black12,
-                child: Icon(
-                  Icons.person,
-                  size: 50,
-                  color: Colors.black,
-                ),
+                child: Icon(Icons.person, size: 50, color: Colors.black),
               ),
               Positioned(
                 top: -8,
@@ -373,15 +355,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Container(
                     width: 30,
                     height: 30,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.edit,
-                      color: Color(0xFF1976D2),
-                      size: 15,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.edit, color: Color(0xFF1976D2), size: 15),
                   ),
                 ),
               ),
@@ -439,11 +414,48 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _contactTile(IconData icon, String text, IconData actionIcon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF1976D2)),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
+          Icon(actionIcon, color: const Color(0xFF1976D2)),
+        ],
+      ),
+    );
+  }
+
   Widget _infoTile(IconData icon, String label, String value, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap ?? () {},
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.grey.shade300, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
         child: Row(
           children: [
             Icon(icon, color: const Color(0xFF1976D2)),

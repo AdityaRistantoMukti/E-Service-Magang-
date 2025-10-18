@@ -72,25 +72,19 @@ class _SplashScreenState extends State<SplashScreen>
       curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack),
     );
 
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
+          }
+        });
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              // 🔹 Cek status login di sini
-              if (widget.isLoggedIn) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              } else {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => LoginScreen()),
-                );
-              }
-            }
-          });
-        }
-      });
       _controller.forward();
     });
   }
