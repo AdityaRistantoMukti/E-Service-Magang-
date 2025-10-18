@@ -16,6 +16,7 @@ class DetailProdukPage extends StatefulWidget {
 
 class _DetailProdukPageState extends State<DetailProdukPage> {
   int currentIndex = 1;
+  String? selectedShipping;
 
   @override
   Widget build(BuildContext context) {
@@ -62,13 +63,72 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
             ),
             const SizedBox(height: 8),
 
-            // Tombol Beli (navigasi ke checkout)
+            // --- Ekspedisi ---
+            InkWell(
+              onTap: () => _showShippingOptions(context),
+              child: Container(
+                width: double.infinity,
+                color: Colors.white,
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text("Pilih Ekspedisi",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text("Pilih",
+                            style: TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (selectedShipping != null) ...[
+                      Row(
+                        children: [
+                          Icon(_getShippingIcon(selectedShipping!), color: Colors.blue),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(selectedShipping!, style: const TextStyle(fontSize: 14)),
+                                const Text("Estimasi 1-3 hari",
+                                    style: TextStyle(color: Colors.black54, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.blueAccent, width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        child: const Text("Pilih ekspedisi pengiriman",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const CheckoutPage(), // ✅ ke checkout.dart
+                    builder: (context) => const CheckoutPage(), 
                   ),
                 );
               },
@@ -97,7 +157,7 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
 
             const SizedBox(height: 16),
 
-            // ===== Bagian Lainnya =====
+          
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -116,7 +176,7 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
 
             const SizedBox(height: 16),
 
-            // ===== Bagian Serupa =====
+            
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -277,5 +337,57 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
         },
       ),
     );
+  }
+
+  void _showShippingOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Pilih Ekspedisi",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 20),
+              _shippingItem(Icons.local_shipping, "J&T"),
+              _shippingItem(Icons.delivery_dining, "SiCepat"),
+              _shippingItem(Icons.local_shipping_outlined, "JNE"),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _shippingItem(IconData icon, String label) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.blue),
+      title: Text(label, style: const TextStyle(fontSize: 15)),
+      onTap: () {
+        setState(() {
+          selectedShipping = label;
+        });
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  IconData _getShippingIcon(String shipping) {
+    switch (shipping) {
+      case "J&T":
+        return Icons.local_shipping;
+      case "SiCepat":
+        return Icons.delivery_dining;
+      case "JNE":
+        return Icons.local_shipping_outlined;
+      default:
+        return Icons.local_shipping;
+    }
   }
 }
