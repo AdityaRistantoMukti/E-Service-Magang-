@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; 
 import 'login.dart';
 import 'Home.dart';
 import 'session_manager.dart';
@@ -23,6 +24,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
+       supportedLocales: const [
+        Locale('en', 'US'),
+        Locale('id', 'ID'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
       home: SplashScreen(isLoggedIn: isLoggedIn),
     );
   }

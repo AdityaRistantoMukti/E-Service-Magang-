@@ -11,7 +11,7 @@ import 'package:e_service/main.dart';
 
 void main() {
   testWidgets('Splash screen animation test', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const MyApp(isLoggedIn: false));
 
     expect(find.byType(SplashScreen), findsOneWidget);
     await tester.pumpAndSettle(const Duration(seconds: 3));

@@ -1,3 +1,5 @@
+import 'package:e_service/services/api_service.dart';
+import 'package:e_service/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'service.dart';
@@ -5,6 +7,7 @@ import 'Shop.dart';
 import 'sell.dart';
 import 'profile.dart';
 import 'scan_qr_admin.dart';
+import 'package:shimmer/shimmer.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,9 +18,41 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int currentIndex = 2; // posisi default: Home
+  Map<String, dynamic>? userData;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final session = await SessionManager.getUserSession();
+    final id = session['id']; // ini 'id_costomer'
+    if (id != null) {
+      try {
+        final data = await ApiService.getCostomerById(id);
+        setState(() {
+          userData = data;
+          isLoading = false;
+        });
+      } catch (e) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memuat data: $e')),
+        );
+      }
+    } else {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final nama = userData?['cos_nama'] ?? '-';
+    final id = userData?['id_costomer'] ?? '-';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -41,54 +76,11 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Member Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1976D2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  // Placeholder foto profil
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Nama dan ID
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Udin',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Id 202234001',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            // Member Card (Shimmer atau Data)
+            isLoading ? _buildShimmerMemberCard() : _buildMemberCard(nama, id),
             const SizedBox(height: 24),
 
-            // Grid menu (4 item kosong)
+            // Grid menu (Shimmer atau Data)
             Expanded(
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
@@ -100,26 +92,27 @@ class _HomePageState extends State<HomePage> {
                   childAspectRatio: 1,
                 ),
                 itemBuilder: (context, index) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 6,
-                          offset: const Offset(2, 3),
-                        ),
-                      ],
-                    ),
-                  );
+                  return isLoading
+                      ? _buildShimmerGridItem()
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 6,
+                                offset: const Offset(2, 3),
+                              ),
+                            ],
+                          ),
+                        );
                 },
               ),
             ),
           ],
         ),
       ),
-
       // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
@@ -176,6 +169,100 @@ class _HomePageState extends State<HomePage> {
             label: 'Profile',
           ),
         ],
+      ),
+    );
+  }
+
+  // Member Card (Data)
+  Widget _buildMemberCard(String nama, String id) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1976D2),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                nama,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                id,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Shimmer Member Card
+  Widget _buildShimmerMemberCard() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 100, height: 16, color: Colors.grey[400]),
+                const SizedBox(height: 4),
+                Container(width: 50, height: 14, color: Colors.grey[400]),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Shimmer Grid Item
+  Widget _buildShimmerGridItem() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(16),
+        ),
       ),
     );
   }

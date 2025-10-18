@@ -1,3 +1,4 @@
+import 'package:e_service/forget_password.dart';
 import 'package:e_service/services/api_service.dart';
 import 'package:e_service/session_manager.dart';
 import 'package:flutter/material.dart';
@@ -138,24 +139,34 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Form fields
                     _buildTextField('Nama', false, icon: Icons.person),
                     SizedBox(height: screenSize.height * 0.02),
-                    _buildTextField('Kata sandi', true),
-
-                    if (isLogin)
+                    _buildTextField('Kata sandi', true),                    
+                      if (isLogin)
                       Padding(
                         padding: EdgeInsets.only(top: screenSize.height * 0.01),
                         child: Align(
                           alignment: Alignment.centerRight,
-                          child: Text(
-                            'Lupa Kata Sandi',
-                            style: GoogleFonts.poppins(
-                              color: const Color(0xFF1976D2),
-                              fontSize: screenSize.width * 0.035,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ForgetPasswordScreen(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              'Lupa Kata Sandi',
+                              style: GoogleFonts.poppins(
+                                color: const Color(0xFF1976D2),
+                                fontSize: screenSize.width * 0.035,
+                                decoration: TextDecoration.underline, // optional, biar terlihat link
+                              ),
                             ),
                           ),
                         ),
                       ),
                     SizedBox(height: screenSize.height * 0.03),
-
+                  
                     // Tombol utama
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -181,11 +192,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                             
                       try {
                           final result = await ApiService.login(nama, password);
-
+                          
                           if (result['success']) {
+                            final user = result['user'];
                             // Simpan session
                             await SessionManager.saveUserSession(
-                              result['user']['id_customer'].toString(),
+                              result['user']['id_costomer'].toString(),
                               result['user']['cos_nama'],
                             );
 

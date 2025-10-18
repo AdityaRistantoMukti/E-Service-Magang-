@@ -3,8 +3,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionManager {
-  static const String _keyUserId = 'user_id';
-  static const String _keyUserName = 'user_name';
+  static const String _keyUserId = 'id_costomer';
+  static const String _keyUserName = 'cos_nama';
 
   // Simpan data login
   static Future<void> saveUserSession(String id, String name) async {

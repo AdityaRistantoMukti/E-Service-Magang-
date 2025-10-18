@@ -16,6 +16,21 @@ class ApiService {
     }
   }
 
+  // GET data costomer berdasarkan ID
+  static Future<Map<String, dynamic>> getCostomerById(String id) async {
+  final response = await http.get(Uri.parse('$baseUrl/costomers/$id'));
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    // kalau response API langsung user
+    return data;
+    // kalau response API pakai format { "success": true, "data": { ... } }
+    // return data['data'];
+  } else {
+    throw Exception('Gagal mengambil data costomer');
+  }
+}
+
+
   //  POST - Tambah costomer
   static Future<void> addCostomer(Map<String, dynamic> data) async {
     final response = await http.post(
@@ -60,7 +75,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'cos_nama': nama, 'password': password}),
       );
-
+      print('Login response body: ${response.body}'); // <-- ini penting
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else if (response.statusCode == 401) {
@@ -69,9 +84,9 @@ class ApiService {
       throw Exception('Gagal login');
     }
   } 
-
-  // REGISTER USER 
-   Future<Map<String, dynamic>> registerUser(String name, String password) async {
+  //REGISTER
+  static Future<Map<String, dynamic>> registerUser(
+    String name, String password, String nohp, String tglLahir) async {
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
       headers: {
@@ -81,22 +96,21 @@ class ApiService {
       body: {
         'cos_nama': name,
         'password': password,
+        'cos_hp': nohp,
+        'cos_tgl_lahir': tglLahir,
       },
     );
 
-    if (response.statusCode == 201) {
-      return json.decode(response.body);
-    } else {
-      try {
-        // Jika API kirim JSON error
-        final error = json.decode(response.body);
-        throw Exception(error['message'] ?? 'Registrasi gagal');
-      } catch (_) {
-        // Jika API kirim text biasa (bukan JSON)
-        throw Exception(response.body);
-      }
-    }
+    final data = json.decode(response.body);
+    return {
+      'status': response.statusCode,
+      'success': data['success'] ?? false,
+      'code': data['code'] ?? 0,
+      'message': data['message'] ?? 'Terjadi kesalahan',
+      'costomer': data['costomer'],
+    };
   }
+
 
 
 }
