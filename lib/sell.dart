@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'service.dart';
-import 'Shop.dart';
-import 'Home.dart';
+import 'shop.dart';
+import 'home.dart';
 import 'profile.dart';
 
 class CekHargaPage extends StatefulWidget {

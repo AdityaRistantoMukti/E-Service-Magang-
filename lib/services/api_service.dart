@@ -5,6 +5,7 @@ class ApiService {
   // Ganti dengan alamat server Laravel kamu
   static const String baseUrl = 'http://192.168.1.15:8000/api'; 
 
+//Customer
   //  GET semua costomer
   static Future<List<dynamic>> getCostomers() async {
     final response = await http.get(Uri.parse('$baseUrl/costomers'));
@@ -68,14 +69,31 @@ class ApiService {
       }
     }
 
+//Produk
+  // GET semua produk
+  static Future<List<dynamic>> getProduk() async {
+    final response = await http.get(Uri.parse('$baseUrl/produk'));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Gagal memuat data produk');
+    }
+  }
+
+
+
+
+
+
+//AUTH    
     // LOGIN USER
     static Future<Map<String, dynamic>> login(String nama, String password) async {
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'cos_nama': nama, 'password': password}),
-      );
-      print('Login response body: ${response.body}'); // <-- ini penting
+      );      
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else if (response.statusCode == 401) {

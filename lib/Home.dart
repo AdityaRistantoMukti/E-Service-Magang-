@@ -122,7 +122,7 @@ class _HomePageState extends State<HomePage> {
               context,
               MaterialPageRoute(builder: (context) => const MarketplacePage()),
             );
-          } else if (index == 3) {
+          }   else if (index == 3) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const TukarPoinPage()),
@@ -163,6 +163,7 @@ class _HomePageState extends State<HomePage> {
               'assets/image/promo.png',
               width: 24,
               height: 24,
+              color: Colors.white70,
             ),
             label: 'Promo',
           ),
