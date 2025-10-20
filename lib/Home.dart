@@ -37,7 +37,9 @@ class _HomePageState extends State<HomePage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const NotificationPage()),
+                MaterialPageRoute(
+                  builder: (context) => const NotificationPage(),
+                ),
               );
             },
           ),
@@ -190,7 +192,11 @@ class _HomePageState extends State<HomePage> {
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    const Icon(Icons.star, color: Colors.amber, size: 14),
+                                    const Icon(
+                                      Icons.star,
+                                      color: Colors.amber,
+                                      size: 14,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       '4.8 | 500+ terjual',
@@ -263,12 +269,21 @@ class _HomePageState extends State<HomePage> {
           ),
           const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: currentIndex == 3
-                ? Image.asset('assets/image/promo.png', width: 24, height: 24)
-                : Opacity(
-                    opacity: 0.6,
-                    child: Image.asset('assets/image/promo.png', width: 24, height: 24),
-                  ),
+            icon:
+                currentIndex == 3
+                    ? Image.asset(
+                      'assets/image/promo.png',
+                      width: 24,
+                      height: 24,
+                    )
+                    : Opacity(
+                      opacity: 0.6,
+                      child: Image.asset(
+                        'assets/image/promo.png',
+                        width: 24,
+                        height: 24,
+                      ),
+                    ),
             label: 'Promo',
           ),
           const BottomNavigationBarItem(

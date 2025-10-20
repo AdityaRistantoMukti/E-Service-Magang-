@@ -12,22 +12,18 @@ class DetailAlamatPage extends StatefulWidget {
 }
 
 class _DetailAlamatPageState extends State<DetailAlamatPage> {
-  final TextEditingController labelController =
-      TextEditingController(text: "perguruan tinggi");
-  final TextEditingController detailController =
-      TextEditingController(text: "Universitas Bina Insani lantai 1");
+  final TextEditingController labelController = TextEditingController();
+  final TextEditingController detailController = TextEditingController();
   final TextEditingController catatanController = TextEditingController();
-  final TextEditingController namaController =
-      TextEditingController(text: "Adit");
-  final TextEditingController hpController =
-      TextEditingController(text: "081292303471");
+  final TextEditingController namaController = TextEditingController();
+  final TextEditingController hpController = TextEditingController();
 
   bool jadikanUtama = false;
   bool _loading = true;
   bool _mapMoving = false;
 
   String _alamat = "Mendeteksi lokasi...";
-  LatLng _currentLatLng = const LatLng(-6.200000, 106.816666); // Jakarta default
+  LatLng _currentLatLng = const LatLng(-6.200000, 106.816666);
   final MapController _mapController = MapController();
 
   @override
@@ -38,7 +34,6 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
 
   Future<void> _getCurrentLocation() async {
     setState(() => _loading = true);
-
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       setState(() {
@@ -72,8 +67,7 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
       desiredAccuracy: LocationAccuracy.high,
     );
 
-    _updateAddressFromLatLng(
-        LatLng(position.latitude, position.longitude),
+    _updateAddressFromLatLng(LatLng(position.latitude, position.longitude),
         moveMap: true);
   }
 
@@ -108,13 +102,58 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
     _mapController.move(_currentLatLng, 17);
   }
 
+  void _simpanAlamat() {
+    // Validation
+    if (labelController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Label wajib diisi dan tidak boleh kosong')),
+      );
+      return;
+    }
+    if (detailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Detail Alamat wajib diisi dan tidak boleh kosong')),
+      );
+      return;
+    }
+    if (namaController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama Penerima wajib diisi dan tidak boleh kosong')),
+      );
+      return;
+    }
+    if (hpController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No. HP Penerima wajib diisi dan tidak boleh kosong')),
+      );
+      return;
+    }
+
+    final addressData = {
+      'label': labelController.text,
+      'detailAlamat': detailController.text,
+      'catatan': catatanController.text,
+      'nama': namaController.text,
+      'hp': hpController.text,
+      'jadikanUtama': jadikanUtama,
+      'alamat': _alamat,
+      'latitude': _currentLatLng.latitude,
+      'longitude': _currentLatLng.longitude,
+    };
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Alamat berhasil disimpan ✅")),
+    );
+
+    Navigator.pop(context, addressData);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        elevation: 0,
         title: const Text("Detail Alamat",
             style: TextStyle(fontWeight: FontWeight.bold)),
       ),
@@ -122,7 +161,7 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
         children: [
           Column(
             children: [
-              // === MAP ===
+              // Map
               SizedBox(
                 height: 250,
                 child: Stack(
@@ -133,13 +172,12 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                         initialCenter: _currentLatLng,
                         initialZoom: 17,
                         onPositionChanged: (pos, hasGesture) {
-                          if (hasGesture) {
-                            _mapMoving = true;
-                          }
+                          if (hasGesture) _mapMoving = true;
                         },
                         onMapEvent: (event) {
                           if (event is MapEventMoveEnd && _mapMoving) {
-                            _updateAddressFromLatLng(_mapController.camera.center);
+                            _updateAddressFromLatLng(
+                                _mapController.camera.center);
                             _mapMoving = false;
                           }
                         },
@@ -149,23 +187,18 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                           urlTemplate:
                               "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                           subdomains: const ['a', 'b', 'c'],
-                          userAgentPackageName: 'com.azzahra.e_service',
                         ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: _currentLatLng,
-                              width: 40,
-                              height: 40,
-                              child: const Icon(Icons.location_pin,
-                                  color: Colors.redAccent, size: 40),
-                            ),
-                          ],
-                        ),
+                        MarkerLayer(markers: [
+                          Marker(
+                            point: _currentLatLng,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(Icons.location_pin,
+                                color: Colors.redAccent, size: 40),
+                          ),
+                        ]),
                       ],
                     ),
-
-                    // Tombol pusatkan lokasi
                     Positioned(
                       right: 12,
                       bottom: 12,
@@ -182,31 +215,29 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                 ),
               ),
 
-              // === ALAMAT ===
+              // Alamat teks
               Container(
                 color: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.all(12),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_on,
-                        color: Colors.redAccent, size: 28),
-                    const SizedBox(width: 10),
+                    const Icon(Icons.location_on, color: Colors.redAccent),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(_alamat,
                           style: const TextStyle(
                               fontSize: 13, color: Colors.black87)),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.refresh, color: Colors.blue),
+                      icon:
+                          const Icon(Icons.refresh, color: Colors.blueAccent),
                       onPressed: _getCurrentLocation,
                     ),
                   ],
                 ),
               ),
 
-              // === FORM ===
+              // Form
               Expanded(
                 child: SingleChildScrollView(
                   child: Container(
@@ -216,17 +247,15 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                       children: [
                         _buildTextField("Label*", labelController),
                         _buildTextField("Detail Alamat*", detailController),
-                        _buildTextField(
-                            "Catatan Alamat (Tidak Wajib)", catatanController),
+                        _buildTextField("Catatan (Opsional)", catatanController),
                         _buildTextField("Nama Penerima*", namaController),
-                        _buildTextField("No. Handphone Penerima*", hpController,
+                        _buildTextField("No. HP Penerima*", hpController,
                             keyboardType: TextInputType.phone),
-                        const SizedBox(height: 10),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text("Jadikan sebagai alamat utama",
-                                style: TextStyle(fontSize: 14)),
+                            const Text("Jadikan alamat utama"),
                             Switch(
                               value: jadikanUtama,
                               onChanged: (v) =>
@@ -237,28 +266,17 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(
+                          onPressed: _simpanAlamat,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
                             minimumSize: const Size(double.infinity, 48),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Alamat berhasil disimpan ✅"),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            "Simpan",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
-                          ),
+                          child: const Text("Simpan",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white)),
                         ),
                       ],
                     ),
@@ -268,7 +286,6 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
             ],
           ),
 
-          // Overlay loading
           if (_loading)
             Container(
               color: Colors.black26,
@@ -290,7 +307,7 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
         children: [
           Text(label,
               style:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           const SizedBox(height: 6),
           TextField(
             controller: controller,
@@ -298,17 +315,14 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
             decoration: InputDecoration(
               filled: true,
               fillColor: const Color(0xFFF9F9F9),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: Colors.black26, width: 0.8),
+                borderSide: const BorderSide(color: Colors.black26),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide:
-                    const BorderSide(color: Colors.blueAccent, width: 1),
+                    const BorderSide(color: Colors.blueAccent, width: 1.5),
               ),
             ),
           ),

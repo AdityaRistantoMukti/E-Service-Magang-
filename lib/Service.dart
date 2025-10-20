@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'Shop.dart';
 import 'home.dart';
-import 'shop.dart';
 import 'promo.dart';
 import 'profile.dart';
 import 'cleaning_service.dart';

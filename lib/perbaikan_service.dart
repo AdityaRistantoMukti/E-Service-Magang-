@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'service.dart';
 import 'shop.dart';
 import 'home.dart';
@@ -23,27 +20,22 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
   int currentIndex = 0;
 
   final TextEditingController namaController = TextEditingController();
-  final TextEditingController alamatController = TextEditingController();
 
   int jumlahBarang = 1;
   List<TextEditingController> seriControllers = [];
   List<TextEditingController> partControllers = [];
   List<String?> selectedMereks = [];
   List<String?> selectedDevices = [];
+  List<String?> selectedStatuses = [];
 
   final List<String> merekOptions = ['Asus', 'Dell', 'HP', 'Lenovo', 'Apple', 'Samsung', 'Sony', 'Toshiba'];
   final List<String> deviceOptions = ['Laptop', 'Desktop', 'Tablet', 'Smartphone', 'Printer', 'Monitor', 'Keyboard', 'Mouse'];
-
-  GoogleMapController? mapController;
-  LatLng? currentPosition;
-  String? currentAddress;
-  Set<Marker> markers = {};
+  final List<String> statusOptions = ['CID', 'IW (Masih Garansi)', 'OOW (Tidak Garansi)'];
 
   @override
   void initState() {
     super.initState();
     _initializeItemFields();
-    _getCurrentLocation();
   }
 
   void _initializeItemFields() {
@@ -51,6 +43,7 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
     partControllers = List.generate(jumlahBarang, (_) => TextEditingController());
     selectedMereks = List.filled(jumlahBarang, null);
     selectedDevices = List.filled(jumlahBarang, null);
+    selectedStatuses = List.filled(jumlahBarang, null);
   }
 
   void _updateJumlahBarang(int newJumlah) {
@@ -60,480 +53,226 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
     });
   }
 
-  Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Aktifkan Lokasi'),
-            content: const Text('Lokasi belum diaktifkan. Silakan aktifkan lokasi untuk melanjutkan.'),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('Batal'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              TextButton(
-                child: const Text('Aktifkan'),
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  await Geolocator.openLocationSettings();
-                },
-              ),
-            ],
-          );
-        },
-      );
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Izin lokasi ditolak.")),
-        );
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Izin lokasi ditolak permanen.")),
-      );
-      return;
-    }
-
-    // ✅ Ambil posisi awal
-    Position position = await Geolocator.getCurrentPosition();
-    await _updateLocation(position);
-
-    // ✅ Update lokasi real-time (bergerak)
-    Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 5, // update tiap geser 5 meter
-      ),
-    ).listen((Position position) {
-      _updateLocation(position, moveCamera: true);
-    });
-  }
-
-  Future<void> _updateLocation(Position position, {bool moveCamera = false}) async {
-    LatLng newPos = LatLng(position.latitude, position.longitude);
-
-    // Kalau sudah ada marker lama, animasikan pergerakannya
-    if (currentPosition != null) {
-      _animateMarkerMovement(currentPosition!, newPos);
-    }
-
-    setState(() {
-      currentPosition = newPos;
-    });
-
-    try {
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
-      Placemark place = placemarks.first;
-      setState(() {
-        currentAddress =
-            "${place.street}, ${place.subThoroughfare ?? ''}, ${place.subLocality}, ${place.locality}, ${place.administrativeArea}, ${place.postalCode}";
-        alamatController.text = currentAddress ?? "";
-      });
-    } catch (e) {
-      debugPrint("Gagal mendapatkan alamat: $e");
-    }
-
-    if (mapController != null && moveCamera) {
-      mapController!.animateCamera(
-        CameraUpdate.newLatLng(newPos),
-      );
-    }
-  }
-
-  void _animateMarkerMovement(LatLng from, LatLng to) async {
-    // Waktu animasi (ms)
-    const int steps = 30;
-    const Duration stepDuration = Duration(milliseconds: 30);
-
-    double latDiff = to.latitude - from.latitude;
-    double lngDiff = to.longitude - from.longitude;
-
-    for (int i = 1; i <= steps; i++) {
-      await Future.delayed(stepDuration);
-      double lat = from.latitude + (latDiff * (i / steps));
-      double lng = from.longitude + (lngDiff * (i / steps));
-
-      setState(() {
-        markers = {
-          Marker(
-            markerId: const MarkerId('currentLocation'),
-            position: LatLng(lat, lng),
-            infoWindow: const InfoWindow(title: 'Lokasi Anda Sekarang'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-          ),
-        };
-      });
-    }
-  }
-
-  void _showSuccessPopup(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // biar gak bisa ditutup klik luar
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(20),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF90CAF9),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      "Pesanan Berhasil",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            "Tim pick-up kami akan segera sampai,\n"
-                            "mohon menunggu selama beberapa menit",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.black87),
-                          ),
-                          const SizedBox(height: 20),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1976D2),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                "######",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            "Salin kode antrean untuk mengetahui\n"
-                            "perkembangan service anda",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(); // Close the dialog
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const ServicePage()),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1976D2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: const Text("Kembali", style: TextStyle(color: Colors.white)),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Clipboard.setData(const ClipboardData(text: "######"));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Kode berhasil disalin")),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1976D2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: const Text("Salin Kode", style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    )
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    if (selectedStatuses.length != jumlahBarang ||
+        selectedMereks.length != jumlahBarang ||
+        selectedDevices.length != jumlahBarang ||
+        seriControllers.length != jumlahBarang ||
+        partControllers.length != jumlahBarang) {
+      _initializeItemFields();
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
-
-    // ==== BODY ====
-body: Column(
-  children: [
-    // ==== HEADER TETAP ====
-    Container(
-      height: 130,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1976D2),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      body: Column(
         children: [
-          Image.asset('assets/image/logo.png', width: 130, height: 40),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.support_agent, color: Colors.white),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const NotificationPage()),
-              );
-            },
-          ),
-        ],
-      ),
-    ),
-
-    // ==== KONTEN YANG BISA DI SCROLL ====
-    Expanded(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 20, bottom: 100),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(16),
+          // ==== HEADER ====
+          Container(
+            height: 130,
+            decoration: const BoxDecoration(
+              color: Color(0xFF1976D2),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _inputField("Nama", namaController),
-                  const SizedBox(height: 6),
-                  _jumlahBarangField(),
-                  const SizedBox(height: 6),
-                  ...List.generate(jumlahBarang, (index) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Barang ${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1976D2))),
-                          const SizedBox(height: 8),
-                          _dropdownField("Merek", selectedMereks[index], merekOptions, (value) {
-                            setState(() {
-                              selectedMereks[index] = value;
-                            });
-                          }),
-                          const SizedBox(height: 6),
-                          _dropdownField("Device", selectedDevices[index], deviceOptions, (value) {
-                            setState(() {
-                              selectedDevices[index] = value;
-                            });
-                          }),
-                          const SizedBox(height: 6),
-                          _inputField("Seri", seriControllers[index]),
-                          const SizedBox(height: 6),
-                          _inputField("Part yang perlu diperbaiki", partControllers[index]),
-                        ],
-                      ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Image.asset('assets/image/logo.png', width: 130, height: 40),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.support_agent, color: Colors.white),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NotificationPage()),
                     );
-                  }),
-                  const SizedBox(height: 16),
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // ==== KONTEN ====
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(top: 20, bottom: 100),
+              child: Column(
+                children: [
                   Container(
-                    width: double.infinity,
-                    color: Colors.white,
-                    padding: const EdgeInsets.all(14),
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
-                            Text("Lokasi Delivery",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 15)),
-                            Text("Tambahkan Alamat",
-                                style: TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 13)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.blueAccent, width: 1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.all(10),
-                          child: const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Atur alamat anda di sini",
-                                  style: TextStyle(fontWeight: FontWeight.bold)),
-                              SizedBox(height: 2),
-                              Text(
-                                  "Masukan detail alamat agar memudahkan pengiriman barang",
-                                  style:
-                                      TextStyle(fontSize: 13, color: Colors.black87)),
-                              SizedBox(height: 6),
-                              Text(
-                                  "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
-                                  style:
-                                      TextStyle(fontSize: 12, color: Colors.black54)),
-                              SizedBox(height: 8),
-                              Text(
-                                "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
-                                style: TextStyle(color: Colors.blue, fontSize: 12),
+                        _inputField("Nama", namaController),
+                        const SizedBox(height: 12),
+                        _jumlahBarangField(),
+                        const SizedBox(height: 12),
+
+                        // ==== DAFTAR BARANG ====
+                        ...List.generate(jumlahBarang, (index) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Barang ${index + 1}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                _dropdownField("Merek", selectedMereks[index], merekOptions, (value) {
+                                  setState(() {
+                                    selectedMereks[index] = value;
+                                  });
+                                }),
+                                const SizedBox(height: 10),
+                                _dropdownField("Device", selectedDevices[index], deviceOptions, (value) {
+                                  setState(() {
+                                    selectedDevices[index] = value;
+                                  });
+                                }),
+                                const SizedBox(height: 10),
+                                _dropdownField("Status", selectedStatuses[index], statusOptions, (value) {
+                                  setState(() {
+                                    selectedStatuses[index] = value;
+                                  });
+                                }),
+                                const SizedBox(height: 10),
+                                _inputField("Seri", seriControllers[index]),
+                                const SizedBox(height: 10),
+                                _inputField("Keterangan Keluhan", partControllers[index]),
+                              ],
+                            ),
+                          );
+                        }),
+
+                        const SizedBox(height: 20),
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              // Validation
+                              if (namaController.text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Nama wajib diisi dan tidak boleh kosong')),
+                                );
+                                return;
+                              }
+                              for (int i = 0; i < jumlahBarang; i++) {
+                                if (selectedMereks[i] == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Merek untuk Barang ${i + 1} wajib dipilih')),
+                                  );
+                                  return;
+                                }
+                                if (selectedDevices[i] == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Device untuk Barang ${i + 1} wajib dipilih')),
+                                  );
+                                  return;
+                                }
+                                if (selectedStatuses[i] == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Status untuk Barang ${i + 1} wajib dipilih')),
+                                  );
+                                  return;
+                                }
+                                if (seriControllers[i].text.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Seri untuk Barang ${i + 1} wajib diisi dan tidak boleh kosong')),
+                                  );
+                                  return;
+                                }
+                                if (partControllers[i].text.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Keterangan Keluhan untuk Barang ${i + 1} wajib diisi dan tidak boleh kosong')),
+                                  );
+                                  return;
+                                }
+                              }
+                              // If all validations pass
+                              List<Map<String, String?>> items = [];
+                              for (int i = 0; i < jumlahBarang; i++) {
+                                items.add({
+                                  'merek': selectedMereks[i],
+                                  'device': selectedDevices[i],
+                                  'status': selectedStatuses[i],
+                                  'seri': seriControllers[i].text,
+                                  'part': partControllers[i].text,
+                                });
+                              }
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailServicePage(
+                                    serviceType: 'repair',
+                                    nama: namaController.text,
+                                    status: null,
+                                    jumlahBarang: jumlahBarang,
+                                    items: items,
+                                    alamat: "", // alamat dihapus tapi tetap dikirim kosong agar tidak error
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1976D2),
+                              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
                               ),
-                            ],
+                            ),
+                            child: const Text(
+                              "Pesan",
+                              style: TextStyle(fontSize: 16, color: Colors.white),
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        List<Map<String, String?>> items = [];
-                        for (int i = 0; i < jumlahBarang; i++) {
-                          items.add({
-                            'merek': selectedMereks[i],
-                            'device': selectedDevices[i],
-                            'seri': seriControllers[i].text,
-                            'part': partControllers[i].text,
-                          });
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DetailServicePage(
-                              serviceType: 'repair',
-                              nama: namaController.text,
-                              jumlahBarang: jumlahBarang,
-                              items: items,
-                              alamat: alamatController.text,
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1976D2),
-                        padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: const Text(
-                        "Pesan",
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    ),
-  ],
-),
 
-      // ==== BOTTOM NAVIGATION ====
+      // ==== BOTTOM NAV ====
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {
           if (index == 0) {
-            Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const ServicePage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ServicePage()));
           } else if (index == 1) {
-            Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const MarketplacePage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MarketplacePage()));
           } else if (index == 2) {
-            Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const HomePage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
           } else if (index == 3) {
-            Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const TukarPoinPage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const TukarPoinPage()));
           } else if (index == 4) {
-            Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
           }
         },
         backgroundColor: const Color(0xFF1976D2),
@@ -544,106 +283,48 @@ body: Column(
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.build_circle_outlined),
-            label: 'Service',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            label: 'Beli',
-          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.build_circle_outlined), label: 'Service'),
+          const BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: 'Beli'),
           const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: currentIndex == 3 ? Image.asset('assets/image/promo.png', width: 24, height: 24) : Opacity(opacity: 0.6, child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
+            icon: currentIndex == 3
+                ? Image.asset('assets/image/promo.png', width: 24, height: 24)
+                : Opacity(opacity: 0.6, child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
             label: 'Promo',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
       ),
     );
   }
 
-  void _showMapDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Pilih Lokasi Penjemputan'),
-          content: SizedBox(
-            height: 300,
-            width: double.maxFinite,
-            child: currentPosition != null
-                ? GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: currentPosition!,
-                      zoom: 15,
-                    ),
-                    markers: markers,
-                    onMapCreated: (GoogleMapController controller) {
-                      mapController = controller;
-                    },
-                    onTap: (LatLng position) {
-                      setState(() {
-                        markers.clear();
-                        markers.add(
-                          Marker(
-                            markerId: const MarkerId('selectedLocation'),
-                            position: position,
-                            infoWindow: const InfoWindow(title: 'Lokasi Penjemputan'),
-                          ),
-                        );
-                        currentPosition = position;
-                      });
-                    },
-                  )
-                : const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Batal'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ==== WIDGET FIELD ====
+  // ==== WIDGET INPUT ====
   Widget _inputField(String label, TextEditingController controller) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("$label :", style: const TextStyle(fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black)),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
-            style: const TextStyle(color: Colors.black87),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF1976D2)),
+            ),
           ),
+          style: const TextStyle(color: Colors.black, fontSize: 14),
         ),
       ],
     );
@@ -653,10 +334,10 @@ body: Column(
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("$label :", style: const TextStyle(fontWeight: FontWeight.w500)),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black)),
         const SizedBox(height: 6),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -664,13 +345,13 @@ body: Column(
           ),
           child: DropdownButton<String>(
             value: selectedValue,
-            hint: const Text('Pilih...'),
+            hint: const Text('Pilih...', style: TextStyle(color: Colors.black54)),
             isExpanded: true,
             underline: const SizedBox(),
             items: options.map((String value) {
               return DropdownMenuItem<String>(
                 value: value,
-                child: Text(value),
+                child: Text(value, style: const TextStyle(color: Colors.black)),
               );
             }).toList(),
             onChanged: onChanged,
@@ -683,7 +364,7 @@ body: Column(
   Widget _jumlahBarangField() {
     return Row(
       children: [
-        const Text("Jumlah Barang :", style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text("Jumlah Barang :", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black)),
         const Spacer(),
         Container(
           decoration: BoxDecoration(
@@ -694,15 +375,12 @@ body: Column(
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.remove, size: 16),
+                icon: const Icon(Icons.remove, size: 18, color: Colors.black),
                 onPressed: jumlahBarang > 1 ? () => _updateJumlahBarang(jumlahBarang - 1) : null,
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Text(jumlahBarang.toString(), style: const TextStyle(fontSize: 16)),
-              ),
+              Text(jumlahBarang.toString(), style: const TextStyle(fontSize: 16, color: Colors.black)),
               IconButton(
-                icon: const Icon(Icons.add, size: 16),
+                icon: const Icon(Icons.add, size: 18, color: Colors.black),
                 onPressed: jumlahBarang < 10 ? () => _updateJumlahBarang(jumlahBarang + 1) : null,
               ),
             ],
@@ -711,6 +389,4 @@ body: Column(
       ],
     );
   }
-
-
 }

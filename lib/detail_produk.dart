@@ -5,7 +5,7 @@ import 'shop.dart';
 import 'home.dart';
 import 'promo.dart';
 import 'profile.dart';
-import 'checkout.dart'; // ✅ tambahkan import ke checkout.dart
+import 'checkout.dart';
 
 class DetailProdukPage extends StatefulWidget {
   const DetailProdukPage({super.key});
@@ -62,63 +62,6 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
               ),
             ),
             const SizedBox(height: 8),
-
-            // --- Ekspedisi ---
-            InkWell(
-              onTap: () => _showShippingOptions(context),
-              child: Container(
-                width: double.infinity,
-                color: Colors.white,
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text("Pilih Ekspedisi",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text("Pilih",
-                            style: TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    if (selectedShipping != null) ...[
-                      Row(
-                        children: [
-                          Icon(_getShippingIcon(selectedShipping!), color: Colors.blue),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(selectedShipping!, style: const TextStyle(fontSize: 14)),
-                                const Text("Estimasi 1-3 hari",
-                                    style: TextStyle(color: Colors.black54, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.blueAccent, width: 1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.all(10),
-                        child: const Text("Pilih ekspedisi pengiriman",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
 
             const SizedBox(height: 8),
 
