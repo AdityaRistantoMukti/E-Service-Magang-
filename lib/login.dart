@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'regist.dart';
 import 'auth_service.dart';
-import 'Home.dart';
+import 'home.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final padding = screenSize.width * 0.06; // 6% of screen width
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D47A1),
+      backgroundColor: Colors.blue,
       body: SafeArea(
         child: Column(
           children: [
@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: isLogin
-                                      ? const Color(0xFF1976D2)
+                                      ? Colors.blue
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: !isLogin
-                                      ? const Color(0xFF1976D2)
+                                      ? Colors.blue
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -159,8 +159,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: GoogleFonts.poppins(
                                 color: const Color(0xFF1976D2),
                                 fontSize: screenSize.width * 0.035,
-                                decoration: TextDecoration.underline, // optional, biar terlihat link
-                              ),
+                                decoration: TextDecoration.underline,
+                              ),                        
                             ),
                           ),
                         ),
@@ -170,10 +170,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Tombol utama
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isLogin ? Colors.white : const Color(0xFF1976D2),
+                        backgroundColor: isLogin ? Colors.white : Colors.blue,
                         foregroundColor:
-                            isLogin ? const Color(0xFF1976D2) : Colors.white,
-                        side: const BorderSide(color: Color(0xFF1976D2)),
+                            isLogin ? Colors.blue : Colors.white,
+                        side: const BorderSide(color: Colors.blue),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -238,13 +238,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       label: Text(
                         'Masuk menggunakan Akun Google',
                         style: GoogleFonts.poppins(
-                          color: const Color(0xFF1976D2),
+                          color: Colors.blue,
                           fontWeight: FontWeight.w500,
                           fontSize: screenSize.width * 0.035,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF1976D2)),
+                        side: const BorderSide(color: Colors.blue),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -276,12 +276,12 @@ class _LoginScreenState extends State<LoginScreen> {
           color: Colors.black54,
         ),
         filled: true,
-        fillColor: const Color(0xFF1976D2).withValues(alpha: 0.15),
+        fillColor: Colors.blue.withValues(alpha: 0.15),
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
                   showPassword ? Icons.visibility : Icons.visibility_off,
-                  color: const Color(0xFF0D47A1),
+                  color: Colors.blue,
                   size: screenSize.width * 0.05,
                 ),
                 onPressed: () {
@@ -291,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
               )
             : (icon != null
-                ? Icon(icon, color: const Color(0xFF0D47A1), size: screenSize.width * 0.05)
+                ? Icon(icon, color: Colors.blue, size: screenSize.width * 0.05)
                 : null),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

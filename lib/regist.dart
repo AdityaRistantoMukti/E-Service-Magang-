@@ -7,6 +7,7 @@ import 'login.dart';
 import 'auth_service.dart';
 import 'Home.dart';
 import 'auth_service.dart';
+
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
 
@@ -37,7 +38,7 @@ class _AuthPageState extends State<AuthPage> {
     final padding = screenSize.width * 0.06; // 6% of screen width
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D47A1),
+      backgroundColor: Colors.blue,
       body: SafeArea(
         child: Column(
           children: [
@@ -102,7 +103,7 @@ class _AuthPageState extends State<AuthPage> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: isLogin
-                                      ? const Color(0xFF1976D2)
+                                      ? Colors.blue
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -124,7 +125,7 @@ class _AuthPageState extends State<AuthPage> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: !isLogin
-                                      ? const Color(0xFF1976D2)
+                                      ? Colors.blue
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
@@ -168,7 +169,7 @@ class _AuthPageState extends State<AuthPage> {
                           child: Text(
                             'Lupa Kata Sandi',
                             style: GoogleFonts.poppins(
-                              color: const Color(0xFF1976D2),
+                              color: Colors.blue,
                               fontSize: screenSize.width * 0.035,
                             ),
                           ),
@@ -179,10 +180,10 @@ class _AuthPageState extends State<AuthPage> {
                     // Tombol utama
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isLogin ? Colors.white : const Color(0xFF1976D2),
+                        backgroundColor: isLogin ? Colors.white : Colors.blue,
                         foregroundColor:
-                            isLogin ? const Color(0xFF1976D2) : Colors.white,
-                        side: const BorderSide(color: Color(0xFF1976D2)),
+                            isLogin ? Colors.blue : Colors.white,
+                        side: const BorderSide(color: Colors.blue),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -276,13 +277,13 @@ class _AuthPageState extends State<AuthPage> {
                       label: Text(
                         'Masuk menggunakan Akun Google',
                         style: GoogleFonts.poppins(
-                          color: const Color(0xFF1976D2),
+                          color: Colors.blue,
                           fontWeight: FontWeight.w500,
                           fontSize: screenSize.width * 0.035,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF1976D2)),
+                        side: const BorderSide(color: Colors.blue),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -303,7 +304,6 @@ class _AuthPageState extends State<AuthPage> {
 
   Widget _buildTextField(String hint, bool isPassword, {IconData? icon}) {
   final screenSize = MediaQuery.of(context).size;
-
   // Deteksi apakah field ini adalah "Konfirmasi Kata Sandi"
   bool isConfirm = hint.toLowerCase().contains('konfirmasi');
 
@@ -322,7 +322,6 @@ class _AuthPageState extends State<AuthPage> {
 }
   // Kalau ini field tanggal lahir, buat bisa klik & munculkan DatePicker
   bool isDateField = hint == 'Tanggal Lahir';
-
   return TextField(
     controller: controller,
     // Tanggal Lahir

@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'edit_name.dart';
 import 'edit_nmtlpn.dart';
+import 'notifikasi.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -32,7 +33,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       // === APP BAR ===
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         elevation: 0,
         automaticallyImplyLeading: true,
         title: const Text('Edit Profile'),
@@ -43,7 +44,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationPage()),
+              );
+            },
           ),
         ],
       ),
@@ -138,7 +144,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               height: 45,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1976D2),
+                  backgroundColor: Colors.blue,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -191,7 +197,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: Row(
             children: [
-              Icon(icon, color: const Color(0xFF1976D2)),
+              Icon(icon, color: Colors.blue),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

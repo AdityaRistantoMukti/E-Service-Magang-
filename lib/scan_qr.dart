@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:e_service/user_point_data.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:image_picker/image_picker.dart';
+import 'notifikasi.dart';
 
 class ScanQrPage extends StatefulWidget {
   const ScanQrPage({super.key});
@@ -34,14 +36,13 @@ class _ScanQrPageState extends State<ScanQrPage> {
               Container(
                 height: 160,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF1976D2),
+                  color: Colors.blue,
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(20),
                     bottomRight: Radius.circular(20),
                   ),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     IconButton(
@@ -54,6 +55,15 @@ class _ScanQrPageState extends State<ScanQrPage> {
                     IconButton(
                       icon: const Icon(Icons.support_agent, color: Colors.white),
                       onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const NotificationPage()),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -136,12 +146,31 @@ class _ScanQrPageState extends State<ScanQrPage> {
                   ),
 
                   const SizedBox(height: 40),
+
                   if (scannedResult != null)
                     Text(
                       "Hasil Scan: $scannedResult",
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+
+                  const SizedBox(height: 20),
+
+                  ElevatedButton.icon(
+                    onPressed: _scanFromGallery,
+                    icon: const Icon(Icons.photo_library, size: 18),
+                    label: const Text('Scan dari Galeri'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -149,5 +178,46 @@ class _ScanQrPageState extends State<ScanQrPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _scanFromGallery() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image != null) {
+        final BarcodeCapture? capture = await controller.analyzeImage(image.path);
+
+        if (capture != null && capture.barcodes.isNotEmpty) {
+          for (final barcode in capture.barcodes) {
+            if (barcode.rawValue != null) {
+              final String code = barcode.rawValue!;
+              setState(() {
+                scannedResult = code;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('QR dari Galeri Terdeteksi: $code')),
+              );
+              Future.delayed(const Duration(seconds: 2), () {
+                if (mounted) {
+                  setState(() {
+                    scannedResult = null;
+                  });
+                }
+              });
+              break;
+            }
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tidak ada QR code yang terdeteksi di gambar')),
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 }

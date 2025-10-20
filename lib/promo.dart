@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'Service.dart';
-import 'Shop.dart';
-import 'Home.dart';
+import 'service.dart';
+import 'shop.dart';
+import 'home.dart';
 import 'profile.dart';
+import 'notifikasi.dart';
 
 class TukarPoinPage extends StatefulWidget {
   const TukarPoinPage({super.key});
@@ -25,7 +26,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
           Container(
             height: 130,
             decoration: const BoxDecoration(
-              color: Color(0xFF1976D2),
+              color: Colors.blue,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),
@@ -42,7 +43,12 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NotificationPage()),
+                    );
+                  },
                 ),
               ],
             ),
@@ -246,7 +252,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                 context, MaterialPageRoute(builder: (context) => const ProfilePage()));
           }
         },
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,

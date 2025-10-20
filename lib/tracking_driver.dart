@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'Service.dart';
-import 'Shop.dart';
+import 'service.dart';
+import 'shop.dart';
 import 'promo.dart';
 import 'profile.dart';
 import 'progres_service.dart';
+import 'notifikasi.dart';
 
 class TrackingPage extends StatefulWidget {
   const TrackingPage({super.key});
@@ -51,7 +52,7 @@ class _TrackingPageState extends State<TrackingPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         elevation: 0,
         leading: null,
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
@@ -62,7 +63,12 @@ class _TrackingPageState extends State<TrackingPage> {
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationPage()),
+              );
+            },
           ),
         ],
       ),
@@ -95,7 +101,7 @@ class _TrackingPageState extends State<TrackingPage> {
             });
           }
         },
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,

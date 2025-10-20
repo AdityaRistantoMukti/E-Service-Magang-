@@ -154,7 +154,7 @@ class CircleRevealPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF1E52B4);
+    final paint = Paint()..color = Colors.blue;
 
     final maxRadius =
         (size.width > size.height ? size.width : size.height) * 1.2;

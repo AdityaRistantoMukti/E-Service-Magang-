@@ -1,33 +1,35 @@
-import 'package:e_service/Home.dart';
-import 'package:e_service/Service.dart';
-import 'package:e_service/detial_produk.dart';
-import 'package:e_service/profile.dart';
-import 'package:e_service/promo.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
+import 'service.dart';
+import 'shop.dart';
+import 'home.dart';
+import 'promo.dart';
+import 'profile.dart';
+import 'notifikasi.dart';
+import 'detail_service.dart';
 
-
-class PesanServicePage extends StatefulWidget {
-  const PesanServicePage({super.key});
+class PerbaikanServicePage extends StatefulWidget {
+  const PerbaikanServicePage({super.key});
 
   @override
-  State<PesanServicePage> createState() => _PesanServicePageState();
+  State<PerbaikanServicePage> createState() => _PerbaikanServicePageState();
 }
 
-class _PesanServicePageState extends State<PesanServicePage> {
+class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
   int currentIndex = 0;
 
   final TextEditingController namaController = TextEditingController();
-  final TextEditingController seriController = TextEditingController();
-  final TextEditingController kerusakanController = TextEditingController();
   final TextEditingController alamatController = TextEditingController();
 
-  String? selectedMerek;
-  String? selectedDevice;
+  int jumlahBarang = 1;
+  List<TextEditingController> seriControllers = [];
+  List<TextEditingController> partControllers = [];
+  List<String?> selectedMereks = [];
+  List<String?> selectedDevices = [];
 
   final List<String> merekOptions = ['Asus', 'Dell', 'HP', 'Lenovo', 'Apple', 'Samsung', 'Sony', 'Toshiba'];
   final List<String> deviceOptions = ['Laptop', 'Desktop', 'Tablet', 'Smartphone', 'Printer', 'Monitor', 'Keyboard', 'Mouse'];
@@ -40,7 +42,22 @@ class _PesanServicePageState extends State<PesanServicePage> {
   @override
   void initState() {
     super.initState();
+    _initializeItemFields();
     _getCurrentLocation();
+  }
+
+  void _initializeItemFields() {
+    seriControllers = List.generate(jumlahBarang, (_) => TextEditingController());
+    partControllers = List.generate(jumlahBarang, (_) => TextEditingController());
+    selectedMereks = List.filled(jumlahBarang, null);
+    selectedDevices = List.filled(jumlahBarang, null);
+  }
+
+  void _updateJumlahBarang(int newJumlah) {
+    setState(() {
+      jumlahBarang = newJumlah;
+      _initializeItemFields();
+    });
   }
 
   Future<void> _getCurrentLocation() async {
@@ -49,8 +66,29 @@ class _PesanServicePageState extends State<PesanServicePage> {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Layanan lokasi dinonaktifkan.")),
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Aktifkan Lokasi'),
+            content: const Text('Lokasi belum diaktifkan. Silakan aktifkan lokasi untuk melanjutkan.'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Batal'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: const Text('Aktifkan'),
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await Geolocator.openLocationSettings();
+                },
+              ),
+            ],
+          );
+        },
       );
       return;
     }
@@ -310,7 +348,12 @@ body: Column(
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationPage()),
+              );
+            },
           ),
         ],
       ),
@@ -333,135 +376,92 @@ body: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _inputField("Nama", namaController),
-                  const SizedBox(height: 8),
-                  _dropdownField("Merek", selectedMerek, merekOptions, (value) {
-                    setState(() {
-                      selectedMerek = value;
-                    });
-                  }),
-                  const SizedBox(height: 8),
-                  _dropdownField("Device", selectedDevice, deviceOptions, (value) {
-                    setState(() {
-                      selectedDevice = value;
-                    });
-                  }),
-                  const SizedBox(height: 8),
-                  _inputField("Seri", seriController),
-                  const SizedBox(height: 12),
-                  const Text("Kerusakan :", style: TextStyle(fontWeight: FontWeight.w500)),
                   const SizedBox(height: 6),
-                  Container(
-                    height: 80,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: TextField(
-                      controller: kerusakanController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Deskripsikan kerusakan...',
-                        hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                  _jumlahBarangField(),
+                  const SizedBox(height: 6),
+                  ...List.generate(jumlahBarang, (index) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Barang ${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1976D2))),
+                          const SizedBox(height: 8),
+                          _dropdownField("Merek", selectedMereks[index], merekOptions, (value) {
+                            setState(() {
+                              selectedMereks[index] = value;
+                            });
+                          }),
+                          const SizedBox(height: 6),
+                          _dropdownField("Device", selectedDevices[index], deviceOptions, (value) {
+                            setState(() {
+                              selectedDevices[index] = value;
+                            });
+                          }),
+                          const SizedBox(height: 6),
+                          _inputField("Seri", seriControllers[index]),
+                          const SizedBox(height: 6),
+                          _inputField("Part yang perlu diperbaiki", partControllers[index]),
+                        ],
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 16),
-                  const Text("Alamat :", style: TextStyle(fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 6),
                   Container(
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(14),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: TextField(
-                            controller: alamatController,
-                            maxLines: 2,
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              hintText: 'Masukkan atau dapatkan alamat...',
-                            ),
-                            onSubmitted: (value) async {
-                              if (value.isNotEmpty) {
-                                try {
-                                  List<Location> locations = await locationFromAddress(value);
-                                  if (locations.isNotEmpty) {
-                                    Location location = locations.first;
-                                    LatLng newPos = LatLng(location.latitude, location.longitude);
-                                    setState(() {
-                                      currentPosition = newPos;
-                                      markers = {
-                                        Marker(
-                                          markerId: const MarkerId('selectedLocation'),
-                                          position: newPos,
-                                          infoWindow: const InfoWindow(title: 'Lokasi Penjemputan'),
-                                        ),
-                                      };
-                                    });
-                                    if (mapController != null) {
-                                      mapController!.animateCamera(
-                                        CameraUpdate.newLatLng(newPos),
-                                      );
-                                    }
-                                  }
-                                } catch (e) {
-                                  debugPrint("Gagal mendapatkan lokasi dari alamat: $e");
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Alamat tidak ditemukan. Coba alamat yang lebih spesifik.")),
-                                  );
-                                }
-                              }
-                            },
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            Text("Lokasi Delivery",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 15)),
+                            Text("Tambahkan Alamat",
+                                style: TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13)),
+                          ],
                         ),
-                        SizedBox(
-                          height: 250,
-                          child: currentPosition != null
-                              ? GoogleMap(
-                                  mapType: MapType.normal,
-                                  myLocationEnabled: true,
-                                  myLocationButtonEnabled: true,
-                                  zoomControlsEnabled: false,
-                                  initialCameraPosition: CameraPosition(
-                                    target: currentPosition!,
-                                    zoom: 17,
-                                  ),
-                                  markers: markers,
-                                  onMapCreated: (GoogleMapController controller) {
-                                    mapController = controller;
-                                  },
-                                  onTap: (LatLng pos) async {
-                                    setState(() => currentPosition = pos);
-                                    List<Placemark> placemarks =
-                                        await placemarkFromCoordinates(pos.latitude, pos.longitude);
-                                    Placemark place = placemarks.first;
-                                    setState(() {
-                                      currentAddress =
-                                          "${place.street}, ${place.subThoroughfare ?? ''}, ${place.subLocality}, ${place.locality}, ${place.administrativeArea}, ${place.postalCode}";
-                                      alamatController.text = currentAddress ?? "";
-                                    });
-                                    setState(() {
-                                      markers.clear();
-                                      markers.add(
-                                        Marker(
-                                          markerId: const MarkerId('selectedLocation'),
-                                          position: pos,
-                                          infoWindow: const InfoWindow(title: 'Lokasi Penjemputan'),
-                                        ),
-                                      );
-                                    });
-                                  },
-                                )
-                              : const Center(child: CircularProgressIndicator()),
+                        const SizedBox(height: 6),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blueAccent, width: 1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Atur alamat anda di sini",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              SizedBox(height: 2),
+                              Text(
+                                  "Masukan detail alamat agar memudahkan pengiriman barang",
+                                  style:
+                                      TextStyle(fontSize: 13, color: Colors.black87)),
+                              SizedBox(height: 6),
+                              Text(
+                                  "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
+                                  style:
+                                      TextStyle(fontSize: 12, color: Colors.black54)),
+                              SizedBox(height: 8),
+                              Text(
+                                "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
+                                style: TextStyle(color: Colors.blue, fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -470,7 +470,27 @@ body: Column(
                   Center(
                     child: ElevatedButton(
                       onPressed: () {
-                        _showSuccessPopup(context);
+                        List<Map<String, String?>> items = [];
+                        for (int i = 0; i < jumlahBarang; i++) {
+                          items.add({
+                            'merek': selectedMereks[i],
+                            'device': selectedDevices[i],
+                            'seri': seriControllers[i].text,
+                            'part': partControllers[i].text,
+                          });
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailServicePage(
+                              serviceType: 'repair',
+                              nama: namaController.text,
+                              jumlahBarang: jumlahBarang,
+                              items: items,
+                              alamat: alamatController.text,
+                            ),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1976D2),
@@ -497,70 +517,52 @@ body: Column(
 
       // ==== BOTTOM NAVIGATION ====
       bottomNavigationBar: BottomNavigationBar(
-      currentIndex: currentIndex,
-      onTap: (index) {
-        setState(() {
-          currentIndex = index; // Update index
-        });
-        switch (index) {
-          case 0:
+        currentIndex: currentIndex,
+        onTap: (index) {
+          if (index == 0) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (_) => const ServicePage()));
-            break;
-          case 1:
+                context, MaterialPageRoute(builder: (context) => const ServicePage()));
+          } else if (index == 1) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (_) => const MarketplacePage()));
-            break;
-          case 2:
+                context, MaterialPageRoute(builder: (context) => const MarketplacePage()));
+          } else if (index == 2) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (_) => const HomePage()));
-            break;
-          case 3:
+                context, MaterialPageRoute(builder: (context) => const HomePage()));
+          } else if (index == 3) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (_) => const TukarPoinPage()));
-            break;
-          case 4:
+                context, MaterialPageRoute(builder: (context) => const TukarPoinPage()));
+          } else if (index == 4) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (_) => const ProfilePage()));
-            break;
-        }
-      },
-      backgroundColor: const Color(0xFF1976D2),
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: Colors.white,
-      unselectedItemColor: Colors.white70,
-      showUnselectedLabels: true,
-      selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-      unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-      items: [
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.build_circle_outlined),
-          label: 'Service',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.shopping_cart_outlined),
-          label: 'Beli',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: currentIndex == 3
-              ? Image.asset('assets/image/promo.png', width: 24, height: 24)
-              : Opacity(
-                  opacity: 0.6,
-                  child: Image.asset('assets/image/promo.png', width: 24, height: 24),
-                ),
-          label: 'Promo',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'Profile',
-        ),
-      ],
-    ),
-
+                context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+          }
+        },
+        backgroundColor: const Color(0xFF1976D2),
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        showUnselectedLabels: true,
+        selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
+        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.build_circle_outlined),
+            label: 'Service',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart_outlined),
+            label: 'Beli',
+          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: currentIndex == 3 ? Image.asset('assets/image/promo.png', width: 24, height: 24) : Opacity(opacity: 0.6, child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
+            label: 'Promo',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
+        ],
+      ),
     );
   }
 
@@ -677,4 +679,38 @@ body: Column(
       ],
     );
   }
+
+  Widget _jumlahBarangField() {
+    return Row(
+      children: [
+        const Text("Jumlah Barang :", style: TextStyle(fontWeight: FontWeight.w500)),
+        const Spacer(),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, size: 16),
+                onPressed: jumlahBarang > 1 ? () => _updateJumlahBarang(jumlahBarang - 1) : null,
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Text(jumlahBarang.toString(), style: const TextStyle(fontSize: 16)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, size: 16),
+                onPressed: jumlahBarang < 10 ? () => _updateJumlahBarang(jumlahBarang + 1) : null,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+
 }

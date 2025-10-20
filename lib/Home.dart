@@ -3,11 +3,11 @@ import 'package:e_service/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'service.dart';
-import 'Shop.dart';
+import 'shop.dart';
 import 'promo.dart';
 import 'profile.dart';
-import 'scan_qr_admin.dart';
 import 'package:shimmer/shimmer.dart';
+import 'notifikasi.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -56,9 +56,8 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         elevation: 0,
-        leading: null,
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
         actions: [
           IconButton(
@@ -67,53 +66,49 @@ class _HomePageState extends State<HomePage> {
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationPage()),
+              );
+            },
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Member Card (Shimmer atau Data)
-            isLoading ? _buildShimmerMemberCard() : _buildMemberCard(nama, id),
-            const SizedBox(height: 24),
-
-            // Grid menu (Shimmer atau Data)
-            Expanded(
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: 4,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1,
+            isLoading
+                ? _buildShimmerMemberCard()
+                : _buildMemberCard(nama, id),
+            const SizedBox(height: 20),
+            Center(
+              child: Text(
+                'Selamat datang di E-Service',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-                itemBuilder: (context, index) {
-                  return isLoading
-                      ? _buildShimmerGridItem()
-                      : Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 6,
-                                offset: const Offset(2, 3),
-                              ),
-                            ],
-                          ),
-                        );
-                },
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              height: 150,
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Center(
+                child: Text('Konten Utama / Banner Promo di sini'),
               ),
             ),
           ],
         ),
       ),
-      // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {
@@ -143,7 +138,7 @@ class _HomePageState extends State<HomePage> {
             });
           }
         },
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,
@@ -151,20 +146,27 @@ class _HomePageState extends State<HomePage> {
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         items: [
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.build_circle_outlined),
             label: 'Service',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart_outlined),
             label: 'Beli',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: currentIndex == 3 ? Image.asset('assets/image/promo.png', width: 24, height: 24) : Opacity(opacity: 0.6, child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
-            label: 'Promo',
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
           ),
           BottomNavigationBarItem(
+            icon: Image.asset(
+              'assets/image/promo.png',
+              width: 24,
+              height: 24,
+            ),
+            label: 'Promo',
+          ),
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             label: 'Profile',
           ),
@@ -173,7 +175,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Member Card (Data)
+  // Member Card
   Widget _buildMemberCard(String nama, String id) {
     return Container(
       width: double.infinity,
@@ -248,20 +250,6 @@ class _HomePageState extends State<HomePage> {
               ],
             )
           ],
-        ),
-      ),
-    );
-  }
-
-  // Shimmer Grid Item
-  Widget _buildShimmerGridItem() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[300],
-          borderRadius: BorderRadius.circular(16),
         ),
       ),
     );

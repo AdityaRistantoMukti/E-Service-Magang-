@@ -97,23 +97,6 @@ class _ProfilePageState extends State<ProfilePage> {
     final tglLahir = userData?['cos_tgl_lahir'] ?? '-';
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1976D2),
-        elevation: 0,
-        leading: null,
-        title: Image.asset('assets/image/logo.png', width: 95, height: 30),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.support_agent, color: Colors.white),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
-      ),
       body: LoadingWrapper(
         isLoading: isLoading,
         shimmer: _buildShimmerBody(),
@@ -205,7 +188,7 @@ class _ProfilePageState extends State<ProfilePage> {
             }
           }
         },
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,
@@ -430,10 +413,10 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF1976D2)),
+          Icon(icon, color: Colors.blue),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-          Icon(actionIcon, color: const Color(0xFF1976D2)),
+          Icon(actionIcon, color: Colors.blue),
         ],
       ),
     );
@@ -458,7 +441,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF1976D2)),
+            Icon(icon, color: Colors.blue),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

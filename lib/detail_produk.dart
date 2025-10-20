@@ -1,15 +1,13 @@
-import 'package:e_service/Home.dart';
-import 'package:e_service/Service.dart';
+
+import 'package:e_service/home.dart';
+import 'package:e_service/service.dart';
 import 'package:e_service/profile.dart';
 import 'package:e_service/promo.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'shop.dart';
+import 'checkout.dart'; // ✅ tambahkan import ke checkout.dart
 
-class MarketplacePage extends StatelessWidget {
-  const MarketplacePage({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('')));
-}
 class DetailProdukPage extends StatefulWidget {
   const DetailProdukPage({super.key});
 
@@ -30,6 +28,7 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
         title: Row(
           children: [
             Image.asset('assets/image/logo.png', height: 30),
+            Image.asset('assets/image/asus_logo.png', height: 20),
             const Spacer(),
             const Icon(Icons.notifications_none, color: Colors.white),
           ],
@@ -59,30 +58,58 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
               'Rp 2.000.000',
               style: GoogleFonts.poppins(
                 fontSize: 20,
-                color: Colors.red,
+                color: Colors.black,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
+
+            // Tombol Beli (navigasi ke checkout)
             ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.shopping_cart_outlined),
-              label: Text('Beli', style: GoogleFonts.poppins(fontSize: 14)),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CheckoutPage(), // ✅ ke checkout.dart
+                  ),
+                );
+              },
+              icon: const Icon(
+                Icons.shopping_cart_outlined,
+                color: Colors.white, // ikon putih
+              ),
+              label: Text(
+                'Beli',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.white, // teks putih
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1976D2),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
               ),
             ),
+
             const SizedBox(height: 16),
 
             // ===== Bagian Lainnya =====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Lainnya', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  'Lainnya',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Icon(Icons.arrow_forward, color: Colors.black54),
               ],
             ),
@@ -95,7 +122,13 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Serupa', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  'Serupa',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Icon(Icons.arrow_forward, color: Colors.black54),
               ],
             ),
@@ -110,15 +143,30 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
         currentIndex: currentIndex,
         onTap: (index) {
           if (index == 0) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ServicePage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ServicePage()),
+            );
           } else if (index == 1) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MarketplacePage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MarketplacePage()),
+            );
           } else if (index == 2) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            );
           } else if (index == 3) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const TukarPoinPage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const TukarPoinPage()),
+            );
           } else if (index == 4) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
+            );
           } else {
             setState(() {
               currentIndex = index;
@@ -133,19 +181,38 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.build_circle_outlined), label: 'Service'),
-          const BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: 'Beli'),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.build_circle_outlined),
+            label: 'Service',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart_outlined),
+            label: 'Beli',
+          ),
           const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: currentIndex == 3
-                ? Image.asset('assets/image/promo.png', width: 24, height: 24)
+                ? Image.asset(
+                    'assets/image/promo.png',
+                    width: 24,
+                    height: 24,
+                    color: Colors.white,
+                  )
                 : Opacity(
                     opacity: 0.6,
-                    child: Image.asset('assets/image/promo.png', width: 24, height: 24),
+                    child: Image.asset(
+                      'assets/image/promo.png',
+                      width: 24,
+                      height: 24,
+                      color: Colors.white,
+                    ),
                   ),
             label: 'Promo',
           ),
-          const BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
         ],
       ),
     );
@@ -165,7 +232,11 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
               borderRadius: BorderRadius.circular(12),
               color: Colors.white,
               boxShadow: [
-                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(2, 2)),
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 4,
+                  offset: const Offset(2, 2),
+                ),
               ],
             ),
             child: Column(
@@ -175,7 +246,9 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
                   height: 80,
                   decoration: BoxDecoration(
                     color: const Color(0xFFBBDEFB),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
                   ),
                 ),
                 Padding(
@@ -183,11 +256,23 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('ASUS Mouse', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
-                      Text('Rp 150.000', style: GoogleFonts.poppins(fontSize: 11, color: Colors.red)),
+                      Text(
+                        'ASUS Mouse',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Rp 150.000',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.red,
+                        ),
+                      ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           );

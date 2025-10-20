@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'Service.dart';
+import 'service.dart';
 import 'Shop.dart';
 import 'promo.dart';
 import 'profile.dart';
-import 'Home.dart';
+import 'home.dart';
+import 'notifikasi.dart';
 
 class CekProgresServicePage extends StatefulWidget {
   const CekProgresServicePage({super.key});
@@ -110,7 +111,7 @@ class _CekProgresServicePageState extends State<CekProgresServicePage> {
   Widget _poinRow(String label, String value, {bool bold = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF325EFF),
+        color: Colors.blue,
         borderRadius: BorderRadius.circular(30),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -149,7 +150,7 @@ class _CekProgresServicePageState extends State<CekProgresServicePage> {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF325EFF),
+        backgroundColor: Colors.blue,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
@@ -162,7 +163,7 @@ class _CekProgresServicePageState extends State<CekProgresServicePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         elevation: 0,
         leading: null,
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
@@ -173,7 +174,12 @@ class _CekProgresServicePageState extends State<CekProgresServicePage> {
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationPage()),
+              );
+            },
           ),
         ],
       ),
@@ -207,7 +213,7 @@ class _CekProgresServicePageState extends State<CekProgresServicePage> {
             );
           }
         },
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: Colors.blue,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,

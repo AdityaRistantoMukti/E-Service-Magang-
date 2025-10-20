@@ -1,1 +1,5 @@
-- [x] Modify lib/profile.dart to position the edit icon on the top right corner of the profile circle
+- [x] Remove TextEditingController kerusakanController from _CleaningServicePageState
+- [x] Remove the UI block for "Kerusakan :" including Text label and Container with TextField
+- [x] Change jumlah barang field to a compact stepper with +/- buttons
+- [x] Reduce spacing between form elements for better compactness
+- [x] Highlight "Barang X" text and separate each item into distinct cards with spacing
