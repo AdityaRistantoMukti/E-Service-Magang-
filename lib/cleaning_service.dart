@@ -7,11 +7,13 @@ import 'package:e_service/profile.dart';
 import 'package:e_service/promo.dart';
 import 'package:e_service/shop.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 
 
 class CleaningServicePage extends StatefulWidget {
@@ -36,16 +38,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
   final List<String> deviceOptions = ['Laptop', 'Desktop', 'Tablet', 'Smartphone', 'Printer', 'Monitor', 'Keyboard', 'Mouse'];
 
   GoogleMapController? mapController;
-  LatLng? currentPosition;
-  String? currentAddress;
-  Set<Marker> markers = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeItemFields();
-    _getCurrentLocation();
-  }
+  
 
   void _initializeItemFields() {
     seriControllers = List.generate(jumlahBarang, (_) => TextEditingController());
@@ -60,129 +53,10 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
     });
   }
 
-  Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+  
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Aktifkan Lokasi'),
-            content: const Text('Lokasi belum diaktifkan. Silakan aktifkan lokasi untuk melanjutkan.'),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('Batal'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              TextButton(
-                child: const Text('Aktifkan'),
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  await Geolocator.openLocationSettings();
-                },
-              ),
-            ],
-          );
-        },
-      );
-      return;
-    }
 
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Izin lokasi ditolak.")),
-        );
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Izin lokasi ditolak permanen.")),
-      );
-      return;
-    }
-
-    // ✅ Ambil posisi awal
-    Position position = await Geolocator.getCurrentPosition();
-    await _updateLocation(position);
-
-    // ✅ Update lokasi real-time (bergerak)
-    Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 5, // update tiap geser 5 meter
-      ),
-    ).listen((Position position) {
-      _updateLocation(position, moveCamera: true);
-    });
-  }
-
-  Future<void> _updateLocation(Position position, {bool moveCamera = false}) async {
-    LatLng newPos = LatLng(position.latitude, position.longitude);
-
-    // Kalau sudah ada marker lama, animasikan pergerakannya
-    if (currentPosition != null) {
-      _animateMarkerMovement(currentPosition!, newPos);
-    }
-
-    setState(() {
-      currentPosition = newPos;
-    });
-
-    try {
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
-      Placemark place = placemarks.first;
-      setState(() {
-        currentAddress =
-            "${place.street}, ${place.subThoroughfare ?? ''}, ${place.subLocality}, ${place.locality}, ${place.administrativeArea}, ${place.postalCode}";
-        alamatController.text = currentAddress ?? "";
-      });
-    } catch (e) {
-      debugPrint("Gagal mendapatkan alamat: $e");
-    }
-
-    if (mapController != null && moveCamera) {
-      mapController!.animateCamera(
-        CameraUpdate.newLatLng(newPos),
-      );
-    }
-  }
-
-  void _animateMarkerMovement(LatLng from, LatLng to) async {
-    // Waktu animasi (ms)
-    const int steps = 30;
-    const Duration stepDuration = Duration(milliseconds: 30);
-
-    double latDiff = to.latitude - from.latitude;
-    double lngDiff = to.longitude - from.longitude;
-
-    for (int i = 1; i <= steps; i++) {
-      await Future.delayed(stepDuration);
-      double lat = from.latitude + (latDiff * (i / steps));
-      double lng = from.longitude + (lngDiff * (i / steps));
-
-      setState(() {
-        markers = {
-          Marker(
-            markerId: const MarkerId('currentLocation'),
-            position: LatLng(lat, lng),
-            infoWindow: const InfoWindow(title: 'Lokasi Anda Sekarang'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-          ),
-        };
-      });
-    }
-  }
+  
 
   void _showSuccessPopup(BuildContext context) {
     showDialog(
@@ -581,61 +455,7 @@ body: Column(
     );
   }
 
-  void _showMapDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Pilih Lokasi Penjemputan'),
-          content: SizedBox(
-            height: 300,
-            width: double.maxFinite,
-            child: currentPosition != null
-                ? GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: currentPosition!,
-                      zoom: 15,
-                    ),
-                    markers: markers,
-                    onMapCreated: (GoogleMapController controller) {
-                      mapController = controller;
-                    },
-                    onTap: (LatLng position) {
-                      setState(() {
-                        markers.clear();
-                        markers.add(
-                          Marker(
-                            markerId: const MarkerId('selectedLocation'),
-                            position: position,
-                            infoWindow: const InfoWindow(title: 'Lokasi Penjemputan'),
-                          ),
-                        );
-                        currentPosition = position;
-                      });
-                    },
-                  )
-                : const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Batal'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  
 
   // ==== WIDGET FIELD ====
   Widget _inputField(String label, TextEditingController controller) {

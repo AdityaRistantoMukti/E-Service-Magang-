@@ -4,6 +4,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'dart:ui' as ui;
+import 'dart:typed_data';
+import 'package:permission_handler/permission_handler.dart';
 import 'service.dart';
 import 'shop.dart';
 import 'home.dart';
@@ -378,6 +380,15 @@ class _StruckPesananPageState extends State<StruckPesananPage> {
 
   Future<void> _downloadQrCode() async {
     try {
+      // Request storage permission
+      var status = await Permission.storage.request();
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Izin penyimpanan diperlukan untuk menyimpan QR Code')),
+        );
+        return;
+      }
+
       // Create a QR image as bytes
       final qrPainter = QrPainter(
         data: 'order-${DateTime.now().millisecondsSinceEpoch}-${widget.nama}',
@@ -396,15 +407,15 @@ class _StruckPesananPageState extends State<StruckPesananPage> {
       final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
 
-      // Save to gallery
-      final directory = await getTemporaryDirectory();
-      final filePath = '${directory.path}/qr_code_${DateTime.now().millisecondsSinceEpoch}.png';
+      // Save to Downloads folder
+      final directory = await getDownloadsDirectory();
+      final filePath = '${directory!.path}/qr_code_${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File(filePath);
       await file.writeAsBytes(pngBytes);
 
-      // Show success message with file path
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('QR Code berhasil disimpan di: $filePath')),
+        const SnackBar(content: Text('QR Code berhasil disimpan ke folder Downloads')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

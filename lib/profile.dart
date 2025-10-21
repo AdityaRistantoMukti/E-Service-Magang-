@@ -86,131 +86,127 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
   
-  @override
+    @override
     Widget build(BuildContext context) {
       final nama = userData?['cos_nama'] ?? '-';
-      final id = userData?['id_costomer'] != null ? 'Id ${userData!['id_costomer']}' : '-';
+      final id = userData?['id_costomer'] != null ? 'Id ${userData!['id_costomer']}' : '-';      
       final nohp = userData?['cos_hp'] ?? '-';
       final tglLahir = userData?['cos_tgl_lahir'] ?? '-';
 
       return Scaffold(
         backgroundColor: Colors.white,
-        body: Stack(
-          children: [
-            // ==== HEADER ====
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 160,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
+        body: LoadingWrapper(
+          isLoading: isLoading,
+          // 🌟 Shimmer Layout — identik dengan layout normal
+          shimmer: Stack(
+            children: [
+              // HEADER shimmer
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 160,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    Image.asset('assets/image/logo.png', width: 95, height: 30),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.support_agent, color: Colors.white),
-                      onPressed: () {},
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const NotificationPage()),
-                        );
-                      },
-                    ),
-                  ],
+              ),
+
+              // PROFILE CARD shimmer
+              Positioned(
+                top: 120,
+                left: 16,
+                right: 16,
+                child: _buildShimmerProfileCard(),
+              ),
+
+              // BODY shimmer
+              Padding(
+                padding: const EdgeInsets.only(top: 300),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildShimmerBody(),
                 ),
               ),
-            ),
+            ],
+          ),
 
-            // ==== PROFILE CARD  ====
-            Positioned(
-              top: 120, // muncul sedikit di bawah header
-              left: 16,
-              right: 16,
-              child: _buildProfileCard(context,nama, id),
-            ),
-
-            // ==== ISI SCROLLABLE  ====
-            Padding(
-              padding: const EdgeInsets.only(top: 300),
-              child: LoadingWrapper(
-                isLoading: isLoading,
-                shimmer: Stack(
-                  children: [
-                    // HEADER shimmer
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 160,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(20),
-                            bottomRight: Radius.circular(20),
-                          ),
-                        ),
+          // 🌟 Normal Layout setelah data tampil
+          child: Stack(
+            children: [
+              // ==== HEADER ====
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 160,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Image.asset('assets/image/logo.png', width: 95, height: 30),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.support_agent, color: Colors.white),
+                        onPressed: () {},
                       ),
-                    ),
-
-                    // PROFILE CARD shimmer
-                    Positioned(
-                      top: 120,
-                      left: 16,
-                      right: 16,
-                      child: _buildShimmerProfileCard(),
-                    ),
-
-                    // BODY shimmer scrollable
-                    Padding(
-                      padding: const EdgeInsets.only(top: 300),
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: _buildShimmerBody(),
+                      IconButton(
+                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const NotificationPage()),
+                          );
+                        },
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ),
 
-                // CHILD normal ketika data sudah ada
+              // ==== PROFILE CARD ====
+              Positioned(
+                top: 120,
+                left: 16,
+                right: 16,
+                child: _buildProfileCard(context, nama, id),
+              ),
+
+              // ==== BODY ====
+              Padding(
+                padding: const EdgeInsets.only(top: 300),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
                       _infoTile(Icons.person, 'Nama', nama, onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const EditNamaPage()),
-                        );
+                        Navigator.push(context,
+                          MaterialPageRoute(builder: (context) => const EditNamaPage()));
                       }),
                       const SizedBox(height: 12),
                       _infoTile(Icons.calendar_month, 'Tanggal Lahir', tglLahir, onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const EditBirthdayPage()),
-                        );
+                        Navigator.push(context,
+                          MaterialPageRoute(builder: (context) => const EditBirthdayPage()));
                       }),
                       const SizedBox(height: 12),
                       _infoTile(Icons.phone, 'Nomor Telpon', nohp, onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const EditNmtlpnPage()),
-                        );
+                        Navigator.push(context,
+                          MaterialPageRoute(builder: (context) => const EditNmtlpnPage()));
                       }),
                       const SizedBox(height: 24),
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -218,22 +214,16 @@ class _ProfilePageState extends State<ProfilePage> {
                             Icons.qr_code,
                             'Tunjukan QR',
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const ShowQrToAddCoins()),
-                              );
+                              Navigator.push(context,
+                                MaterialPageRoute(builder: (context) => const ShowQrToAddCoins()));
                             },
                           ),
                           _qrBox(
                             Icons.qr_code_scanner,
                             'Scan QR',
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const ScanQrPage()),
-                              );
+                              Navigator.push(context,
+                                MaterialPageRoute(builder: (context) => const ScanQrPage()));
                             },
                           ),
                         ],
@@ -241,17 +231,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 24),
                       _contactTile(Icons.phone, nohp, Icons.chat),
                       const SizedBox(height: 12),
-                      _contactTile(Icons.email_outlined,
-                          userData?['cos_email'] ?? '-', Icons.chat),
+                      _contactTile(Icons.email_outlined, userData?['cos_email'] ?? '-', Icons.chat),
                     ],
                   ),
                 ),
               ),
-            ),
-
-          ],
+            ],
+          ),
         ),
-
         // ==== NAVIGATION BAR ====
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: currentIndex,
@@ -355,22 +342,18 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(nama,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(nama,style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Text(id, style: const TextStyle(color: Colors.black54, fontSize: 12)),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('Poin',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text('Poin',style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(width: 10),
               ValueListenableBuilder<int>(
                 valueListenable: UserPointData.userPoints,
                 builder: (context, points, _) {
-                  return Text('$points',
-                      style: const TextStyle(fontWeight: FontWeight.bold));
+                  return Text('$points',style: const TextStyle(fontWeight: FontWeight.bold));
                 },
               ),
               const SizedBox(width: 4),

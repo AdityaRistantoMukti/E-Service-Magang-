@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'pick_lokasi.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class DetailAlamatPage extends StatefulWidget {
   const DetailAlamatPage({super.key});
@@ -21,10 +23,90 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
       TextEditingController(text: "081292303471");
 
   bool jadikanUtama = false;
-  late GoogleMapController mapController;
+  bool _loading = true;
+  bool _mapMoving = false;
 
-  LatLng _lokasi = const LatLng(-6.247726, 107.000874); // contoh lokasi
-  String _alamat = "Bina Insani University, jl raya rawa panjang No.6, RT.001/RW.003, Sepanjang Jaya, Kec. Rawalumbu, Kota Bks, Jawa Barat 17114, Indonesia";
+  String _alamat = "Mendeteksi lokasi...";
+  LatLng _currentLatLng = const LatLng(-6.200000, 106.816666); // Jakarta default
+  final MapController _mapController = MapController();
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _loading = true);
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      setState(() {
+        _alamat = "GPS tidak aktif.";
+        _loading = false;
+      });
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        setState(() {
+          _alamat = "Izin lokasi ditolak.";
+          _loading = false;
+        });
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      setState(() {
+        _alamat = "Izin lokasi permanen ditolak.";
+        _loading = false;
+      });
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    _updateAddressFromLatLng(
+        LatLng(position.latitude, position.longitude),
+        moveMap: true);
+  }
+
+  Future<void> _updateAddressFromLatLng(LatLng latLng,
+      {bool moveMap = false}) async {
+    setState(() {
+      _currentLatLng = latLng;
+      _loading = true;
+    });
+
+    try {
+      final placemarks =
+          await placemarkFromCoordinates(latLng.latitude, latLng.longitude);
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        _alamat =
+            "${place.street}, ${place.subLocality}, ${place.locality}, ${place.administrativeArea}";
+        detailController.text = _alamat;
+      }
+    } catch (_) {
+      _alamat = "Gagal mendapatkan alamat.";
+    }
+
+    if (moveMap) {
+      _mapController.move(latLng, 17);
+    }
+
+    setState(() => _loading = false);
+  }
+
+  void _pusatkanLokasi() {
+    _mapController.move(_currentLatLng, 17);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,171 +115,174 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
       appBar: AppBar(
         backgroundColor: Colors.blue,
         elevation: 0,
-        title: const Text(
-          "Detail Alamat",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text("Detail Alamat",
+            style: TextStyle(fontWeight: FontWeight.bold)),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // === Map Lokasi ===
-            Container(
-              color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 180,
-                    child: GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: _lokasi,
-                        zoom: 17,
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              // === MAP ===
+              SizedBox(
+                height: 250,
+                child: Stack(
+                  children: [
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: _currentLatLng,
+                        initialZoom: 17,
+                        onPositionChanged: (pos, hasGesture) {
+                          if (hasGesture) {
+                            _mapMoving = true;
+                          }
+                        },
+                        onMapEvent: (event) {
+                          if (event is MapEventMoveEnd && _mapMoving) {
+                            _updateAddressFromLatLng(_mapController.camera.center);
+                            _mapMoving = false;
+                          }
+                        },
                       ),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId("lokasi"),
-                          position: _lokasi,
-                        )
-                      },
-                      onMapCreated: (controller) {
-                        mapController = controller;
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Alamat lengkap (Berdasarkan titik lokasi)",
-                            style: TextStyle(
-                                fontSize: 13, color: Colors.black54)),
-                        const SizedBox(height: 4),
-                        Text(
-                          _alamat,
-                          style: const TextStyle(fontSize: 13),
+                        TileLayer(
+                          urlTemplate:
+                              "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                          subdomains: const ['a', 'b', 'c'],
+                          userAgentPackageName: 'com.azzahra.e_service',
                         ),
-                        const SizedBox(height: 8),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _currentLatLng,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(Icons.location_pin,
+                                  color: Colors.redAccent, size: 40),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    // Tombol pusatkan lokasi
+                    Positioned(
+                      right: 12,
+                      bottom: 12,
+                      child: FloatingActionButton(
+                        heroTag: "center",
+                        mini: true,
+                        backgroundColor: Colors.white,
+                        onPressed: _pusatkanLokasi,
+                        child: const Icon(Icons.my_location,
+                            color: Colors.blueAccent),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // === ALAMAT ===
+              Container(
+                color: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.location_on,
+                        color: Colors.redAccent, size: 28),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(_alamat,
+                          style: const TextStyle(
+                              fontSize: 13, color: Colors.black87)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.blue),
+                      onPressed: _getCurrentLocation,
+                    ),
+                  ],
+                ),
+              ),
+
+              // === FORM ===
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        _buildTextField("Label*", labelController),
+                        _buildTextField("Detail Alamat*", detailController),
+                        _buildTextField(
+                            "Catatan Alamat (Tidak Wajib)", catatanController),
+                        _buildTextField("Nama Penerima*", namaController),
+                        _buildTextField("No. Handphone Penerima*", hpController,
+                            keyboardType: TextInputType.phone),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Jadikan sebagai alamat utama",
+                                style: TextStyle(fontSize: 14)),
+                            Switch(
+                              value: jadikanUtama,
+                              onChanged: (v) =>
+                                  setState(() => jadikanUtama = v),
+                              activeColor: Colors.blue,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            minimumSize: const Size(double.infinity, 48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Alamat berhasil disimpan ✅"),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            Navigator.pop(context);
+                          },
+                          child: const Text(
+                            "Simpan",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Center(
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const PilihLokasiPage(),
-                            ),
-                          );
-                          if (result != null && result is Map<String, dynamic>) {
-                            setState(() {
-                              _lokasi = result['latlng'];
-                              _alamat = result['address'];
-                              detailController.text = _alamat;
-                            });
-                            mapController.animateCamera(
-                              CameraUpdate.newLatLng(_lokasi),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.location_on, color: Colors.blue),
-                        label: const Text(
-                          "Ubah Titik Lokasi",
-                          style: TextStyle(
-                              color: Colors.blue, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
 
-            const SizedBox(height: 8),
-
-            // === FORM INPUT ===
+          // Overlay loading
+          if (_loading)
             Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildTextField("Label*", labelController,
-                      hint: "Tulis Rumah, Kos, Kantor dll", maxLength: 30),
-                  _buildTextField("Detail Alamat*", detailController,
-                      hint: "Cth: no. rumah/jalan/unit (wajib ada angka)",
-                      maxLength: 100),
-                  _buildTextField("Catatan Alamat (Tidak Wajib)",
-                      catatanController,
-                      hint: "Cth: Rumah dekat pos kamling", maxLength: 100),
-                  _buildTextField("Nama Penerima*", namaController,
-                      maxLength: 30),
-                  _buildTextField("No. Handphone Penerima*", hpController,
-                      keyboardType: TextInputType.phone, maxLength: 15),
-                  const SizedBox(height: 10),
-
-                  // === Switch Jadikan utama ===
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Jadikan sebagai alamat utama",
-                          style: TextStyle(fontSize: 14)),
-                      Switch(
-                        value: jadikanUtama,
-                        onChanged: (v) {
-                          setState(() => jadikanUtama = v);
-                        },
-                        activeColor: Colors.blue,
-                      ),
-                    ],
-                  ),
-                ],
+              color: Colors.black26,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // === Tombol Simpan ===
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Alamat berhasil disimpan ✅"),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  "Simpan",
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildTextField(String label, TextEditingController controller,
-      {String? hint,
-      int? maxLength,
-      TextInputType keyboardType = TextInputType.text}) {
+      {TextInputType keyboardType = TextInputType.text}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -210,14 +295,11 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
           TextField(
             controller: controller,
             keyboardType: keyboardType,
-            maxLength: maxLength,
             decoration: InputDecoration(
-              hintText: hint,
               filled: true,
               fillColor: const Color(0xFFF9F9F9),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              counterText: "",
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide:

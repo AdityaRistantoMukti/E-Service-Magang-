@@ -1,6 +1,7 @@
 import 'package:e_service/forget_password.dart';
 import 'package:e_service/services/api_service.dart';
 import 'package:e_service/session_manager.dart';
+import 'package:e_service/user_point_data.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'regist.dart';
@@ -200,7 +201,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               result['user']['id_costomer'].toString(),
                               result['user']['cos_nama'],
                             );
-
+                            final poin = int.tryParse(user['cos_poin'].toString()) ?? 0;
+                            UserPointData.setPoints(poin);
                             // Login berhasil
                             Navigator.pushReplacement(
                               context,

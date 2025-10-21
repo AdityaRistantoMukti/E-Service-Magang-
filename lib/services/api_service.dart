@@ -80,6 +80,17 @@ class ApiService {
       throw Exception('Gagal memuat data produk');
     }
   }
+      // PROMO
+      static Future<List<dynamic>> getPromo() async {
+        final response = await http.get(Uri.parse('$baseUrl/promo'));
+
+        if (response.statusCode == 200) {
+          return json.decode(response.body);
+        } else {
+          throw Exception('Gagal memuat data promo');
+        }
+      }
+
 
 
 

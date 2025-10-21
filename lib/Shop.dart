@@ -56,18 +56,20 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
     if (selectedBrand != null && selectedBrand!.isNotEmpty) {
       final brandUpper = selectedBrand!.toUpperCase();
-      filtered = filtered.where((p) {
-        final nama = (p['nama_produk'] ?? '').toString().toUpperCase();
-        return nama.contains(brandUpper);
-      }).toList();
+      filtered =
+          filtered.where((p) {
+            final nama = (p['nama_produk'] ?? '').toString().toUpperCase();
+            return nama.contains(brandUpper);
+          }).toList();
     }
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      filtered = filtered.where((p) {
-        final nama = (p['nama_produk'] ?? '').toString().toLowerCase();
-        return nama.contains(q);
-      }).toList();
+      filtered =
+          filtered.where((p) {
+            final nama = (p['nama_produk'] ?? '').toString().toLowerCase();
+            return nama.contains(q);
+          }).toList();
     }
 
     // Urutkan harga dari tertinggi
@@ -109,7 +111,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const NotificationPage()),
+                MaterialPageRoute(
+                  builder: (context) => const NotificationPage(),
+                ),
               );
             },
           ),
@@ -117,22 +121,23 @@ class _MarketplacePageState extends State<MarketplacePage> {
       ),
 
       // 🔹 Body
-      body: _isLoading
-          ? _buildShimmerLoading()
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBrandList(),
-                  const SizedBox(height: 16),
-                  _buildSearchBar(),
-                  const SizedBox(height: 16),
+      body:
+          _isLoading
+              ? _buildShimmerLoading()
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBrandList(),
+                    const SizedBox(height: 16),
+                    _buildSearchBar(),
+                    const SizedBox(height: 16),
 
-                  //  Search aktif
-                  if (_searchQuery.isNotEmpty) ...[                                        
-                    _filteredProduk.isEmpty
-                        ? Center(
+                    //  Search aktif
+                    if (_searchQuery.isNotEmpty) ...[
+                      _filteredProduk.isEmpty
+                          ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Text(
@@ -141,31 +146,31 @@ class _MarketplacePageState extends State<MarketplacePage> {
                               ),
                             ),
                           )
-                        : _buildSearchResultsList(),
-                  ]
-                  // 🔹 Tidak sedang search
-                  else if (selectedBrand == null) ...[
-                    _buildSectionTitle('Teratas'),
-                    const SizedBox(height: 8),
-                    _buildProductList(), // default: tampil semua
+                          : _buildSearchResultsList(),
+                    ]
+                    // 🔹 Tidak sedang search
+                    else if (selectedBrand == null) ...[
+                      _buildSectionTitle('Teratas'),
+                      const SizedBox(height: 8),
+                      _buildProductList(), // default: tampil semua
 
-                    const SizedBox(height: 16),
-                    _buildSectionTitle('Mouse'),
-                    const SizedBox(height: 8),
-                    _buildProductList(), // kamu bisa ubah filter khusus kategori jika ada field kategori
+                      const SizedBox(height: 16),
+                      _buildSectionTitle('Mouse'),
+                      const SizedBox(height: 8),
+                      _buildProductList(filterKeyword: 'Mouse'),
 
-                    const SizedBox(height: 16),
-                    _buildSectionTitle('Lainnya'),
-                    const SizedBox(height: 8),
-                    _buildProductList(),
-                  ] else ...[
-                    _buildSectionTitle('Produk ${selectedBrand!}'),
-                    const SizedBox(height: 8),
-                    _buildProductList(selectedBrand),
+                      const SizedBox(height: 16),
+                      _buildSectionTitle('Lainnya'),
+                      const SizedBox(height: 8),
+                      _buildProductList(),
+                    ] else ...[
+                      _buildSectionTitle('Produk ${selectedBrand!}'),
+                      const SizedBox(height: 8),
+                      _buildProductList(brand: selectedBrand),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
 
       // 🔹 Bottom Navigation
       bottomNavigationBar: _buildBottomNavBar(),
@@ -187,7 +192,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       'AIO',
       'Tecno',
       'Infinix',
-      'Zyrex'
+      'Zyrex',
     ];
 
     return SizedBox(
@@ -280,10 +285,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       children: [
         Text(
           title,
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         const Spacer(),
         const Icon(Icons.arrow_forward_ios, size: 16),
@@ -291,44 +293,258 @@ class _MarketplacePageState extends State<MarketplacePage> {
     );
   }
 
-  Widget _buildProductList([String? brand]) {
-  List<Map<String, dynamic>> produkList =
-      List<Map<String, dynamic>>.from(_produkList);
+  Widget _buildProductList({String? brand, String? filterKeyword}) {
+    List<Map<String, dynamic>> produkList = List<Map<String, dynamic>>.from(
+      _produkList,
+    );
 
-  // Filter berdasarkan brand jika ada
-  if (brand != null && brand.isNotEmpty) {
-    final bUpper = brand.toUpperCase();
-    produkList = produkList
-        .where((p) =>
-            (p['nama_produk'] ?? '').toString().toUpperCase().contains(bUpper))
-        .toList();
+    // Filter berdasarkan brand jika ada
+    if (brand != null && brand.isNotEmpty) {
+      final bUpper = brand.toUpperCase();
+      produkList =
+          produkList
+              .where(
+                (p) => (p['nama_produk'] ?? '')
+                    .toString()
+                    .toUpperCase()
+                    .contains(bUpper),
+              )
+              .toList();
+    }
+
+    // 🔹 Filter berdasarkan keyword tipe_produk (misalnya "Mouse")
+    if (filterKeyword != null && filterKeyword.isNotEmpty) {
+      final keyword = filterKeyword.toLowerCase();
+      produkList =
+          produkList.where((p) {
+            final tipe = (p['nama_produk'] ?? '').toString().toLowerCase();
+            return tipe.contains(keyword);
+          }).toList();
+    }
+
+    // Urutkan berdasarkan harga tertinggi
+    produkList.sort((a, b) {
+      final hargaA = double.tryParse(a['harga'].toString()) ?? 0;
+      final hargaB = double.tryParse(b['harga'].toString()) ?? 0;
+      return hargaB.compareTo(hargaA);
+    });
+
+    if (produkList.isEmpty) {
+      return const Center(child: Text('Tidak ada produk'));
+    }
+
+    // 🔹 Jika brand dipilih → tampil grid 2 kolom
+    if (brand != null && brand.isNotEmpty) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, // dua kolom
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: 0.7,
+        ),
+        itemCount: produkList.length,
+        itemBuilder: (context, index) {
+          final produk = produkList[index];
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 6,
+                  offset: const Offset(2, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.image_outlined,
+                      color: Colors.white70,
+                      size: 32,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        produk['nama_produk'] ?? 'Tanpa Nama',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatRupiah(produk['harga']),
+                        style: GoogleFonts.poppins(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    //  Jika tidak ada brand → tampil horizontal (default)
+    return SizedBox(
+      height: 240,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: produkList.length,
+        itemBuilder: (context, index) {
+          final produk = produkList[index];
+          return Container(
+            width: 160,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 6,
+                  offset: const Offset(2, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+               Container(
+                  height: 110,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    image: (produk['gambar'] != null &&
+                            produk['gambar'].toString().isNotEmpty)
+                        ? DecorationImage(
+                            image: produk['gambar'].toString().startsWith('assets/')
+                                ? AssetImage(produk['gambar'].toString())
+                                : NetworkImage(produk['gambar'].toString()) as ImageProvider,
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: (produk['gambar'] == null || produk['gambar'].toString().isEmpty)
+                      ? const Center(
+                          child: Icon(Icons.image_outlined,
+                              color: Colors.white70, size: 36),
+                        )
+                      : null,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        produk['nama_produk'] ?? 'Tanpa Nama',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatRupiah(produk['harga']),
+                        style: GoogleFonts.poppins(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
-  // Urutkan berdasarkan harga tertinggi
-  produkList.sort((a, b) {
-    final hargaA = double.tryParse(a['harga'].toString()) ?? 0;
-    final hargaB = double.tryParse(b['harga'].toString()) ?? 0;
-    return hargaB.compareTo(hargaA);
-  });
+  Widget _buildSearchResultsList() {
+    if (_filteredProduk.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            'Tidak ditemukan untuk "$_searchQuery"',
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+        ),
+      );
+    }
 
-  if (produkList.isEmpty) {
-    return const Center(child: Text('Tidak ada produk'));
-  }
-
-  // 🔹 Jika brand dipilih → tampil grid 2 kolom
-  if (brand != null && brand.isNotEmpty) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // dua kolom
+        crossAxisCount: 3, // tampil 3 kolom
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
-        childAspectRatio: 0.7,
+        childAspectRatio: 0.6,
       ),
-      itemCount: produkList.length,
+      itemCount: _filteredProduk.length,
       itemBuilder: (context, index) {
-        final produk = produkList[index];
+        final produk = _filteredProduk[index];
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -345,19 +561,23 @@ class _MarketplacePageState extends State<MarketplacePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                height: 100,
+                height: 80,
                 decoration: BoxDecoration(
                   color: Colors.grey[400],
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
                 ),
                 child: const Center(
-                  child: Icon(Icons.image_outlined,
-                      color: Colors.white70, size: 32),
+                  child: Icon(
+                    Icons.image_outlined,
+                    color: Colors.white70,
+                    size: 28,
+                  ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(6.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -367,7 +587,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -376,23 +596,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       style: GoogleFonts.poppins(
                         color: Colors.red.shade700,
                         fontWeight: FontWeight.w500,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.star,
-                            color: Colors.amber, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -404,180 +609,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
     );
   }
 
-  // 🔹 Jika tidak ada brand → tampil horizontal (default)
-  return SizedBox(
-    height: 240,
-    child: ListView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: produkList.length,
-      itemBuilder: (context, index) {
-        final produk = produkList[index];
-        return Container(
-          width: 160,
-          margin: const EdgeInsets.only(right: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 6,
-                offset: const Offset(2, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 110,
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(12)),
-                ),
-                child: const Center(
-                  child: Icon(Icons.image_outlined,
-                      color: Colors.white70, size: 36),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      produk['nama_produk'] ?? 'Tanpa Nama',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatRupiah(produk['harga']),
-                      style: GoogleFonts.poppins(
-                        color: Colors.red.shade700,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.star,
-                            color: Colors.amber, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    ),
-  );
-}
-
-
-  Widget _buildSearchResultsList() {
-  if (_filteredProduk.isEmpty) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Text(
-          'Tidak ditemukan untuk "$_searchQuery"',
-          style: GoogleFonts.poppins(fontSize: 14),
-        ),
-      ),
-    );
-  }
-
-  return GridView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 3, // tampil 3 kolom
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      childAspectRatio: 0.6,
-    ),
-    itemCount: _filteredProduk.length,
-    itemBuilder: (context, index) {
-      final produk = _filteredProduk[index];
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 6,
-              offset: const Offset(2, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.grey[400],
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: const Center(
-                child: Icon(Icons.image_outlined,
-                    color: Colors.white70, size: 28),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(6.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    produk['nama_produk'] ?? 'Tanpa Nama',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatRupiah(produk['harga']),
-                    style: GoogleFonts.poppins(
-                      color: Colors.red.shade700,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-
-    Widget _buildShimmerLoading() {
+  // SHIMMER LOADING
+  Widget _buildShimmerLoading() {
     // helper: shimmer pill (brand)
     Widget _shimmerBrandPill() {
       return Shimmer.fromColors(
@@ -615,7 +648,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
                 height: heightImg,
                 decoration: BoxDecoration(
                   color: Colors.grey[350],
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
                 ),
               ),
               Padding(
@@ -649,7 +684,15 @@ class _MarketplacePageState extends State<MarketplacePage> {
           ),
           child: Column(
             children: [
-              Container(height: 100, decoration: BoxDecoration(color: Colors.grey[350], borderRadius: const BorderRadius.vertical(top: Radius.circular(12)))),
+              Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.grey[350],
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                ),
+              ),
               const SizedBox(height: 8),
               Container(height: 12, width: 100, color: Colors.grey[350]),
               const SizedBox(height: 6),
@@ -670,10 +713,17 @@ class _MarketplacePageState extends State<MarketplacePage> {
             height: 60,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: List.generate(6, (_) => Padding(
-                padding: const EdgeInsets.only(right: 8.0, top: 12.0, bottom: 12.0),
-                child: _shimmerBrandPill(),
-              )),
+              children: List.generate(
+                6,
+                (_) => Padding(
+                  padding: const EdgeInsets.only(
+                    right: 8.0,
+                    top: 12.0,
+                    bottom: 12.0,
+                  ),
+                  child: _shimmerBrandPill(),
+                ),
+              ),
             ),
           ),
 
@@ -696,9 +746,25 @@ class _MarketplacePageState extends State<MarketplacePage> {
           //Teratas
           Row(
             children: [
-              Shimmer.fromColors(baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100, child: Container(width: 120, height: 12, color: Colors.grey[300])),
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 120,
+                  height: 12,
+                  color: Colors.grey[300],
+                ),
+              ),
               const Spacer(),
-              Shimmer.fromColors(baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100, child: Container(width: 20, height: 12, color: Colors.grey[300])),
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 20,
+                  height: 12,
+                  color: Colors.grey[300],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -715,9 +781,25 @@ class _MarketplacePageState extends State<MarketplacePage> {
           // Section 2 title + horizontal shimmer list (Mouse)
           Row(
             children: [
-              Shimmer.fromColors(baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100, child: Container(width: 80, height: 16, color: Colors.grey[300])),
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 80,
+                  height: 16,
+                  color: Colors.grey[300],
+                ),
+              ),
               const Spacer(),
-              Shimmer.fromColors(baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100, child: Container(width: 20, height: 16, color: Colors.grey[300])),
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 20,
+                  height: 16,
+                  color: Colors.grey[300],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -734,9 +816,25 @@ class _MarketplacePageState extends State<MarketplacePage> {
           // Section 3 title + horizontal shimmer list (Lainnya)
           Row(
             children: [
-              Shimmer.fromColors(baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100, child: Container(width: 80, height: 16, color: Colors.grey[300])),
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 80,
+                  height: 16,
+                  color: Colors.grey[300],
+                ),
+              ),
               const Spacer(),
-              Shimmer.fromColors(baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100, child: Container(width: 20, height: 16, color: Colors.grey[300])),
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 20,
+                  height: 16,
+                  color: Colors.grey[300],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -769,8 +867,6 @@ class _MarketplacePageState extends State<MarketplacePage> {
       ),
     );
   }
-
-
 
   Widget _buildBottomNavBar() {
     return BottomNavigationBar(
@@ -809,11 +905,17 @@ class _MarketplacePageState extends State<MarketplacePage> {
       unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
       items: [
         const BottomNavigationBarItem(
-            icon: Icon(Icons.build_circle_outlined), label: 'Service'),
+          icon: Icon(Icons.build_circle_outlined),
+          label: 'Service',
+        ),
         const BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart), label: 'Beli'),
+          icon: Icon(Icons.shopping_cart),
+          label: 'Beli',
+        ),
         const BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined), label: 'Beranda'),
+          icon: Icon(Icons.home_outlined),
+          label: 'Beranda',
+        ),
         BottomNavigationBarItem(
           icon: Image.asset(
             'assets/image/promo.png',
@@ -824,7 +926,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
           label: 'Promo',
         ),
         const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline), label: 'Profile'),
+          icon: Icon(Icons.person_outline),
+          label: 'Profile',
+        ),
       ],
     );
   }

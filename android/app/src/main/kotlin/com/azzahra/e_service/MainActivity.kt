@@ -1,4 +1,4 @@
-package com.example.e_service
+package com.azzahra.e_service
 
 import io.flutter.embedding.android.FlutterActivity
 
