@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'struck_pesanan.dart';
 
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key});
+  final bool? usePointsFromPromo; 
+  const CheckoutPage({super.key, this.usePointsFromPromo});
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -13,7 +14,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String? selectedPaymentMethod;
   String? selectedShipping;
   Map<String, dynamic>? selectedAddress;
+  bool usePoints = false; // Variable untuk toggle pembayaran
 
+
+  @override
+  void initState() {
+    super.initState();
+    // Set usePoints berdasarkan parameter yang dikirim dari promo
+    if (widget.usePointsFromPromo != null) {
+      usePoints = widget.usePointsFromPromo!;
+    }
+  }
+
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,18 +118,36 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text("Laptop Si Unyil",
+                      children: [
+                        const Text("Laptop Si Unyil",
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text("Ram 8GB SSD 512GB Intel I9",
+                        const Text("Ram 8GB SSD 512GB Intel I9",
                             style: TextStyle(fontSize: 13)),
-                        SizedBox(height: 6),
-                        Text("1x   Rp 1.000.000",
-                            style: TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14)),
+                        const SizedBox(height: 6),
+                        // Tampilkan harga atau poin berdasarkan usePoints
+                        usePoints
+                            ? Row(
+                                children: const [
+                                  Text("1x   ",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14)),
+                                  Icon(Icons.monetization_on,
+                                      color: Color.fromARGB(255, 0, 193, 164), size: 18),
+                                  SizedBox(width: 4),
+                                  Text("1200",
+                                      style: TextStyle(
+                                          color: Color.fromARGB(255, 0, 193, 164),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14)),                                  
+                                ],
+                              )
+                            : const Text("1x   Rp 1.000.000",
+                                style: TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14)),
                       ],
                     ),
                   )
@@ -138,13 +169,78 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   const SizedBox(height: 10),
-                  _summaryRow("Subtotal", "Rp 100.000"),
-                  _summaryRow("Diskon", "Rp 40.000"),
+                  // Tampilkan nilai 0 jika menggunakan poin
+                  _summaryRow("Subtotal", usePoints ? "Rp 0" : "Rp 100.000"),
+                  _summaryRow("Diskon", usePoints ? "Rp 0" : "Rp 40.000"),
                   _summaryRow("Voucher", "Rp 0"),
                   _summaryRow("Total ongkos kirim", "Rp 0"),
                   const Divider(),
-                  _summaryRow("Total Belanja", "Rp 60.000",
-                      isTotal: true, color: Colors.blue),
+                  // Ubah label dan nilai untuk Total jika menggunakan poin
+                  usePoints
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text("Total Poin",
+                                  style: TextStyle(
+                                      fontSize: 13, color: Colors.black87)),
+                              Row(
+                                children: const [
+                                  Icon(Icons.monetization_on,
+                                      color: Color.fromARGB(255, 0, 193, 164), size: 18),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    "1200",
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color.fromARGB(255, 0, 193, 164),
+                                    ),
+                                  ),                                 
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
+                      : _summaryRow("Total Belanja", "Rp 60.000",
+                          isTotal: true, color: Colors.blue),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // --- Toggle Metode Pembayaran (Poin atau Bank) ---
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text("Gunakan Poin",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 15)),
+                      SizedBox(height: 4),
+                    ],
+                  ),
+                  Switch(
+                    value: usePoints,
+                    activeColor: Colors.blue,
+                    onChanged: (value) {
+                      setState(() {
+                        usePoints = value;
+                        // Reset payment method ketika toggle diubah
+                        if (usePoints) {
+                          selectedPaymentMethod = null;
+                        }
+                      });
+                    },
+                  ),
                 ],
               ),
             ),
@@ -178,15 +274,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     if (selectedShipping != null) ...[
                       Row(
                         children: [
-                          Icon(_getShippingIcon(selectedShipping!), color: Colors.blue),
+                          Icon(_getShippingIcon(selectedShipping!),
+                              color: Colors.blue),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(selectedShipping!, style: const TextStyle(fontSize: 14)),
+                                Text(selectedShipping!,
+                                    style: const TextStyle(fontSize: 14)),
                                 const Text("Estimasi 1-3 hari",
-                                    style: TextStyle(color: Colors.black54, fontSize: 12)),
+                                    style: TextStyle(
+                                        color: Colors.black54, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -195,7 +294,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     ] else ...[
                       Container(
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.blueAccent, width: 1),
+                          border:
+                              Border.all(color: Colors.blueAccent, width: 1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.all(10),
@@ -215,12 +315,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               onTap: () async {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DetailAlamatPage()),
+                  MaterialPageRoute(
+                      builder: (context) => const DetailAlamatPage()),
                 );
                 if (result != null) {
                   setState(() {
-                    // Update the address display with the returned data
-                    // For now, just update a variable to hold the address
                     selectedAddress = result;
                   });
                 }
@@ -256,35 +355,43 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
-                                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                    "${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 4),
                                 Text(selectedAddress!['detailAlamat'],
-                                    style: const TextStyle(fontSize: 13, color: Colors.black87)),
-                                if (selectedAddress!['catatan'] != null && selectedAddress!['catatan'].isNotEmpty)
-                                  Text("Catatan: ${selectedAddress!['catatan']}",
-                                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                    style: const TextStyle(
+                                        fontSize: 13, color: Colors.black87)),
+                                if (selectedAddress!['catatan'] != null &&
+                                    selectedAddress!['catatan'].isNotEmpty)
+                                  Text(
+                                      "Catatan: ${selectedAddress!['catatan']}",
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.black54)),
                               ],
                             )
                           : const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text("Atur alamat anda di sini",
-                                    style: TextStyle(fontWeight: FontWeight.bold)),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                                 SizedBox(height: 2),
                                 Text(
                                     "Masukan detail alamat agar memudahkan pengiriman barang",
-                                    style:
-                                        TextStyle(fontSize: 13, color: Colors.black87)),
+                                    style: TextStyle(
+                                        fontSize: 13, color: Colors.black87)),
                                 SizedBox(height: 6),
                                 Text(
                                     "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
-                                    style:
-                                        TextStyle(fontSize: 12, color: Colors.black54)),
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.black54)),
                                 SizedBox(height: 8),
                                 Text(
                                   "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
-                                  style: TextStyle(color: Colors.blue, fontSize: 12),
+                                  style:
+                                      TextStyle(color: Colors.blue, fontSize: 12),
                                 ),
                               ],
                             ),
@@ -294,8 +401,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
 
-            // --- Metode Pembayaran (if selected) ---
-            if (selectedPaymentMethod != null) ...[
+            // --- Metode Pembayaran (if selected and not using points) ---
+            if (selectedPaymentMethod != null && !usePoints) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -305,19 +412,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text("Metode Pembayaran",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Icon(_getPaymentIcon(selectedPaymentMethod!), color: Colors.blue),
+                        Icon(_getPaymentIcon(selectedPaymentMethod!),
+                            color: Colors.blue),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(selectedPaymentMethod!, style: const TextStyle(fontSize: 14)),
+                              Text(selectedPaymentMethod!,
+                                  style: const TextStyle(fontSize: 14)),
                               const Text("Nomor Rekening: 1234567890",
-                                  style: TextStyle(color: Colors.black54, fontSize: 12)),
+                                  style: TextStyle(
+                                      color: Colors.black54, fontSize: 12)),
                             ],
                           ),
                         ),
@@ -339,17 +450,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
         padding: const EdgeInsets.all(12),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+            backgroundColor:
+                usePoints ? const Color.fromARGB(255, 0, 193, 164) : Colors.blue,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
-          onPressed: selectedPaymentMethod != null
-              ? () => _completeOrder(context)
-              : () => _showPaymentOptions(context),
+          onPressed: usePoints
+              ? () => _completeOrderWithPoints(context)
+              : (selectedPaymentMethod != null
+                  ? () => _completeOrder(context)
+                  : () => _showPaymentOptions(context)),
           child: Text(
-            selectedPaymentMethod != null ? "Selesaikan Pesanan" : "Pilih Metode Pembayaran",
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            usePoints
+                ? "Tukar Poin"
+                : (selectedPaymentMethod != null
+                    ? "Selesaikan Pesanan"
+                    : "Pilih Metode Pembayaran"),
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
       ),
@@ -395,7 +514,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               const SizedBox(height: 20),
               _paymentItem(Icons.account_balance, "Transfer Bank BCA"),
               _paymentItem(Icons.account_balance_wallet, "Transfer Bank BRI"),
-              _paymentItem(Icons.account_balance_rounded, "Transfer Bank Mandiri"),
+              _paymentItem(
+                  Icons.account_balance_rounded, "Transfer Bank Mandiri"),
               const SizedBox(height: 10),
             ],
           ),
@@ -497,8 +617,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
               'seri': 'Ram 8GB SSD 512GB Intel I9',
             }
           ],
-          alamat: selectedAddress?['detailAlamat'] ?? 'Atur alamat anda di sini',
+          alamat:
+              selectedAddress?['detailAlamat'] ?? 'Atur alamat anda di sini',
           totalHarga: 'Rp 60.000',
+        ),
+      ),
+    );
+  }
+
+  void _completeOrderWithPoints(BuildContext context) {
+    // Fungsi untuk menyelesaikan pesanan dengan poin
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StruckPesananPage(
+          serviceType: 'shop',
+          nama: selectedAddress?['nama'] ?? 'User',
+          jumlahBarang: 1,
+          items: [
+            {
+              'merek': 'ASUS',
+              'device': 'Laptop Si Unyil',
+              'seri': 'Ram 8GB SSD 512GB Intel I9',
+            }
+          ],
+          alamat:
+              selectedAddress?['detailAlamat'] ?? 'Atur alamat anda di sini',
+          totalHarga: '1200 Poin',
         ),
       ),
     );

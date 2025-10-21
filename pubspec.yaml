@@ -82,7 +82,7 @@ flutter:
     - assets/image/mouse4.jpeg
     - assets/image/asus_logo.png
     - assets/image/produk.jpg
-
+    
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 
 class EditNamaPage extends StatefulWidget {
-  const EditNamaPage({super.key});
+  final String currentName; // Tambahkan properti
+
+  const EditNamaPage({super.key, required this.currentName}); // Tambahkan parameter
 
   @override
   State<EditNamaPage> createState() => _EditNamaPageState();
-}
+} 
 
 class _EditNamaPageState extends State<EditNamaPage> {
-  final TextEditingController namaController = TextEditingController(text: 'Udin');
+  late TextEditingController namaController;
   int maxLength = 25;
 
+
+  @override
+  void initState() {
+    super.initState();
+    namaController = TextEditingController(text: widget.currentName);
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,10 +98,8 @@ class _EditNamaPageState extends State<EditNamaPage> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Nama disimpan: ${namaController.text}")),
-                    );
+                 onPressed: () {
+                    Navigator.pop(context, namaController.text); // kirim nama baru ke EditProfilePage
                   },
                   child: const Text(
                     "Simpan",

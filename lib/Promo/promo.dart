@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/checkout.dart';
 import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Others/user_point_data.dart';
 import 'package:e_service/Profile/profile.dart';
@@ -300,7 +301,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                                   left: index == 0 ? 16 : 8,
                                   right: 8,
                                 ),
-                                child: _productCard(
+                                child: _productCard(context,
                                   promo.tipeProduk,
                                   promo.koin.toString(),
                                   promo.gambar.startsWith('http')
@@ -397,85 +398,140 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
 }
 
   // ==== PRODUK CARD ====
-  Widget _productCard(String name, String poin, String img, int diskon) {
-    return Container(
-      width: 140,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
+  Widget _productCard(BuildContext context, String name, String poin, String img, int diskon) {
+  return Container(
+    width: 160,
+    margin: const EdgeInsets.only(right: 12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 6,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min, // 🔹 biar tinggi fleksibel
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ==== GAMBAR PRODUK ====
+        Stack(
+          children: [
+            Container(
+              height: 90, // 🔹 dikurangi biar aman di layar kecil
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
                 ),
-                child: Center(
-                  child: img.startsWith('http')
-                      ? Image.network(img, height: 70, fit: BoxFit.contain)
-                      : Image.asset(img, height: 70, fit: BoxFit.contain),
-                ),
-
               ),
-              Positioned(
-                top: 6,
-                left: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    "-$diskon%",
-                    style: const TextStyle(color: Colors.white, fontSize: 10),
-                  ),
+              child: Center(
+                child: img.startsWith('http')
+                    ? Image.network(img, height: 70, fit: BoxFit.contain)
+                    : Image.asset(img, height: 70, fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 6,
+              left: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(8),
                 ),
+                child: Text(
+                  "-$diskon%",
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        // ==== INFORMASI PRODUK ====
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // 🔹 biar fleksibel
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+
+              // ==== ROW POIN + KOIN + TOMBOL TUKAR ====
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        "$poin ",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                      Image.asset(
+                        'assets/image/coin.png',
+                        width: 14,
+                        height: 14,
+                      ),
+                    ],
+                  ),
+
+                 // ==== TOMBOL TUKAR ====
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CheckoutPage(
+                              usePointsFromPromo: true, // Tambahkan parameter ini
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        minimumSize: const Size(45, 22),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        elevation: 1.5,
+                        textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                      ),
+                      child: const Text("Tukar"),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text("$poin ",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.red)),
-                    Image.asset('assets/image/coin.png', width: 14, height: 14),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
+
 
 
 

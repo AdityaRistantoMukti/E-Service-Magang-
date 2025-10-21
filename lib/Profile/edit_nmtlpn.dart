@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 
 class EditNmtlpnPage extends StatefulWidget {
-  const EditNmtlpnPage({super.key});
+  final String currentPhone;
+
+  const EditNmtlpnPage({super.key, required this.currentPhone});
 
   @override
   State<EditNmtlpnPage> createState() => _EditNmtlpnPageState();
 }
 
 class _EditNmtlpnPageState extends State<EditNmtlpnPage> {
-  final TextEditingController phoneController = TextEditingController(text: '081292303471');
+  late TextEditingController phoneController;
   int maxLength = 15;
+
+  @override
+  void initState() {
+    super.initState();
+    phoneController = TextEditingController(text: widget.currentPhone);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,10 +99,8 @@ class _EditNmtlpnPageState extends State<EditNmtlpnPage> {
                     ),
                   ),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Nomor telepon disimpan: ${phoneController.text}")),
-                    );
-                  },
+                      Navigator.pop(context, phoneController.text); 
+                    },
                   child: const Text(
                     "Simpan",
                     style: TextStyle(fontSize: 16, color: Colors.white),

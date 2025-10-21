@@ -1,42 +1,56 @@
 import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'edit_name.dart';
 import 'edit_nmtlpn.dart';
 
-
 class EditProfilePage extends StatefulWidget {
-  const EditProfilePage({super.key});
+  final Map<String, dynamic> userData;
+
+  const EditProfilePage({super.key, required this.userData});
 
   @override
   State<EditProfilePage> createState() => _EditProfilePageState();
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  final TextEditingController namaController = TextEditingController(
-    text: 'Udin',
-  );
-  final TextEditingController tanggalController = TextEditingController(
-    text: '01 - Juli - 2004',
-  );
-  final TextEditingController teleponController = TextEditingController(
-    text: '081292303471',
-  );
+  late TextEditingController namaController;
+  late TextEditingController teleponController;
 
   File? _image;
   final ImagePicker _picker = ImagePicker();
 
   @override
+  void initState() {
+    super.initState();
+    namaController = TextEditingController(text: widget.userData['cos_nama'] ?? '-');
+    teleponController = TextEditingController(text: widget.userData['cos_hp'] ?? '-');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final String? fotoPath = widget.userData['cos_gambar'];
+    final ImageProvider defaultImage = const AssetImage('assets/images/default_profile.png');
+    final ImageProvider profileImage;
+
+    if (_image != null) {
+      // Jika user baru saja memilih foto baru
+      profileImage = FileImage(_image!);
+    } else if (fotoPath != null && fotoPath.isNotEmpty) {
+      // Jika user punya foto dari database
+      profileImage = NetworkImage("http://192.168.1.15:8000/storage/$fotoPath");
+    } else {
+      // Default foto
+      profileImage = defaultImage;
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
-
-      // === APP BAR ===
       appBar: AppBar(
         backgroundColor: Colors.blue,
         elevation: 0,
-        automaticallyImplyLeading: true,
         title: const Text('Edit Profile'),
         actions: [
           IconButton(
@@ -54,8 +68,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         ],
       ),
-
-      // === BODY ===
       body: Column(
         children: [
           Expanded(
@@ -64,80 +76,73 @@ class _EditProfilePageState extends State<EditProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Avatar dan tombol edit
+                  // Foto profil
                   CircleAvatar(
                     radius: 45,
                     backgroundColor: Colors.black12,
-                    backgroundImage: _image != null ? FileImage(_image!) : null,
-                    child:
-                        _image == null
-                            ? const Icon(
-                              Icons.person,
-                              size: 60,
-                              color: Colors.black,
-                            )
-                            : null,
+                    backgroundImage: profileImage,
+                    child: (_image == null && (fotoPath == null || fotoPath.isEmpty))
+                        ? const Icon(Icons.person, size: 60, color: Colors.black)
+                        : null,
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _pickImage,
                     child: const Text(
-                      "Edit",
+                      "Edit Foto",
                       style: TextStyle(color: Colors.blue, fontSize: 16),
                     ),
                   ),
-
                   const SizedBox(height: 10),
 
-                  // === FORM DATA ===
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: _infoTile(
-                      Icons.person,
-                      "Nama",
-                      namaController.text,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EditNamaPage(),
+                  // Data user
+                  _infoTile(
+                    Icons.person,
+                    "Nama",
+                    namaController.text,
+                    onTap: () async {
+                      final updatedName = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditNamaPage(
+                            currentName: namaController.text,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                      if (updatedName != null) {
+                        setState(() {
+                          namaController.text = updatedName;
+                        });
+                      }
+                    },
                   ),
                   const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: _infoTile(
-                      Icons.calendar_month,
-                      "Tanggal Lahir",
-                      tanggalController.text,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: _infoTile(
-                      Icons.phone,
-                      "Nomor Telpon",
-                      teleponController.text,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EditNmtlpnPage(),
+                  _infoTile(
+                    Icons.phone,
+                    "Nomor Telepon",
+                    teleponController.text,
+                    onTap: () async {
+                      final updatedPhone = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditNmtlpnPage(
+                            currentPhone: teleponController.text,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                      if (updatedPhone != null) {
+                        setState(() {
+                          teleponController.text = updatedPhone;
+                        });
+                      }
+                    },
                   ),
                 ],
               ),
             ),
           ),
 
-          // Tombol Simpan di bawah
+          // Tombol simpan
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
@@ -150,10 +155,55 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     borderRadius: BorderRadius.circular(24),
                   ),
                 ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Perubahan disimpan")),
-                  );
+                onPressed: () async {
+                  try {
+                    String? imagePath;
+
+                    // Upload foto hanya jika user memilih foto baru
+                    if (_image != null) {
+                      final uploadResult = await ApiService.uploadProfile(_image!);
+                      imagePath = uploadResult['path'];
+                    }
+
+                    // Bangun map hanya dari field yang berubah
+                    final updatedData = <String, dynamic>{};
+
+                    if (namaController.text.isNotEmpty &&
+                        namaController.text != widget.userData['cos_nama']) {
+                      updatedData['cos_nama'] = namaController.text;
+                    }
+
+                    if (teleponController.text.isNotEmpty &&
+                        teleponController.text != widget.userData['cos_hp']) {
+                      updatedData['cos_hp'] = teleponController.text;
+                    }
+
+                    if (imagePath != null) {
+                      updatedData['cos_gambar'] = imagePath;
+                    }
+
+                    if (updatedData.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Tidak ada perubahan yang disimpan")),
+                      );
+                      return;
+                    }
+
+                    await ApiService.updateCostomer(
+                      widget.userData['id_costomer'],
+                      updatedData,
+                    );
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Profil berhasil diperbarui")),
+                    );
+
+                    Navigator.pop(context, updatedData);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Gagal menyimpan perubahan: $e")),
+                    );
+                  }
                 },
                 child: const Text(
                   "Simpan",
@@ -167,23 +217,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  // === WIDGET INFO TILE ===
-  Widget _infoTile(
-    IconData icon,
-    String label,
-    String value, {
-    VoidCallback? onTap,
-  }) {
+  Widget _infoTile(IconData icon, String label, String value, {VoidCallback? onTap}) {
     return Container(
       width: double.infinity,
       height: 80,
-      padding: EdgeInsets.zero,
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300, width: 1),
         boxShadow: [
-                  BoxShadow(
+          BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 3),
@@ -205,28 +248,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.black54,
-              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black54),
             ],
           ),
         ),
@@ -235,9 +262,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-    );
+    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);

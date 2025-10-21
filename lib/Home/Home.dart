@@ -1,4 +1,5 @@
-  import 'package:e_service/Beli/shop.dart';
+  import 'package:e_service/Beli/detail_produk.dart';
+import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Profile/profile.dart';
@@ -218,93 +219,103 @@ import 'package:shimmer/shimmer.dart';
                               }
                             }
 
-                            return Container(
-                              width: 160,
-                              margin: const EdgeInsets.only(right: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 6,
-                                    offset: const Offset(2, 3),
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DetailProdukPage(produk: produk),
                                   ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    height: 110,
-                                    decoration: BoxDecoration(
-                                      borderRadius:
-                                          const BorderRadius.vertical(top: Radius.circular(12)),
-                                      color: Colors.grey[300],
-                                      image: imageProvider != null
-                                          ? DecorationImage(
-                                              image: imageProvider,
-                                              fit: BoxFit.cover,
+                                );
+                              },
+                              child: Container(
+                                width: 160,
+                                margin: const EdgeInsets.only(right: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 6,
+                                      offset: const Offset(2, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      height: 110,
+                                      decoration: BoxDecoration(
+                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                        color: Colors.grey[300],
+                                        image: imageProvider != null
+                                            ? DecorationImage(
+                                                image: imageProvider,
+                                                fit: BoxFit.cover,
+                                              )
+                                            : null,
+                                      ),
+                                      child: imageProvider == null
+                                          ? const Center(
+                                              child: Icon(Icons.image_outlined,
+                                                  color: Colors.white70, size: 36),
                                             )
                                           : null,
                                     ),
-                                    child: imageProvider == null
-                                        ? const Center(
-                                            child: Icon(Icons.image_outlined,
-                                                color: Colors.white70, size: 36),
-                                          )
-                                        : null,
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          nama,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          formatRupiah(harga),
-                                          style: GoogleFonts.poppins(
-                                            color: Colors.red.shade700,
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.star,
-                                                color: Colors.amber, size: 14),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '$rating | $terjual terjual',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11,
-                                                color: Colors.grey.shade700,
-                                              ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            nama,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.poppins(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
                                             ),
-                                          ],
-                                        ),
-                                      ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            formatRupiah(harga),
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.red.shade700,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.star,
+                                                  color: Colors.amber, size: 14),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '$rating | $terjual terjual',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             );
+
                           },
                         ),
                       ),
-            ],
-          ),
-        ),
+                    ],
+                  ),
+                ),
 
         // 🔹 Bottom Navigation Bar
         bottomNavigationBar: BottomNavigationBar(
