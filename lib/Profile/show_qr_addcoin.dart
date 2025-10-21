@@ -1,22 +1,25 @@
 import 'dart:convert';
-import 'package:e_service/Home.dart';
-import 'package:e_service/Shop.dart';
-import 'package:e_service/profile.dart';
-import 'package:e_service/sell.dart';
-import 'package:e_service/service.dart';
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/sell.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-class ShowQrDetail extends StatefulWidget {
-  const ShowQrDetail({Key? key}) : super(key: key);
+class ShowQrToAddCoins extends StatefulWidget {
+  const ShowQrToAddCoins({Key? key}) : super(key: key);
 
   @override
-  State<ShowQrDetail> createState() => _ShowQrDetailState();
+  State<ShowQrToAddCoins> createState() => _ShowQrToAddCoinsState();
 }
 
-class _ShowQrDetailState extends State<ShowQrDetail> {
-  int currentIndex = 4;
+class _ShowQrToAddCoinsState extends State<ShowQrToAddCoins> {
+  int currentIndex = 4; // default di tengah (Home)
+  
+  // 🔹 Nanti nilai ini bisa diganti otomatis dari hasil transaksi.
+  final int rewardPoints = 10; 
 
   void _navigateWithAnimation(Widget page) {
     Navigator.pushReplacement(
@@ -25,13 +28,10 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
         transitionDuration: const Duration(milliseconds: 400),
         pageBuilder: (_, __, ___) => page,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          // 🔹 Transisi Slide dari kanan ke kiri
           const begin = Offset(0.5, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOut;
-
           var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-
           return SlideTransition(
             position: animation.drive(tween),
             child: FadeTransition(opacity: animation, child: child),
@@ -43,13 +43,16 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic> userData = {
-      "id": "202234001",
-      "name": "Udin",
-      "points": 25,
+    // 🔹 Data QR statis (nanti bisa diisi dari database struk)
+    final Map<String, dynamic> qrPayload = {
+      "transaction_id": "TRX123456",
+      "reward_points": rewardPoints,
+      "store_name": "Azzahra Mart",
+      "message": "Terima kasih telah berbelanja di Azzahra Mart!",
     };
 
-    final String qrData = jsonEncode(userData);
+    // 🔹 Encode jadi string JSON agar bisa dibaca oleh scanner user
+    final String qrData = jsonEncode(qrPayload);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -69,7 +72,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
                   ),
                   const SizedBox(width: 4),
                   const Text(
-                    "Azzahra",
+                    "QR Reward Poin",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -80,9 +83,9 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
 
-            // 🔹 Kartu Member
+            // 🔹 Info transaksi / admin
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 24),
               padding: const EdgeInsets.all(16),
@@ -99,41 +102,23 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.account_circle, size: 60, color: Colors.black54),
+                  const Icon(Icons.receipt_long, size: 60, color: Colors.black54),
                   const SizedBox(height: 8),
-                  Text(
-                    userData["name"],
-                    style: const TextStyle(
+                  const Text(
+                    "Azzahra Mart",
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
                   ),
-                  Text(
-                    "Id ${userData["id"]}",
-                    style: const TextStyle(color: Colors.black54),
-                  ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Poin ",
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                      Text(
-                        "${userData["points"]} ",
-                        style: const TextStyle(
-                          color: Color(0xFF1976D2),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Image.asset(
-                        'assets/image/coin.png',
-                        width: 16,
-                        height: 16,
-                      ),
-                    ],
+                  Text(
+                    "Reward poin transaksi: +$rewardPoints",
+                    style: const TextStyle(
+                      color: Color(0xFF1976D2),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -141,7 +126,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
 
             const SizedBox(height: 30),
 
-            // 🔹 QR Code
+            // 🔹 QR Code yang akan discan oleh user
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
@@ -168,11 +153,16 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        "Tunjukkan QR ini ke admin",
+                        "Scan QR ini untuk mendapatkan reward",
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w500,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "(QR berisi poin reward yang akan ditambahkan)",
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
                       ),
                     ],
                   ),
@@ -183,7 +173,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
         ),
       ),
 
-      // 🔹 Bottom Navigation dengan animasi antar halaman
+      // 🔹 Bottom Navigation seperti halaman lain
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {

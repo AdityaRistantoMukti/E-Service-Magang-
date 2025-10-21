@@ -1,8 +1,8 @@
-import 'package:e_service/home.dart';
-import 'package:e_service/service.dart';
-import 'package:e_service/profile.dart';
-import 'package:e_service/promo.dart';
-import 'package:e_service/shop.dart';
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';

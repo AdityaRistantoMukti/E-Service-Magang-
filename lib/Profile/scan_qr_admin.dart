@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'package:e_service/Others/user_detail.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'user_detail.dart';
+
 
 class AdminScanQrPage extends StatefulWidget {
   const AdminScanQrPage({Key? key}) : super(key: key);

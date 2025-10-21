@@ -1,11 +1,10 @@
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'service.dart';
-import 'Shop.dart';
-import 'promo.dart';
-import 'profile.dart';
-import 'home.dart';
-import 'notifikasi.dart';
 
 class CekProgresServicePage extends StatefulWidget {
   const CekProgresServicePage({super.key});

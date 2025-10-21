@@ -1,4 +1,4 @@
-import 'package:e_service/reset_password.dart';
+import 'package:e_service/Auth/reset_password.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 

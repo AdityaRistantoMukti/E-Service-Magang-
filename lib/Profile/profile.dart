@@ -1,22 +1,22 @@
-import 'package:e_service/notifikasi.dart';
-import 'package:e_service/promo.dart';
-import 'package:e_service/services/api_service.dart';
-import 'package:e_service/session_manager.dart';
-import 'package:e_service/show_qr_addcoin.dart';
-import 'package:e_service/user_point_data.dart';
+import 'package:e_service/Auth/login.dart';
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/session_manager.dart';
+import 'package:e_service/Others/user_point_data.dart';
+import 'package:e_service/Profile/edit_birthday.dart';
+import 'package:e_service/Profile/edit_name.dart';
+import 'package:e_service/Profile/edit_nmtlpn.dart';
+import 'package:e_service/Profile/edit_profile.dart';
+import 'package:e_service/Profile/scan_qr.dart';
+import 'package:e_service/Profile/show_qr_addcoin.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
-import 'service.dart';
-import 'shop.dart';
-import 'home.dart';
-import 'edit_profile.dart';
-import 'scan_qr.dart';
-import 'edit_name.dart';
-import 'edit_birthday.dart';
-import 'edit_nmtlpn.dart';
-import 'login.dart';
 
 class LoadingWrapper extends StatelessWidget {
   final bool isLoading;

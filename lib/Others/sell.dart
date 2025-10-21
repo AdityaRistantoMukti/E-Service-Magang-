@@ -1,10 +1,9 @@
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'service.dart';
-import 'shop.dart';
-import 'home.dart';
-import 'profile.dart';
-
 class CekHargaPage extends StatefulWidget {
   const CekHargaPage({super.key});
 

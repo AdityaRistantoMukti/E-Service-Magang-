@@ -1,15 +1,16 @@
-  import 'package:flutter/material.dart';
+  import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/session_manager.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
+import 'package:flutter/material.dart';
   import 'package:flutter/scheduler.dart';
   import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
-  import 'service.dart';
-  import 'shop.dart';
-  import 'promo.dart';
-  import 'profile.dart';
-  import 'notifikasi.dart';
-  import 'package:shimmer/shimmer.dart';
-  import 'package:e_service/services/api_service.dart';
-  import 'package:e_service/session_manager.dart';
+  import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
+
 
   class HomePage extends StatefulWidget {
     const HomePage({super.key});
@@ -156,7 +157,6 @@ import 'package:intl/intl.dart';
                 height: 180, // Sedikit lebih tinggi untuk efek
                 child: _buildBannerSlider(),
               ),
-
               const SizedBox(height: 20),
 
               // 🔹 Hot Items

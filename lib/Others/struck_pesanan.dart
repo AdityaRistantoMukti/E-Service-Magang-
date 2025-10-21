@@ -1,3 +1,8 @@
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -6,11 +11,6 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
-import 'service.dart';
-import 'shop.dart';
-import 'home.dart';
-import 'promo.dart';
-import 'profile.dart';
 import 'notifikasi.dart';
 
 class StruckPesananPage extends StatefulWidget {

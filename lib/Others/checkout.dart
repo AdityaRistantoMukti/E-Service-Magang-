@@ -1,5 +1,5 @@
+import 'package:e_service/Service/detail_alamat.dart';
 import 'package:flutter/material.dart';
-import 'detail_alamat.dart';
 import 'struck_pesanan.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -12,6 +12,7 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   String? selectedPaymentMethod;
   String? selectedShipping;
+  Map<String, dynamic>? selectedAddress;
 
   @override
   Widget build(BuildContext context) {
@@ -211,11 +212,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
             // --- Alamat ---
             InkWell(
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                final result = await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const DetailAlamatPage()),
                 );
+                if (result != null) {
+                  setState(() {
+                    // Update the address display with the returned data
+                    // For now, just update a variable to hold the address
+                    selectedAddress = result;
+                  });
+                }
               },
               child: Container(
                 width: double.infinity,
@@ -244,28 +252,42 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.all(10),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Atur alamat anda di sini",
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          SizedBox(height: 2),
-                          Text(
-                              "Masukan detail alamat agar memudahkan pengiriman barang",
-                              style:
-                                  TextStyle(fontSize: 13, color: Colors.black87)),
-                          SizedBox(height: 6),
-                          Text(
-                              "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.black54)),
-                          SizedBox(height: 8),
-                          Text(
-                            "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
-                            style: TextStyle(color: Colors.blue, fontSize: 12),
-                          ),
-                        ],
-                      ),
+                      child: selectedAddress != null
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
+                                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                Text(selectedAddress!['detailAlamat'],
+                                    style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                                if (selectedAddress!['catatan'] != null && selectedAddress!['catatan'].isNotEmpty)
+                                  Text("Catatan: ${selectedAddress!['catatan']}",
+                                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                              ],
+                            )
+                          : const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Atur alamat anda di sini",
+                                    style: TextStyle(fontWeight: FontWeight.bold)),
+                                SizedBox(height: 2),
+                                Text(
+                                    "Masukan detail alamat agar memudahkan pengiriman barang",
+                                    style:
+                                        TextStyle(fontSize: 13, color: Colors.black87)),
+                                SizedBox(height: 6),
+                                Text(
+                                    "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
+                                    style:
+                                        TextStyle(fontSize: 12, color: Colors.black54)),
+                                SizedBox(height: 8),
+                                Text(
+                                  "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
+                                  style: TextStyle(color: Colors.blue, fontSize: 12),
+                                ),
+                              ],
+                            ),
                     ),
                   ],
                 ),
@@ -466,7 +488,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       MaterialPageRoute(
         builder: (context) => StruckPesananPage(
           serviceType: 'shop',
-          nama: 'User',
+          nama: selectedAddress?['nama'] ?? 'User',
           jumlahBarang: 1,
           items: [
             {
@@ -475,7 +497,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               'seri': 'Ram 8GB SSD 512GB Intel I9',
             }
           ],
-          alamat: 'Atur alamat anda di sini',
+          alamat: selectedAddress?['detailAlamat'] ?? 'Atur alamat anda di sini',
           totalHarga: 'Rp 60.000',
         ),
       ),

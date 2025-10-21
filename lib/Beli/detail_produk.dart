@@ -1,23 +1,36 @@
 
-import 'package:e_service/home.dart';
-import 'package:e_service/service.dart';
-import 'package:e_service/profile.dart';
-import 'package:e_service/promo.dart';
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/checkout.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'shop.dart';
-import 'checkout.dart'; // ✅ tambahkan import ke checkout.dart
+import 'package:intl/intl.dart';
+
 
 class DetailProdukPage extends StatefulWidget {
-  const DetailProdukPage({super.key});
+  final Map<String, dynamic> produk;
+
+  DetailProdukPage({super.key, required this.produk});
+
+  
 
   @override
   State<DetailProdukPage> createState() => _DetailProdukPageState();
 }
 
+
 class _DetailProdukPageState extends State<DetailProdukPage> {
   int currentIndex = 1;
   String? selectedShipping;
+
+  final formatRupiah = NumberFormat.currency(
+  locale: 'id_ID',
+  symbol: 'Rp ',
+  decimalDigits: 0,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -41,125 +54,109 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ==== GAMBAR PRODUK ====
             Container(
               height: 200,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFF90CAF9),
                 borderRadius: BorderRadius.circular(16),
+                image: (widget.produk['gambar'] != null &&
+                        widget.produk['gambar'].toString().isNotEmpty)
+                    ? DecorationImage(
+                        image: widget.produk['gambar'].toString().startsWith('assets/')
+                            ? AssetImage(widget.produk['gambar'].toString())
+                            : NetworkImage(widget.produk['gambar'].toString())
+                                as ImageProvider,
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
+              child: (widget.produk['gambar'] == null ||
+                      widget.produk['gambar'].toString().isEmpty)
+                  ? const Center(
+                      child: Icon(Icons.image_outlined,
+                          color: Colors.white70, size: 64),
+                    )
+                  : null,
             ),
             const SizedBox(height: 12),
+
+            // ==== NAMA PRODUK ====
             Text(
-              'deskripsi produk kjahhehwek nkfnekwhfkelvjewl neklvlj vlewjv jvejve jvjypevj v lkvjrjvevo',
-              style: GoogleFonts.poppins(fontSize: 13),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Rp 2.000.000',
+              widget.produk['nama_produk'] ?? 'Produk Tidak Dikenal',
               style: GoogleFonts.poppins(
-                fontSize: 20,
-                color: Colors.black,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
 
-            // --- Ekspedisi ---
-            InkWell(
-              onTap: () => _showShippingOptions(context),
-              child: Container(
-                width: double.infinity,
-                color: Colors.white,
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text("Pilih Ekspedisi",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text("Pilih",
-                            style: TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    if (selectedShipping != null) ...[
-                      Row(
-                        children: [
-                          Icon(_getShippingIcon(selectedShipping!), color: Colors.blue),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(selectedShipping!, style: const TextStyle(fontSize: 14)),
-                                const Text("Estimasi 1-3 hari",
-                                    style: TextStyle(color: Colors.black54, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.blueAccent, width: 1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.all(10),
-                        child: const Text("Pilih ekspedisi pengiriman",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ],
+            // ==== BRAND PRODUK ====
+            if (widget.produk['brand'] != null)
+              Text(
+                widget.produk['brand'],
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[600],
                 ),
               ),
-            ),
 
+            const SizedBox(height: 10),
+
+            // ==== DESKRIPSI ====
+            Text(
+              widget.produk['deskripsi'] ??
+                  'Deskripsi produk belum tersedia untuk item ini.',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+
+            // ==== HARGA ====
+            
+           Text(
+              formatRupiah.format(
+                (widget.produk['harga'] is int)
+                    ? widget.produk['harga']
+                    : (widget.produk['harga'] is double)
+                        ? widget.produk['harga']
+                        : double.tryParse(widget.produk['harga'].toString()) ?? 0,
+              ),
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF0B4D3B),
+            ),
+          ),
             const SizedBox(height: 8),
 
-            
+            // ==== TOMBOL BELI ====
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const CheckoutPage(), 
+                    builder: (context) => const CheckoutPage(),
                   ),
                 );
               },
-              icon: const Icon(
-                Icons.shopping_cart_outlined,
-                color: Colors.white, // ikon putih
-              ),
+              icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
               label: Text(
                 'Beli',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.white, // teks putih
-                ),
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1976D2),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               ),
             ),
 
             const SizedBox(height: 16),
 
-          
+            // ==== LAINNYA ====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -178,7 +175,7 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
 
             const SizedBox(height: 16),
 
-            
+            // ==== SERUPA ====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -197,6 +194,7 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
           ],
         ),
       ),
+
 
       // ===== Bottom Navigation Bar =====
       bottomNavigationBar: BottomNavigationBar(

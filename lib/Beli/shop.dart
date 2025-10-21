@@ -1,13 +1,14 @@
-import 'package:e_service/home.dart';
-import 'package:e_service/services/api_service.dart';
+import 'package:e_service/Beli/detail_produk.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
-import 'service.dart';
-import 'promo.dart';
-import 'profile.dart';
-import 'notifikasi.dart';
 
 class MarketplacePage extends StatefulWidget {
   const MarketplacePage({super.key});
@@ -347,80 +348,93 @@ class _MarketplacePageState extends State<MarketplacePage> {
         itemCount: produkList.length,
         itemBuilder: (context, index) {
           final produk = produkList[index];
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 6,
-                  offset: const Offset(2, 3),
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailProdukPage(
+                  produk: {
+                    'nama_produk': produk['nama_produk'],
+                    'harga': produk['harga'],
+                    'gambar': produk['gambar'],
+                    'brand': produk['brand'],
+                    'deskripsi': produk['deskripsi'],
+                  },
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+              ),
+            );
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: const Offset(2, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[400],
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.image_outlined, color: Colors.white70, size: 32),
                     ),
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.image_outlined,
-                      color: Colors.white70,
-                      size: 32,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        produk['nama_produk'] ?? 'Tanpa Nama',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        formatRupiah(produk['harga']),
-                        style: GoogleFonts.poppins(
-                          color: Colors.red.shade700,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: Colors.grey.shade700,
-                            ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          produk['nama_produk'] ?? 'Tanpa Nama',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          formatRupiah(produk['harga']),
+                          style: GoogleFonts.poppins(
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
+
         },
       );
     }
@@ -433,7 +447,25 @@ class _MarketplacePageState extends State<MarketplacePage> {
         itemCount: produkList.length,
         itemBuilder: (context, index) {
           final produk = produkList[index];
-          return Container(
+         return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailProdukPage(
+                  produk: {
+                    'nama_produk': produk['nama_produk'],
+                    'harga': produk['harga'],
+                    'gambar': produk['gambar'],
+                    'brand': produk['brand'],
+                    'deskripsi': produk['deskripsi'],
+                  },
+                ),
+              ),
+            );
+
+          },
+          child: Container(
             width: 160,
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
@@ -450,22 +482,25 @@ class _MarketplacePageState extends State<MarketplacePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-               Container(
+                Container(
                   height: 110,
                   decoration: BoxDecoration(
                     color: Colors.grey[400],
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(12)),
                     image: (produk['gambar'] != null &&
                             produk['gambar'].toString().isNotEmpty)
                         ? DecorationImage(
                             image: produk['gambar'].toString().startsWith('assets/')
                                 ? AssetImage(produk['gambar'].toString())
-                                : NetworkImage(produk['gambar'].toString()) as ImageProvider,
+                                : NetworkImage(produk['gambar'].toString())
+                                    as ImageProvider,
                             fit: BoxFit.cover,
                           )
                         : null,
                   ),
-                  child: (produk['gambar'] == null || produk['gambar'].toString().isEmpty)
+                  child: (produk['gambar'] == null ||
+                          produk['gambar'].toString().isEmpty)
                       ? const Center(
                           child: Icon(Icons.image_outlined,
                               color: Colors.white70, size: 36),
@@ -514,7 +549,9 @@ class _MarketplacePageState extends State<MarketplacePage> {
                 ),
               ],
             ),
-          );
+          ),
+        );
+
         },
       ),
     );
@@ -628,7 +665,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       );
     }
 
-    // helper: one horizontal shimmer card (same shape as product card)
+    
     Widget _shimmerProductCard({double width = 160, double heightImg = 110}) {
       return Shimmer.fromColors(
         baseColor: Colors.grey.shade300,

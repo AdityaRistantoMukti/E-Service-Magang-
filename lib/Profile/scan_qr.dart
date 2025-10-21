@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:e_service/user_point_data.dart';
+import 'package:e_service/Others/notifikasi.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
-import 'notifikasi.dart';
+
 
 class ScanQrPage extends StatefulWidget {
   const ScanQrPage({super.key});

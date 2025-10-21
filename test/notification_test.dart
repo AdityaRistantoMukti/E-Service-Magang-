@@ -1,7 +1,9 @@
-import 'package:e_service/detail_notifikasi.dart';
+
+import 'package:e_service/Others/detail_notifikasi.dart';
+import 'package:e_service/Others/notifikasi.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:e_service/notifikasi.dart';
+
 
 void main() {
   testWidgets('Notification page displays notifications', (WidgetTester tester) async {

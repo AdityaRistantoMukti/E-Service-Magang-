@@ -1,27 +1,36 @@
-import 'package:e_service/forget_password.dart';
-import 'package:e_service/services/api_service.dart';
-import 'package:e_service/session_manager.dart';
-import 'package:e_service/user_point_data.dart';
+import 'package:e_service/Others/session_manager.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'regist.dart';
+import 'package:intl/intl.dart';
+import 'login.dart';
 import 'auth_service.dart';
-import 'home.dart';
+import '../Home/Home.dart';
+import 'auth_service.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class AuthPage extends StatefulWidget {
+  const AuthPage({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<AuthPage> createState() => _AuthPageState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  bool isLogin = true;
+class _AuthPageState extends State<AuthPage> {
+  bool isLogin = false;
   bool showPassword = false;
+  bool showConfirmPassword = false;
   final AuthService _authService = AuthService();
 
-  TextEditingController _namaController = TextEditingController();
-  TextEditingController _passwordController = TextEditingController();
+  final nameController = TextEditingController();                        
+  final nohpController = TextEditingController();                        
+  final passwordController = TextEditingController();
+  final confirmController = TextEditingController();
+  final tglLahirController = TextEditingController();
+
+
+  // ⬇️ Tambahkan ini
+  String tglLahirAsli = "";
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -87,7 +96,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => setState(() => isLogin = true),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              ),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: isLogin
@@ -109,10 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const AuthPage()),
-                              ),
+                              onTap: () => setState(() => isLogin = false),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: !isLogin
@@ -138,36 +147,36 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Form fields
-                    _buildTextField('Nama', false, icon: Icons.person),
-                    SizedBox(height: screenSize.height * 0.02),
-                    _buildTextField('Kata sandi', true),                    
-                      if (isLogin)
+                    if (!isLogin) ...[
+                      _buildTextField('Nama Lengkap', false),
+                      SizedBox(height: screenSize.height * 0.02),
+                       _buildTextField('Nomor HP', false, icon: Icons.phone), 
+                        SizedBox(height: screenSize.height * 0.02),
+                    ],                    
+                   _buildTextField('Tanggal Lahir', false, icon: Icons.calendar_today),
+                    SizedBox(height: screenSize.height * 0.02),                                          
+                    _buildTextField('Kata Sandi', true),
+                    if (!isLogin) ...[
+                      SizedBox(height: screenSize.height * 0.02),
+                      _buildTextField('Konfirmasi Kata Sandi', true),
+                    ],
+
+                    if (isLogin)
                       Padding(
                         padding: EdgeInsets.only(top: screenSize.height * 0.01),
                         child: Align(
                           alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ForgetPasswordScreen(),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              'Lupa Kata Sandi',
-                              style: GoogleFonts.poppins(
-                                color: const Color(0xFF1976D2),
-                                fontSize: screenSize.width * 0.035,
-                                decoration: TextDecoration.underline,
-                              ),                        
+                          child: Text(
+                            'Lupa Kata Sandi',
+                            style: GoogleFonts.poppins(
+                              color: Colors.blue,
+                              fontSize: screenSize.width * 0.035,
                             ),
                           ),
                         ),
                       ),
                     SizedBox(height: screenSize.height * 0.03),
-                  
+
                     // Tombol utama
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -180,47 +189,75 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                       ),
-                      onPressed: () async {
-                          String nama = _namaController.text.trim();
-                          String password = _passwordController.text.trim();
+                     onPressed: () async {
+                        
+                        if (nameController.text.isEmpty || passwordController.text.isEmpty || nohpController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Harap isi semua kolom terlebih dahulu')),
+                          );
+                          return;
+                        }
 
-                          if (nama.isEmpty || password.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Nama dan password wajib diisi')),
-                            );
-                            return;
-                          }
-                                            
-                      try {
-                          final result = await ApiService.login(nama, password);
-                          
-                          if (result['success']) {
-                            final user = result['user'];
-                            // Simpan session
+                        if (passwordController.text != confirmController.text) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Kata sandi dan konfirmasi tidak sama')),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final result = await ApiService.registerUser(
+                            nameController.text.trim(),
+                            passwordController.text.trim(),
+                            nohpController.text.trim(),
+                            tglLahirAsli.trim(),
+                          );
+
+                          if (result['success'] == true) {
                             await SessionManager.saveUserSession(
-                              result['user']['id_costomer'].toString(),
-                              result['user']['cos_nama'],
+                              result['costomer']['id_costomer'].toString(),
+                              result['costomer']['cos_nama'],
                             );
-                            final poin = int.tryParse(user['cos_poin'].toString()) ?? 0;
-                            UserPointData.setPoints(poin);
-                            // Login berhasil
+
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Registrasi berhasil!')),
+                            );
+
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(builder: (context) => const HomePage()),
                             );
                           } else {
-                            // Login gagal
+                            String message;
+                            switch (result['code']) {
+                              case 4091:
+                                message = 'Nomor HP sudah terdaftar. Gunakan nomor lain.';
+                                break;
+                              case 4092:
+                                message = 'Nama dan password sudah digunakan.';
+                                break;
+                              case 422:
+                                message = 'Nomor HP harus berupa angka 10-13 digit.';
+                                break;
+                              default:
+                                message = 'Terjadi kesalahan. Coba lagi.';
+                            }
+
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(result['message'])),
+                              SnackBar(content: Text(message)),
                             );
                           }
-                        } catch (e) {
+                        } catch (_) {
+                          if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
+                            const SnackBar(content: Text('Gagal terhubung ke server.')),
                           );
                         }
-                      },              
-                      child: Text(
+
+                        },
+                        child: Text(
                         isLogin ? 'Masuk' : 'Daftar',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w500,
@@ -266,46 +303,102 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildTextField(String hint, bool isPassword, {IconData? icon}) {
-    final screenSize = MediaQuery.of(context).size;
-    final controller = hint == 'Nama' ? _namaController : _passwordController;
-    return TextField(
-      controller: controller,
-      obscureText: isPassword && !showPassword,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.poppins(
-          fontSize: screenSize.width * 0.035,
-          color: Colors.black54,
-        ),
-        filled: true,
-        fillColor: Colors.blue.withValues(alpha: 0.15),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  showPassword ? Icons.visibility : Icons.visibility_off,
-                  color: Colors.blue,
-                  size: screenSize.width * 0.05,
-                ),
-                onPressed: () {
-                  setState(() {
-                    showPassword = !showPassword;
-                  });
-                },
-              )
-            : (icon != null
-                ? Icon(icon, color: Colors.blue, size: screenSize.width * 0.05)
-                : null),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: EdgeInsets.symmetric(
-          vertical: screenSize.height * 0.02,
-          horizontal: screenSize.width * 0.04,
-        ),
+  final screenSize = MediaQuery.of(context).size;
+  // Deteksi apakah field ini adalah "Konfirmasi Kata Sandi"
+  bool isConfirm = hint.toLowerCase().contains('konfirmasi');
+
+  // Pilih controller berdasarkan hint
+  TextEditingController? controller;
+  if (hint == 'Nama Lengkap') {
+    controller = nameController;
+  } else if (hint == 'Nomor HP') {
+      controller = nohpController;  
+  }else if (hint == 'Kata Sandi') {
+    controller = passwordController;
+  } else if (hint == 'Konfirmasi Kata Sandi') {
+    controller = confirmController;
+  } else if (hint == 'Tanggal Lahir') {
+  controller = tglLahirController;
+}
+  // Kalau ini field tanggal lahir, buat bisa klik & munculkan DatePicker
+  bool isDateField = hint == 'Tanggal Lahir';
+  return TextField(
+    controller: controller,
+    // Tanggal Lahir
+    readOnly: isDateField,
+    onTap: isDateField
+        ? () async {
+            FocusScope.of(context).requestFocus(FocusNode()); // Tutup keyboard
+            DateTime? pickedDate = await showDatePicker(
+              context: context,
+              initialDate: DateTime(2000),
+              firstDate: DateTime(1950),
+              lastDate: DateTime.now(),
+              locale: const Locale('id', 'ID'),
+            );
+            if (pickedDate != null) {
+            controller?.text = DateFormat('dd-MM-yyyy').format(pickedDate); // tampil di UI
+            tglLahirAsli = DateFormat('yyyy-MM-dd').format(pickedDate); // dikirim ke backend
+          }
+          }
+        : null,
+    // No HP
+    keyboardType: hint == 'Nomor HP' ? TextInputType.phone : TextInputType.text,
+    // Passowrd
+    obscureText: isPassword &&
+        ((isConfirm && !showConfirmPassword) ||
+         (!isConfirm && !showPassword)),
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.poppins(
+        fontSize: screenSize.width * 0.035,
+        color: Colors.black54,
       ),
-    );
-  }
+      filled: true,
+      fillColor: const Color(0xFF1976D2).withValues(alpha: 0.15),
+
+      // Icon untuk toggle visibility password
+      suffixIcon: isPassword
+          ? IconButton(
+              icon: Icon(
+                (isConfirm ? showConfirmPassword : showPassword)
+                    ? Icons.visibility
+                    : Icons.visibility_off,
+                color: const Color(0xFF0D47A1),
+                size: screenSize.width * 0.05,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (isConfirm) {
+                    showConfirmPassword = !showConfirmPassword;
+                  } else {
+                    showPassword = !showPassword;
+                  }
+                });
+              },
+            )
+          : (icon != null
+              ? Icon(
+                  icon,
+                  color: const Color(0xFF0D47A1),
+                  size: screenSize.width * 0.05,
+                )
+              : null),
+
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: EdgeInsets.symmetric(
+        vertical: screenSize.height * 0.02,
+        horizontal: screenSize.width * 0.04,
+      ),
+    ),
+  );
+}
+
+
+
 
   Future<void> _signInWithGoogle() async {
     try {
@@ -345,5 +438,3 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 }
-
-

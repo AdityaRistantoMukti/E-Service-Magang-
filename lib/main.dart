@@ -1,8 +1,7 @@
+import 'package:e_service/Auth/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; 
-import 'login.dart';
-import 'home.dart';
-import 'session_manager.dart';
+import 'Others/session_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

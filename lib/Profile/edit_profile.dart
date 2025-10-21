@@ -1,9 +1,10 @@
+import 'package:e_service/Others/notifikasi.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'edit_name.dart';
 import 'edit_nmtlpn.dart';
-import 'notifikasi.dart';
+
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
