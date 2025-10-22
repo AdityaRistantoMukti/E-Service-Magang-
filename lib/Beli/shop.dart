@@ -94,6 +94,33 @@ class _MarketplacePageState extends State<MarketplacePage> {
     ).format(number);
   }
 
+  String getFirstImage(dynamic gambarField) {
+    try {
+      if (gambarField == null) return '';
+      // Jika field berupa list JSON (contoh: ["a.jpg","b.jpg"])
+      if (gambarField.toString().trim().startsWith('[')) {
+        final List<dynamic> list = List.from(
+          (gambarField is String)
+              ? List<String>.from(List<dynamic>.from(
+                  (gambarField)
+                      .replaceAll('[', '')
+                      .replaceAll(']', '')
+                      .replaceAll('"', '')
+                      .split(','),
+                ))
+              : gambarField,
+        );
+        return list.isNotEmpty ? list.first.trim() : '';
+      }
+      // Jika hanya string biasa
+      return gambarField.toString();
+    } catch (e) {
+      debugPrint('Error parsing gambar: $e');
+      return '';
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -447,6 +474,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
         itemCount: produkList.length,
         itemBuilder: (context, index) {
           final produk = produkList[index];
+          final firstImage = getFirstImage(produk['gambar']);
          return GestureDetector(
           onTap: () {
             Navigator.push(
@@ -487,17 +515,15 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   decoration: BoxDecoration(
                     color: Colors.grey[400],
                     borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(12)),
-                    image: (produk['gambar'] != null &&
-                            produk['gambar'].toString().isNotEmpty)
-                        ? DecorationImage(
-                            image: produk['gambar'].toString().startsWith('assets/')
-                                ? AssetImage(produk['gambar'].toString())
-                                : NetworkImage(produk['gambar'].toString())
-                                    as ImageProvider,
-                            fit: BoxFit.cover,
-                          )
-                        : null,
+                        const BorderRadius.vertical(top: Radius.circular(12)),                        
+                          image: (firstImage.isNotEmpty)
+                              ? DecorationImage(
+                                  image: firstImage.startsWith('assets/')
+                                      ? AssetImage(firstImage)
+                                      : NetworkImage(firstImage) as ImageProvider,
+                                  fit: BoxFit.cover,
+                                )
+                          : null,
                   ),
                   child: (produk['gambar'] == null ||
                           produk['gambar'].toString().isEmpty)
@@ -582,6 +608,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       itemCount: _filteredProduk.length,
       itemBuilder: (context, index) {
         final produk = _filteredProduk[index];
+        final firstImage = getFirstImage(produk['gambar']);
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -596,7 +623,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: [               
               Container(
                 height: 80,
                 decoration: BoxDecoration(

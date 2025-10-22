@@ -216,7 +216,8 @@ class _AuthPageState extends State<AuthPage> {
                           if (result['success'] == true) {
                             await SessionManager.saveUserSession(
                               result['costomer']['id_costomer'].toString(),
-                              result['costomer']['cos_nama'],
+                              result['costomer']['cos_nama'],              
+                              int.tryParse(result['costomer']['cos_poin'].toString()) ?? 0,
                             );
 
                             if (!mounted) return;

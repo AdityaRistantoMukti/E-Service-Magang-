@@ -1,24 +1,31 @@
 
 
+import 'dart:ffi';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionManager {
   static const String _keyUserId = 'id_costomer';
   static const String _keyUserName = 'cos_nama';
+  static const String _keyPoin = 'cos_poin';
 
   // Simpan data login
-  static Future<void> saveUserSession(String id, String name) async {
+  static Future<void> saveUserSession(String id, String name,  int poin) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
     await prefs.setString(_keyUserId, id);
     await prefs.setString(_keyUserName, name);
+    await prefs.setString(_keyUserName, name);
+    await prefs.setInt(_keyPoin, poin);
   }
 
   // Ambil data login
-  static Future<Map<String, String?>> getUserSession() async {
+  static Future<Map<String, dynamic?>> getUserSession() async {
     final prefs = await SharedPreferences.getInstance();
     return {
       'id': prefs.getString(_keyUserId),
-      'name': prefs.getString(_keyUserName),
+      'name': prefs.getString(_keyUserName),    
+      'poin': prefs.getInt(_keyPoin) ?? 0,  
     };
   }
 

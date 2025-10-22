@@ -193,16 +193,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                                             
                       try {
-                          final result = await ApiService.login(nama, password);
-                          
+                          final result = await ApiService.login(nama, password);                                                    
                           if (result['success']) {
                             final user = result['user'];
+                            final poin = int.tryParse(user['cos_poin'].toString()) ?? 0;
                             // Simpan session
                             await SessionManager.saveUserSession(
                               result['user']['id_costomer'].toString(),
                               result['user']['cos_nama'],
-                            );
-                            final poin = int.tryParse(user['cos_poin'].toString()) ?? 0;
+                              poin,
+                            );                            
                             UserPointData.setPoints(poin);
                             // Login berhasil
                             Navigator.pushReplacement(

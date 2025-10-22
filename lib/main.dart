@@ -1,4 +1,5 @@
 import 'package:e_service/Auth/login.dart';
+import 'package:e_service/Home/Home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; 
 import 'Others/session_manager.dart';
@@ -75,13 +76,20 @@ class _SplashScreenState extends State<SplashScreen>
       if (status == AnimationStatus.completed) {
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => LoginScreen()),
-            );
+            if (widget.isLoggedIn) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const HomePage()),
+              );
+            } else {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            }
           }
         });
       }
     });
+
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.forward();
