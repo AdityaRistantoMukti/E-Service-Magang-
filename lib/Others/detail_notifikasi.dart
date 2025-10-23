@@ -6,14 +6,16 @@ class NotificationDetailPage extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color color;
+  final DateTime? timestamp;
 
   const NotificationDetailPage({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.color,
-  }) : super(key: key);
+    this.timestamp,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +53,25 @@ class NotificationDetailPage extends StatelessWidget {
                 color: Colors.black54,
               ),
             ),
+            const SizedBox(height: 10),
+            if (timestamp != null) ...[
+              Text(
+                'Waktu: ${timestamp!.day}-${timestamp!.month}-${timestamp!.year} ${timestamp!.hour}:${timestamp!.minute.toString().padLeft(2, '0')}',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.black45,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Notifikasi ini muncul saat Anda berhasil login ke aplikasi.',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
             const Spacer(),
             Center(
               child: ElevatedButton.icon(
@@ -60,7 +81,7 @@ class NotificationDetailPage extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back),
                 label: const Text("Kembali"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2B51B4),
+                  backgroundColor: color,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

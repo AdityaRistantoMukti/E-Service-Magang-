@@ -3,16 +3,18 @@ import 'dart:async';
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/checkout.dart';
+import 'package:e_service/Others/informasi.dart'; // Tambahkan import ini
 import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/riwayat.dart';
 import 'package:e_service/Others/user_point_data.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Service/Service.dart';
+import 'package:e_service/Service/cleaning_service.dart';
+import 'package:e_service/Service/perbaikan_service.dart';
 import 'package:e_service/api_services/api_service.dart';
 import 'package:e_service/models/promo_model.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-
 
 class TukarPoinPage extends StatefulWidget {
   const TukarPoinPage({super.key});
@@ -68,7 +70,8 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
     try {
       final response = await ApiService.getPromo();
       setState(() {
-        promoList = response.map<Promo>((json) => Promo.fromJson(json)).toList();
+        promoList =
+            response.map<Promo>((json) => Promo.fromJson(json)).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -103,11 +106,16 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                   onPressed: () {},
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                  icon: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.white,
+                  ),
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const NotificationPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationPage(),
+                      ),
                     );
                   },
                 ),
@@ -125,7 +133,10 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                   // ==== CARD POIN ====
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 20,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
@@ -147,11 +158,18 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                               builder: (context, points, _) {
                                 return Text(
                                   "$points ",
-                                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 );
                               },
                             ),
-                            Image.asset('assets/image/coin.png', width: 22, height: 22),
+                            Image.asset(
+                              'assets/image/coin.png',
+                              width: 22,
+                              height: 22,
+                            ),
                             const SizedBox(width: 4),
                             const Text("Poin", style: TextStyle(fontSize: 16)),
                           ],
@@ -159,16 +177,84 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                         Row(
                           children: [
                             Column(
-                              children: const [
-                                Icon(Icons.add_circle_outline, color: Colors.black54),
-                                Text("Tambah", style: TextStyle(fontSize: 12)),
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.add_circle_outline,
+                                    color: Colors.black54,
+                                  ),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: const Text('Pilih Layanan'),
+                                          content: const Text(
+                                            'Pilih jenis layanan yang ingin Anda pesan:',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (context) =>
+                                                            const CleaningServicePage(),
+                                                  ),
+                                                );
+                                              },
+                                              child: const Text('Cleaning'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (context) =>
+                                                            const PerbaikanServicePage(),
+                                                  ),
+                                                );
+                                              },
+                                              child: const Text('Service'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                                const Text(
+                                  "Tambah",
+                                  style: TextStyle(fontSize: 12),
+                                ),
                               ],
                             ),
                             const SizedBox(width: 20),
                             Column(
-                              children: const [
-                                Icon(Icons.history, color: Colors.black54),
-                                Text("Riwayat", style: TextStyle(fontSize: 12)),
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.history,
+                                    color: Colors.black54,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const RiwayatPage(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const Text(
+                                  "Riwayat",
+                                  style: TextStyle(fontSize: 12),
+                                ),
                               ],
                             ),
                           ],
@@ -192,7 +278,9 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                           },
                           itemBuilder: (context, index) {
                             return Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(16),
                                 image: DecorationImage(
@@ -233,7 +321,10 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                       children: [
                         const Text(
                           "Promo Bulan Ini",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -242,6 +333,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                             scrollDirection: Axis.horizontal,
                             children: [
                               _promoCard(
+                                context,
                                 imageUrl:
                                     "https://images.unsplash.com/photo-1593642634443-44adaa06623a?auto=format&fit=crop&w=800&q=80",
                                 title: "Diskon 20% Service Laptop",
@@ -249,6 +341,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                                     "Khusus bulan ini! Service semua jenis laptop lebih hemat.",
                               ),
                               _promoCard(
+                                context,
                                 imageUrl:
                                     "https://images.unsplash.com/photo-1593642532973-d31b6557fa68",
                                 title: "Free Cleaning Keyboard",
@@ -256,6 +349,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                                     "Nikmati gratis cleaning untuk pembelian sparepart.",
                               ),
                               _promoCard(
+                                context,
                                 imageUrl:
                                     "https://images.unsplash.com/photo-1517336714731-489689fd1ca8",
                                 title: "Cashback 15% Sparepart",
@@ -275,11 +369,14 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,  
                       children: const [
                         Text(
                           "Tukarkan",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         Text("→", style: TextStyle(fontSize: 18)),
                       ],
@@ -289,29 +386,31 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
 
                   SizedBox(
                     height: 200,
-                    child: _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: promoList.length,
-                            itemBuilder: (context, index) {
-                              final promo = promoList[index];
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  left: index == 0 ? 16 : 8,
-                                  right: 8,
-                                ),
-                                child: _productCard(context,
-                                  promo.tipeProduk,
-                                  promo.koin.toString(),
-                                  promo.gambar.startsWith('http')
-                                      ? promo.gambar
-                                      : 'http://192.168.1.15:8000/storage/${promo.gambar}',
-                                  promo.diskon,
-                                ),
-                              );
-                            },
-                          ),
+                    child:
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: promoList.length,
+                              itemBuilder: (context, index) {
+                                final promo = promoList[index];
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    left: index == 0 ? 16 : 8,
+                                    right: 8,
+                                  ),
+                                  child: _productCard(
+                                    context,
+                                    promo.tipeProduk,
+                                    promo.koin.toString(),
+                                    promo.gambar.startsWith('http')
+                                        ? promo.gambar
+                                        : 'http://192.168.1.15:8000/storage/${promo.gambar}',
+                                    promo.diskon,
+                                  ),
+                                );
+                              },
+                            ),
                   ),
 
                   const SizedBox(height: 100),
@@ -369,7 +468,10 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
             icon: Icon(Icons.shopping_cart_outlined),
             label: 'Beli',
           ),
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Beranda'),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Beranda',
+          ),
           BottomNavigationBarItem(
             icon: Image.asset('assets/image/promo.png', width: 24, height: 24),
             label: 'Promo',
@@ -397,8 +499,14 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
   }
 }
 
-  // ==== PRODUK CARD ====
-  Widget _productCard(BuildContext context, String name, String poin, String img, int diskon) {
+// ==== PRODUK CARD ====
+Widget _productCard(
+  BuildContext context,
+  String name,
+  String poin,
+  String img,
+  int diskon,
+) {
   return Container(
     width: 160,
     margin: const EdgeInsets.only(right: 12),
@@ -430,9 +538,10 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                 ),
               ),
               child: Center(
-                child: img.startsWith('http')
-                    ? Image.network(img, height: 70, fit: BoxFit.contain)
-                    : Image.asset(img, height: 70, fit: BoxFit.contain),
+                child:
+                    img.startsWith('http')
+                        ? Image.network(img, height: 70, fit: BoxFit.contain)
+                        : Image.asset(img, height: 70, fit: BoxFit.contain),
               ),
             ),
             Positioned(
@@ -493,7 +602,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                     ],
                   ),
 
-                 // ==== TOMBOL TUKAR ====
+                  // ==== TOMBOL TUKAR ====
                   Align(
                     alignment: Alignment.centerRight,
                     child: ElevatedButton(
@@ -501,22 +610,30 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const CheckoutPage(
-                              usePointsFromPromo: true, // Tambahkan parameter ini
-                            ),
+                            builder:
+                                (context) => const CheckoutPage(
+                                  usePointsFromPromo:
+                                      true, // Tambahkan parameter ini
+                                ),
                           ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         minimumSize: const Size(45, 22),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6),
                         ),
                         elevation: 1.5,
-                        textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                        textStyle: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       child: const Text("Tukar"),
                     ),
@@ -531,11 +648,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
   );
 }
 
-
-
-
-
-Widget _promoCard({
+Widget _promoCard(BuildContext context, {
   required String imageUrl,
   required String title,
   required String description,
@@ -546,7 +659,7 @@ Widget _promoCard({
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
-      
+
       boxShadow: [
         BoxShadow(
           color: Colors.black.withOpacity(0.1),
@@ -559,7 +672,7 @@ Widget _promoCard({
       mainAxisSize: MainAxisSize.min, // biar fleksibel
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
+                ClipRRect(
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(16),
             topRight: Radius.circular(16),
@@ -589,10 +702,7 @@ Widget _promoCard({
                 description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.black54,
-                ),
+                style: const TextStyle(fontSize: 11, color: Colors.black54),
               ),
               const SizedBox(height: 6),
               Align(
@@ -603,7 +713,19 @@ Widget _promoCard({
                     minimumSize: const Size(0, 24),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    // Navigasi ke InformasiPage dengan data promo
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => InformasiPage(
+                          bannerImage: imageUrl,
+                          bannerTitle: title,
+                          bannerText: description,
+                        ),
+                      ),
+                    );
+                  },
                   child: const Text(
                     "Lihat Detail",
                     style: TextStyle(

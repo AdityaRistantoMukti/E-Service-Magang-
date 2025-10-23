@@ -5,7 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 
 class AdminScanQrPage extends StatefulWidget {
-  const AdminScanQrPage({Key? key}) : super(key: key);
+  const AdminScanQrPage({super.key});
 
   @override
   State<AdminScanQrPage> createState() => _AdminScanQrPageState();

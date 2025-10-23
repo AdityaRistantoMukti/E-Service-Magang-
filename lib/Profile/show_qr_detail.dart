@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 class ShowQrDetail extends StatefulWidget {
-  const ShowQrDetail({Key? key}) : super(key: key);
+  const ShowQrDetail({super.key});
 
   @override
   State<ShowQrDetail> createState() => _ShowQrDetailState();

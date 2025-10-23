@@ -230,7 +230,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   Switch(
                     value: usePoints,
-                    activeColor: Colors.blue,
+                    activeThumbColor: Colors.blue,
                     onChanged: (value) {
                       setState(() {
                         usePoints = value;

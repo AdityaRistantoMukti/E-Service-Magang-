@@ -36,10 +36,44 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
     setState(() => _loading = true);
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      setState(() {
-        _alamat = "GPS tidak aktif.";
-        _loading = false;
-      });
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Layanan Lokasi Dinonaktifkan'),
+            content: const Text(
+              'Harap aktifkan layanan lokasi untuk menggunakan fitur ini.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _alamat = "GPS tidak aktif.";
+                    _loading = false;
+                  });
+                },
+                child: const Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  bool opened = await Geolocator.openLocationSettings();
+                  if (opened) {
+                    _getCurrentLocation();
+                  } else {
+                    setState(() {
+                      _alamat = "Tidak dapat membuka pengaturan.";
+                      _loading = false;
+                    });
+                  }
+                },
+                child: const Text('Buka Pengaturan'),
+              ),
+            ],
+          );
+        },
+      );
       return;
     }
 
@@ -67,20 +101,26 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
       desiredAccuracy: LocationAccuracy.high,
     );
 
-    _updateAddressFromLatLng(LatLng(position.latitude, position.longitude),
-        moveMap: true);
+    _updateAddressFromLatLng(
+      LatLng(position.latitude, position.longitude),
+      moveMap: true,
+    );
   }
 
-  Future<void> _updateAddressFromLatLng(LatLng latLng,
-      {bool moveMap = false}) async {
+  Future<void> _updateAddressFromLatLng(
+    LatLng latLng, {
+    bool moveMap = false,
+  }) async {
     setState(() {
       _currentLatLng = latLng;
       _loading = true;
     });
 
     try {
-      final placemarks =
-          await placemarkFromCoordinates(latLng.latitude, latLng.longitude);
+      final placemarks = await placemarkFromCoordinates(
+        latLng.latitude,
+        latLng.longitude,
+      );
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
         _alamat =
@@ -106,25 +146,33 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
     // Validation
     if (labelController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Label wajib diisi dan tidak boleh kosong')),
+        const SnackBar(
+          content: Text('Label wajib diisi dan tidak boleh kosong'),
+        ),
       );
       return;
     }
     if (detailController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Detail Alamat wajib diisi dan tidak boleh kosong')),
+        const SnackBar(
+          content: Text('Detail Alamat wajib diisi dan tidak boleh kosong'),
+        ),
       );
       return;
     }
     if (namaController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nama Penerima wajib diisi dan tidak boleh kosong')),
+        const SnackBar(
+          content: Text('Nama Penerima wajib diisi dan tidak boleh kosong'),
+        ),
       );
       return;
     }
     if (hpController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No. HP Penerima wajib diisi dan tidak boleh kosong')),
+        const SnackBar(
+          content: Text('No. HP Penerima wajib diisi dan tidak boleh kosong'),
+        ),
       );
       return;
     }
@@ -141,9 +189,9 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
       'longitude': _currentLatLng.longitude,
     };
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Alamat berhasil disimpan ✅")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Alamat berhasil disimpan ✅")));
 
     Navigator.pop(context, addressData);
   }
@@ -154,8 +202,10 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: Colors.blue,
-        title: const Text("Detail Alamat",
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Detail Alamat",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: Stack(
         children: [
@@ -177,7 +227,8 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                         onMapEvent: (event) {
                           if (event is MapEventMoveEnd && _mapMoving) {
                             _updateAddressFromLatLng(
-                                _mapController.camera.center);
+                              _mapController.camera.center,
+                            );
                             _mapMoving = false;
                           }
                         },
@@ -188,15 +239,20 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                               "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                           subdomains: const ['a', 'b', 'c'],
                         ),
-                        MarkerLayer(markers: [
-                          Marker(
-                            point: _currentLatLng,
-                            width: 40,
-                            height: 40,
-                            child: const Icon(Icons.location_pin,
-                                color: Colors.redAccent, size: 40),
-                          ),
-                        ]),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _currentLatLng,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.location_pin,
+                                color: Colors.redAccent,
+                                size: 40,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                     Positioned(
@@ -207,8 +263,10 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                         mini: true,
                         backgroundColor: Colors.white,
                         onPressed: _pusatkanLokasi,
-                        child: const Icon(Icons.my_location,
-                            color: Colors.blueAccent),
+                        child: const Icon(
+                          Icons.my_location,
+                          color: Colors.blueAccent,
+                        ),
                       ),
                     ),
                   ],
@@ -224,13 +282,16 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                     const Icon(Icons.location_on, color: Colors.redAccent),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(_alamat,
-                          style: const TextStyle(
-                              fontSize: 13, color: Colors.black87)),
+                      child: Text(
+                        _alamat,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                      ),
                     ),
                     IconButton(
-                      icon:
-                          const Icon(Icons.refresh, color: Colors.blueAccent),
+                      icon: const Icon(Icons.refresh, color: Colors.blueAccent),
                       onPressed: _getCurrentLocation,
                     ),
                   ],
@@ -247,20 +308,25 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                       children: [
                         _buildTextField("Label*", labelController),
                         _buildTextField("Detail Alamat*", detailController),
-                        _buildTextField("Catatan (Opsional)", catatanController),
+                        _buildTextField(
+                          "Catatan (Opsional)",
+                          catatanController,
+                        ),
                         _buildTextField("Nama Penerima*", namaController),
-                        _buildTextField("No. HP Penerima*", hpController,
-                            keyboardType: TextInputType.phone),
+                        _buildTextField(
+                          "No. HP Penerima*",
+                          hpController,
+                          keyboardType: TextInputType.phone,
+                        ),
                         Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text("Jadikan alamat utama"),
                             Switch(
                               value: jadikanUtama,
-                              onChanged: (v) =>
-                                  setState(() => jadikanUtama = v),
-                              activeColor: Colors.blue,
+                              onChanged:
+                                  (v) => setState(() => jadikanUtama = v),
+                              activeThumbColor: Colors.blue,
                             ),
                           ],
                         ),
@@ -271,12 +337,16 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
                             backgroundColor: Colors.blue,
                             minimumSize: const Size(double.infinity, 48),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                          child: const Text("Simpan",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white)),
+                          child: const Text(
+                            "Simpan",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -298,16 +368,20 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      {TextInputType keyboardType = TextInputType.text}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
           const SizedBox(height: 6),
           TextField(
             controller: controller,
@@ -321,8 +395,10 @@ class _DetailAlamatPageState extends State<DetailAlamatPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    const BorderSide(color: Colors.blueAccent, width: 1.5),
+                borderSide: const BorderSide(
+                  color: Colors.blueAccent,
+                  width: 1.5,
+                ),
               ),
             ),
           ),

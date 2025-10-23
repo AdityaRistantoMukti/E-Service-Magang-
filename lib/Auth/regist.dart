@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'login.dart';
 import 'auth_service.dart';
 import '../Home/Home.dart';
-import 'auth_service.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -227,7 +226,7 @@ class _AuthPageState extends State<AuthPage> {
 
                             Navigator.pushReplacement(
                               context,
-                              MaterialPageRoute(builder: (context) => const HomePage()),
+                              MaterialPageRoute(builder: (context) => const HomePage(isFreshLogin: true)),
                             );
                           } else {
                             String message;

@@ -3,6 +3,7 @@ import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -11,10 +12,13 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'progres_service.dart';
 
 class TrackingPage extends StatefulWidget {
-  const TrackingPage({super.key});
+  final String? queueCode;
+
+  const TrackingPage({super.key, this.queueCode});
 
   @override
   State<TrackingPage> createState() => _ServicePageState();
@@ -32,10 +36,72 @@ class _ServicePageState extends State<TrackingPage> {
 
   final mapController = MapController();
 
+  // Data dari queue code
+  String nama = "Udin";
+  String device = "Laptop";
+  String merek = "Asus";
+  String seri = "xxxxxxxxxx";
+  String layanan = "Cleaning";
+  String jamMulai = "10.00";
+  String jamSelesai = "-";
+  List<String> jenisLayanan = [];
+
   @override
   void initState() {
     super.initState();
     _getUserLocation();
+    _parseQueueCode();
+  }
+
+  void _parseQueueCode() async {
+    if (widget.queueCode != null && widget.queueCode!.isNotEmpty) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      // Ambil data dari SharedPreferences berdasarkan queue code
+      String? namaFromPrefs = prefs.getString('${widget.queueCode}_nama');
+      String? serviceTypeFromPrefs = prefs.getString(
+        '${widget.queueCode}_serviceType',
+      );
+      String? deviceFromPrefs = prefs.getString('${widget.queueCode}_device');
+      String? merekFromPrefs = prefs.getString('${widget.queueCode}_merek');
+      String? seriFromPrefs = prefs.getString('${widget.queueCode}_seri');
+      String? jamMulaiFromPrefs = prefs.getString(
+        '${widget.queueCode}_jamMulai',
+      );
+
+      // Debug print untuk melihat data yang diambil
+      print('Data diambil untuk kode: ${widget.queueCode}');
+      print('Nama: $namaFromPrefs');
+      print('Service Type: $serviceTypeFromPrefs');
+      print('Device: $deviceFromPrefs');
+      print('Merek: $merekFromPrefs');
+      print('Seri: $seriFromPrefs');
+      print('Jam Mulai: $jamMulaiFromPrefs');
+
+      setState(() {
+        nama = namaFromPrefs ?? nama;
+        device = deviceFromPrefs ?? device;
+        merek = merekFromPrefs ?? merek;
+        seri = seriFromPrefs ?? seri;
+        layanan = serviceTypeFromPrefs == 'cleaning' ? 'Cleaning' : 'Perbaikan';
+        jamMulai =
+            jamMulaiFromPrefs != null
+                ? _formatTime(jamMulaiFromPrefs)
+                : jamMulai;
+
+        // Set jenis layanan berdasarkan service type
+        if (serviceTypeFromPrefs == 'cleaning') {
+          jenisLayanan = ["Pembersihan Hardware", "Pembersihan Software"];
+        } else if (serviceTypeFromPrefs == 'repair') {
+          jenisLayanan = ["Upgrade RAM", "Upgrade SSD"];
+        }
+      });
+    }
+  }
+
+  String _formatTime(String dateTimeString) {
+    DateTime dateTime = DateTime.parse(dateTimeString);
+    return '${dateTime.hour.toString().padLeft(2, '0')}.${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   Future<void> _getUserLocation() async {
@@ -126,28 +192,16 @@ class _ServicePageState extends State<TrackingPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow("Nama", "Udin", "Jam Mulai", "10.00"),
+                  _infoRow("Nama", nama, "Jam Mulai", jamMulai),
                   const SizedBox(height: 8),
-                  _infoRow("Device", "Laptop", "Jam Selesai", "-"),
+                  _infoRow("Device", device, "Jam Selesai", jamSelesai),
                   const SizedBox(height: 8),
-                  _infoRow("Merek", "Asus", "", ""),
+                  _infoRow("Merek", merek, "", ""),
                   const SizedBox(height: 8),
-                  _infoRow("Seri", "xxxxxxxxxx", "", ""),
+                  _infoRow("Seri", seri, "", ""),
+                  const SizedBox(height: 8),
+                  _infoRow("Layanan", layanan, "", ""),
                   const SizedBox(height: 12),
-                  Text(
-                    "Jenis Service :",
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _chipService("Upgrade RAM"),
-                      _chipService("Upgrade SSD"),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
 
                   // 🗺️ Map tampilan mini tracking
                   Container(
@@ -177,7 +231,7 @@ class _ServicePageState extends State<TrackingPage> {
                       _statusBox(
                         color: Colors.red,
                         icon: Icons.schedule_outlined,
-                        label: 'Pick-up barang',
+                        label: 'Sampai Lokasi',
                       ),
                     ],
                   ),
@@ -240,10 +294,7 @@ class _ServicePageState extends State<TrackingPage> {
 
     return FlutterMap(
       mapController: mapController,
-      options: MapOptions(
-        initialCenter: _driverLocation,
-        initialZoom: 13,
-      ),
+      options: MapOptions(initialCenter: _driverLocation, initialZoom: 13),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -303,12 +354,20 @@ class _ServicePageState extends State<TrackingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label1,
-                  style: GoogleFonts.poppins(
-                      fontSize: 12, color: Colors.grey[600])),
-              Text(value1,
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, fontWeight: FontWeight.w500)),
+              Text(
+                label1,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Text(
+                value1,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),
@@ -317,12 +376,20 @@ class _ServicePageState extends State<TrackingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label2,
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, color: Colors.grey[600])),
-                Text(value2,
-                    style: GoogleFonts.poppins(
-                        fontSize: 14, fontWeight: FontWeight.w500)),
+                Text(
+                  label2,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Text(
+                  value2,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -389,7 +456,13 @@ class _ServicePageState extends State<TrackingPage> {
     return BottomNavigationBar(
       currentIndex: currentIndex,
       onTap: (index) {
-        if (index == 1) {
+        if (index == 0) {
+          // Service - stay on current page or navigate to service page
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ServicePage()),
+          );
+        } else if (index == 1) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MarketplacePage()),
@@ -409,10 +482,6 @@ class _ServicePageState extends State<TrackingPage> {
             context,
             MaterialPageRoute(builder: (context) => const ProfilePage()),
           );
-        } else {
-          setState(() {
-            currentIndex = index;
-          });
         }
       },
       backgroundColor: Colors.blue,
@@ -435,11 +504,7 @@ class _ServicePageState extends State<TrackingPage> {
         BottomNavigationBarItem(
           icon:
               currentIndex == 3
-                  ? Image.asset(
-                    'assets/image/promo.png',
-                    width: 24,
-                    height: 24,
-                  )
+                  ? Image.asset('assets/image/promo.png', width: 24, height: 24)
                   : Opacity(
                     opacity: 0.6,
                     child: Image.asset(

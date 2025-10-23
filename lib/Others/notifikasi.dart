@@ -1,33 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'detail_notifikasi.dart';
+import 'notification_service.dart';
+import '../models/notification_model.dart';
 
 class NotificationPage extends StatefulWidget {
-  const NotificationPage({Key? key}) : super(key: key);
+  const NotificationPage({super.key});
 
   @override
   State<NotificationPage> createState() => _NotificationPageState();
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  List<Map<String, dynamic>> notifications = [
-    {
-      'icon': Icons.card_giftcard,
-      'title': 'Selamat ulang tahun Users',
-      'subtitle':
-          'Anda mendapatkan hadiah ulang tahun, klik untuk mengambilnya',
-      'color': Colors.blue,
-      'textColor': Colors.white,
-    },
-    {
-      'icon': Icons.person,
-      'title': 'Selamat datang Users',
-      'subtitle':
-          'Selamat datang perbarui profilmu yuk, klik untuk melihat profile anda',
-      'color': const Color(0xFFE0E0E0),
-      'textColor': Colors.black87,
-    },
-  ];
+  List<NotificationModel> notifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    final loaded = await NotificationService.getNotifications();
+    setState(() {
+      notifications = loaded;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +40,7 @@ class _NotificationPageState extends State<NotificationPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Image.asset(
-              'assets/logo.png', // ganti sesuai logo kamu
+              'assets/image/logo.png', // ganti sesuai logo kamu
               height: 40,
             ),
             const Icon(Icons.chat_bubble_outline, color: Colors.white),
@@ -79,13 +78,12 @@ class _NotificationPageState extends State<NotificationPage> {
                 return Dismissible(
                   key: UniqueKey(),
                   direction: DismissDirection.endToStart,
-                  onDismissed: (direction) {
-                    setState(() {
-                      notifications.removeAt(index);
-                    });
+                  onDismissed: (direction) async {
+                    await NotificationService.removeNotification(index);
+                    await _loadNotifications();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('${item['title']} dihapus'),
+                        content: Text('${item.title} dihapus'),
                         duration: const Duration(seconds: 2),
                       ),
                     );
@@ -99,25 +97,37 @@ class _NotificationPageState extends State<NotificationPage> {
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
-                      color: item['color'],
+                      color: item.color,
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: ListTile(
                       leading: Icon(
-                        item['icon'],
-                        color: item['textColor'],
+                        item.icon,
+                        color: item.textColor,
                       ),
-                      title: Text(
-                        item['title'],
-                        style: GoogleFonts.poppins(
-                          color: item['textColor'],
-                          fontWeight: FontWeight.w600,
-                        ),
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: GoogleFonts.poppins(
+                              color: item.textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            DateFormat('dd-MM-yyyy HH:mm').format(item.timestamp),
+                            style: GoogleFonts.poppins(
+                              color: item.textColor.withOpacity(0.6),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
                       subtitle: Text(
-                        item['subtitle'],
+                        item.subtitle,
                         style: GoogleFonts.poppins(
-                          color: item['textColor'].withOpacity(0.8),
+                          color: item.textColor.withOpacity(0.8),
                           fontSize: 12,
                         ),
                       ),
@@ -126,10 +136,11 @@ class _NotificationPageState extends State<NotificationPage> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => NotificationDetailPage(
-                              title: item['title'],
-                              subtitle: item['subtitle'],
-                              icon: item['icon'],
-                              color: item['color'],
+                              title: item.title,
+                              subtitle: item.subtitle,
+                              icon: item.icon,
+                              color: item.color,
+                              timestamp: item.timestamp,
                             ),
                           ),
                         );

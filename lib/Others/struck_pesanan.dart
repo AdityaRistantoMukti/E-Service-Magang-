@@ -9,7 +9,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
 import 'notifikasi.dart';
 

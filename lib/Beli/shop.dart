@@ -714,7 +714,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   // SHIMMER LOADING
   Widget _buildShimmerLoading() {
     // helper: shimmer pill (brand)
-    Widget _shimmerBrandPill() {
+    Widget shimmerBrandPill() {
       return Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,
@@ -731,7 +731,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     }
 
     
-    Widget _shimmerProductCard({double width = 160, double heightImg = 110}) {
+    Widget shimmerProductCard({double width = 160, double heightImg = 110}) {
       return Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,
@@ -775,7 +775,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     }
 
     // helper: one grid shimmer tile (for brand-selected grid)
-    Widget _shimmerGridTile() {
+    Widget shimmerGridTile() {
       return Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,
@@ -823,7 +823,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     top: 12.0,
                     bottom: 12.0,
                   ),
-                  child: _shimmerBrandPill(),
+                  child: shimmerBrandPill(),
                 ),
               ),
             ),
@@ -874,7 +874,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             height: 240,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: List.generate(4, (_) => _shimmerProductCard()),
+              children: List.generate(4, (_) => shimmerProductCard()),
             ),
           ),
 
@@ -909,7 +909,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             height: 240,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: List.generate(4, (_) => _shimmerProductCard()),
+              children: List.generate(4, (_) => shimmerProductCard()),
             ),
           ),
 
@@ -944,7 +944,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
             height: 240,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: List.generate(4, (_) => _shimmerProductCard()),
+              children: List.generate(4, (_) => shimmerProductCard()),
             ),
           ),
 

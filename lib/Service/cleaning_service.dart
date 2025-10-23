@@ -5,12 +5,8 @@ import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'detail_service.dart';
 
 class CleaningServicePage extends StatefulWidget {
@@ -24,41 +20,56 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
   int currentIndex = 0;
 
   final TextEditingController namaController = TextEditingController();
-  final TextEditingController alamatController = TextEditingController();
 
   int jumlahBarang = 1;
   List<TextEditingController> seriControllers = [];
+  List<TextEditingController> emailControllers = []; // Tambahkan untuk email
   List<String?> selectedMereks = [];
   List<String?> selectedDevices = [];
   List<String?> selectedStatuses = [];
   String? selectedStatus;
 
   final List<String> merekOptions = [
-    'Asus', 'Dell', 'HP', 'Lenovo', 'Apple', 'Samsung', 'Sony', 'Toshiba'
+    'Asus',
+    'Dell',
+    'HP',
+    'Lenovo',
+    'Apple',
+    'Samsung',
+    'Sony',
+    'Toshiba',
   ];
   final List<String> deviceOptions = [
-    'Laptop', 'Desktop', 'Tablet', 'Smartphone', 'Printer', 'Monitor', 'Keyboard', 'Mouse'
+    'Laptop',
+    'Desktop',
+    'Tablet',
+    'Smartphone',
+    'Printer',
+    'Monitor',
+    'Keyboard',
+    'Mouse',
   ];
   final List<String> statusOptions = [
     'CID',
     'IW(Masih Garansi)',
-    'OOW(Tidak Garansi)'
+    'OOW(Tidak Garansi)',
   ];
-
-  MapController mapController = MapController();
-  LatLng? currentPosition;
-  String? currentAddress;
-  List<Marker> markers = [];
 
   @override
   void initState() {
     super.initState();
     _initializeItemFields();
-    _getCurrentLocation();
   }
 
   void _initializeItemFields() {
-    seriControllers = List.generate(jumlahBarang, (_) => TextEditingController());
+    seriControllers = List.generate(
+      jumlahBarang,
+      (_) => TextEditingController(),
+    );
+    emailControllers = List.generate(
+      jumlahBarang,
+      (_) => TextEditingController(),
+    );
     selectedMereks = List.filled(jumlahBarang, null);
     selectedDevices = List.filled(jumlahBarang, null);
     selectedStatuses = List.filled(jumlahBarang, null);
@@ -71,52 +82,11 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
     });
   }
 
-  Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
-    }
-
-    if (permission == LocationPermission.deniedForever) return;
-
-    Position position = await Geolocator.getCurrentPosition();
-    await _updateLocation(position);
-
-    Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 5,
-      ),
-    ).listen((Position position) {
-      _updateLocation(position, moveCamera: true);
-    });
-  }
-
-  Future<void> _updateLocation(Position position, {bool moveCamera = false}) async {
-    LatLng newPos = LatLng(position.latitude, position.longitude);
-    setState(() {
-      currentPosition = newPos;
-    });
-
-    try {
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
-      Placemark place = placemarks.first;
-      setState(() {
-        currentAddress =
-            "${place.street}, ${place.locality}, ${place.administrativeArea}";
-        alamatController.text = currentAddress ?? "";
-      });
-    } catch (_) {}
-
-    if (moveCamera) mapController.move(newPos, 15);
+  // Fungsi untuk mendapatkan email lengkap
+  String _getFullEmail(int index) {
+    String username = emailControllers[index].text.trim();
+    if (username.isEmpty) return '';
+    return '$username@gmail.com';
   }
 
   @override
@@ -145,10 +115,17 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                   onPressed: () {},
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                  icon: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.white,
+                  ),
                   onPressed: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => const NotificationPage()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationPage(),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -188,26 +165,54 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("Barang ${index + 1}",
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(
+                                  "Barang ${index + 1}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
                                 const SizedBox(height: 10),
-                                _dropdownField("Status", selectedStatuses[index], statusOptions,
-                                    (value) {
-                                  setState(() => selectedStatuses[index] = value);
-                                }),
+                                _dropdownField(
+                                  "Status",
+                                  selectedStatuses[index],
+                                  statusOptions,
+                                  (value) {
+                                    setState(
+                                      () => selectedStatuses[index] = value,
+                                    );
+                                  },
+                                ),
                                 const SizedBox(height: 10),
-                                _dropdownField("Merek", selectedMereks[index], merekOptions,
-                                    (value) {
-                                  setState(() => selectedMereks[index] = value);
-                                }),
+                                _dropdownField(
+                                  "Merek",
+                                  selectedMereks[index],
+                                  merekOptions,
+                                  (value) {
+                                    setState(
+                                      () => selectedMereks[index] = value,
+                                    );
+                                  },
+                                ),
                                 const SizedBox(height: 10),
-                                _dropdownField("Device", selectedDevices[index], deviceOptions,
-                                    (value) {
-                                  setState(() => selectedDevices[index] = value);
-                                }),
+                                _dropdownField(
+                                  "Device",
+                                  selectedDevices[index],
+                                  deviceOptions,
+                                  (value) {
+                                    setState(
+                                      () => selectedDevices[index] = value,
+                                    );
+                                  },
+                                ),
                                 const SizedBox(height: 10),
                                 _inputField("Seri", seriControllers[index]),
+                                // Kondisi untuk menampilkan field email
+                                if (selectedStatuses[index] == "IW(Masih Garansi)" &&
+                                    selectedMereks[index] == "Lenovo") ...[
+                                  const SizedBox(height: 10),
+                                  _emailField("Email *", emailControllers[index]), // Gunakan _emailField khusus
+                                ],
                               ],
                             ),
                           );
@@ -220,41 +225,86 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                               // Validation
                               if (namaController.text.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Nama wajib diisi dan tidak boleh kosong')),
-                                );
-                                return;
-                              }
-                              if (alamatController.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Alamat wajib diisi dan tidak boleh kosong')),
+                                  const SnackBar(
+                                    content: Text(
+                                      'Nama wajib diisi dan tidak boleh kosong',
+                                    ),
+                                  ),
                                 );
                                 return;
                               }
                               for (int i = 0; i < jumlahBarang; i++) {
                                 if (selectedStatuses[i] == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Status untuk Barang ${i + 1} wajib dipilih')),
+                                    SnackBar(
+                                      content: Text(
+                                        'Status untuk Barang ${i + 1} wajib dipilih',
+                                      ),
+                                    ),
                                   );
                                   return;
                                 }
                                 if (selectedMereks[i] == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Merek untuk Barang ${i + 1} wajib dipilih')),
+                                    SnackBar(
+                                      content: Text(
+                                        'Merek untuk Barang ${i + 1} wajib dipilih',
+                                      ),
+                                    ),
                                   );
                                   return;
                                 }
                                 if (selectedDevices[i] == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Device untuk Barang ${i + 1} wajib dipilih')),
+                                    SnackBar(
+                                      content: Text(
+                                        'Device untuk Barang ${i + 1} wajib dipilih',
+                                      ),
+                                    ),
                                   );
                                   return;
                                 }
                                 if (seriControllers[i].text.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Seri untuk Barang ${i + 1} wajib diisi dan tidak boleh kosong')),
+                                    SnackBar(
+                                      content: Text(
+                                        'Seri untuk Barang ${i + 1} wajib diisi dan tidak boleh kosong',
+                                      ),
+                                    ),
                                   );
                                   return;
                                 }
+                                // Validasi email jika kondisi terpenuhi
+                               if (selectedStatuses[i] == "IW (Masih Garansi)" &&
+                                  selectedMereks[i] == "Lenovo") {
+                                String username = emailControllers[i].text.trim();
+                                if (username.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Email wajib diisi'),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (username.contains('@')) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Email tidak boleh mengandung "@"'),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                String fullEmail = _getFullEmail(i);
+                                // Validasi format email lengkap
+                                if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(fullEmail)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Format email tidak valid'),
+                                    ),
+                                  );
+                                  return;
+                                }
+                              }
                               }
                               // If all validations pass
                               List<Map<String, String?>> items = [];
@@ -264,33 +314,46 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                   'merek': selectedMereks[i],
                                   'device': selectedDevices[i],
                                   'seri': seriControllers[i].text,
+                                  'email': (selectedStatuses[i] == "IW(Masih Garansi)" &&
+                                           selectedMereks[i] == "Lenovo")
+                                      ? _getFullEmail(i)
+                                      : null,
                                 });
                               }
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => DetailServicePage(
-                                    serviceType: 'cleaning',
-                                    nama: namaController.text,
-                                    status: selectedStatuses.isNotEmpty ? selectedStatuses[0] : null,
-                                    jumlahBarang: jumlahBarang,
-                                    items: items,
-                                    alamat: alamatController.text,
-                                  ),
+                                  builder:
+                                      (context) => DetailServicePage(
+                                        serviceType: 'cleaning',
+                                        nama: namaController.text,
+                                        status:
+                                            selectedStatuses.isNotEmpty
+                                                ? selectedStatuses[0]
+                                                : null,
+                                        jumlahBarang: jumlahBarang,
+                                        items: items,
+                                        alamat: '',
+                                      ),
                                 ),
                               );
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF1976D2),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 50, vertical: 14),
+                                horizontal: 50,
+                                vertical: 14,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
                               ),
                             ),
                             child: const Text(
                               "Pesan",
-                              style: TextStyle(fontSize: 16, color: Colors.white),
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -310,19 +373,29 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
         onTap: (index) {
           if (index == 0) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const ServicePage()));
+              context,
+              MaterialPageRoute(builder: (context) => const ServicePage()),
+            );
           } else if (index == 1) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const MarketplacePage()));
+              context,
+              MaterialPageRoute(builder: (context) => const MarketplacePage()),
+            );
           } else if (index == 2) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const HomePage()));
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            );
           } else if (index == 3) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const TukarPoinPage()));
+              context,
+              MaterialPageRoute(builder: (context) => const TukarPoinPage()),
+            );
           } else if (index == 4) {
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
+            );
           }
         },
         backgroundColor: const Color(0xFF1976D2),
@@ -334,20 +407,36 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         items: [
           const BottomNavigationBarItem(
-              icon: Icon(Icons.build_circle_outlined), label: 'Service'),
+            icon: Icon(Icons.build_circle_outlined),
+            label: 'Service',
+          ),
           const BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart_outlined), label: 'Beli'),
+            icon: Icon(Icons.shopping_cart_outlined),
+            label: 'Beli',
+          ),
           const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: currentIndex == 3
-                ? Image.asset('assets/image/promo.png', width: 24, height: 24)
-                : Opacity(
-                    opacity: 0.6,
-                    child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
+            icon:
+                currentIndex == 3
+                    ? Image.asset(
+                      'assets/image/promo.png',
+                      width: 24,
+                      height: 24,
+                    )
+                    : Opacity(
+                      opacity: 0.6,
+                      child: Image.asset(
+                        'assets/image/promo.png',
+                        width: 24,
+                        height: 24,
+                      ),
+                    ),
             label: 'Promo',
           ),
           const BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Profile'),
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
         ],
       ),
     );
@@ -355,21 +444,29 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
 
   // ==== FIELD STYLES ====
 
-  Widget _inputField(String label, TextEditingController controller) {
+  Widget _inputField(String label, TextEditingController controller, {TextInputType? keyboardType}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Colors.black,
+          ),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
+          keyboardType: keyboardType,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey.shade300),
@@ -388,15 +485,76 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
       ],
     );
   }
+  
+  // Widget khusus untuk email dengan suffix @gmail.com
+Widget _emailField(String label, TextEditingController controller) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: Colors.black,
+        ),
+      ),
+      const SizedBox(height: 6),
+      TextField(
+        controller: controller,
+        keyboardType: TextInputType.text,
+        inputFormatters: [
+          FilteringTextInputFormatter.deny('@'), // Cegah user mengetik "@"
+        ],
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 10,
+          ),
+          suffixText: '@gmail.com',
+          suffixStyle: const TextStyle(
+            color: Colors.black54,
+            fontSize: 14,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF1976D2)),
+          ),
+          hintText: 'Masukkan nama email (tanpa @gmail.com)',
+        ),
+        style: const TextStyle(color: Colors.black, fontSize: 14),
+      ),
+    ],
+  );
+}
 
   Widget _dropdownField(
-      String label, String? selectedValue, List<String> options, ValueChanged<String?> onChanged) {
+    String label,
+    String? selectedValue,
+    List<String> options,
+    ValueChanged<String?> onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Colors.black,
+          ),
+        ),
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -407,15 +565,22 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
           ),
           child: DropdownButton<String>(
             value: selectedValue,
-            hint: const Text('Pilih...', style: TextStyle(color: Colors.black54)),
+            hint: const Text(
+              'Pilih...',
+              style: TextStyle(color: Colors.black54),
+            ),
             isExpanded: true,
             underline: const SizedBox(),
-            items: options.map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value, style: const TextStyle(color: Colors.black)),
-              );
-            }).toList(),
+            items:
+                options.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(
+                      value,
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  );
+                }).toList(),
             onChanged: onChanged,
           ),
         ),
@@ -426,8 +591,10 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
   Widget _jumlahBarangField() {
     return Row(
       children: [
-        const Text("Jumlah Barang :",
-            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black)),
+        const Text(
+          "Jumlah Barang :",
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
+        ),
         const Spacer(),
         Container(
           decoration: BoxDecoration(
@@ -440,14 +607,20 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
               IconButton(
                 icon: const Icon(Icons.remove, size: 18, color: Colors.black),
                 onPressed:
-                    jumlahBarang > 1 ? () => _updateJumlahBarang(jumlahBarang - 1) : null,
+                    jumlahBarang > 1
+                        ? () => _updateJumlahBarang(jumlahBarang - 1)
+                        : null,
               ),
-              Text(jumlahBarang.toString(),
-                  style: const TextStyle(fontSize: 16, color: Colors.black)),
+              Text(
+                jumlahBarang.toString(),
+                style: const TextStyle(fontSize: 16, color: Colors.black),
+              ),
               IconButton(
                 icon: const Icon(Icons.add, size: 18, color: Colors.black),
                 onPressed:
-                    jumlahBarang < 10 ? () => _updateJumlahBarang(jumlahBarang + 1) : null,
+                    jumlahBarang < 10
+                        ? () => _updateJumlahBarang(jumlahBarang + 1)
+                        : null,
               ),
             ],
           ),

@@ -252,7 +252,7 @@ class _CekHargaPageState extends State<CekHargaPage> {
           SizedBox(width: 70, child: Text('$label :', style: const TextStyle(fontWeight: FontWeight.bold))),
           Expanded(
             child: DropdownButtonFormField<String>(
-              value: value,
+              initialValue: value,
               items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
               onChanged: onChanged,
               decoration: InputDecoration(

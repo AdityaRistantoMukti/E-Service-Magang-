@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 class ShowQrToAddCoins extends StatefulWidget {
-  const ShowQrToAddCoins({Key? key}) : super(key: key);
+  const ShowQrToAddCoins({super.key});
 
   @override
   State<ShowQrToAddCoins> createState() => _ShowQrToAddCoinsState();

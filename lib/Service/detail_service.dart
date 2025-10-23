@@ -1,7 +1,9 @@
 import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'detail_alamat.dart';
+import 'tracking_driver.dart';
 
 class DetailServicePage extends StatefulWidget {
   final String serviceType;
@@ -34,9 +36,9 @@ class _DetailServicePageState extends State<DetailServicePage> {
   late String currentQueueCode;
 
   // Fungsi untuk membuat kode antrean baru
-  String _generateQueueCode() {
+  String _generateQueueCode(String serviceType) {
     _lastQueueNumber++;
-    return "TTS${_lastQueueNumber.toString().padLeft(3, '0')}";
+    return "TTS${_lastQueueNumber.toString().padLeft(3, '0')}-$serviceType";
   }
 
   @override
@@ -77,19 +79,24 @@ class _DetailServicePageState extends State<DetailServicePage> {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
-          onPressed: selectedPaymentMethod != null
-              ? () => _completeOrder(context)
-              : () => _showPaymentOptions(context),
+          onPressed:
+              selectedPaymentMethod != null
+                  ? () => _completeOrder(context)
+                  : () => _showPaymentOptions(context),
           child: Text(
             selectedPaymentMethod != null
                 ? "Selesaikan Pesanan"
                 : "Pilih Metode Pembayaran",
             style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
@@ -106,20 +113,26 @@ class _DetailServicePageState extends State<DetailServicePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("${widget.jumlahBarang} Barang",
-              style: const TextStyle(color: Colors.black54, fontSize: 13)),
+          Text(
+            "${widget.jumlahBarang} Barang",
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
+          ),
           const SizedBox(height: 6),
           Row(
             children: const [
               Icon(Icons.local_shipping, color: Colors.orange, size: 20),
               SizedBox(width: 6),
-              Text("Pengiriman 1–3 Hari",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(
+                "Pengiriman 1–3 Hari",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
             ],
           ),
           const SizedBox(height: 4),
-          const Text("Service Online",
-              style: TextStyle(color: Colors.black54, fontSize: 12)),
+          const Text(
+            "Service Online",
+            style: TextStyle(color: Colors.black54, fontSize: 12),
+          ),
           const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
@@ -135,14 +148,17 @@ class _DetailServicePageState extends State<DetailServicePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Estimasi sampai: Maks. Senin, 20 Okt",
-                          style: TextStyle(fontSize: 13)),
-                      Text("Jam 07:00 – 21:00",
-                          style:
-                              TextStyle(color: Colors.black54, fontSize: 12)),
+                      Text(
+                        "Estimasi sampai: Maks. Senin, 20 Okt",
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      Text(
+                        "Jam 07:00 – 21:00",
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
+                      ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -163,44 +179,60 @@ class _DetailServicePageState extends State<DetailServicePage> {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 10),
-          ...widget.items.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    Icon(
-                        widget.serviceType == 'cleaning'
-                            ? Icons.cleaning_services
-                            : Icons.build,
-                        color: Colors.blue,
-                        size: 40),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("${item['merek']} ${item['device']}",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text("Status: ${item['status'] ?? '-'}",
-                              style: const TextStyle(fontSize: 13)),
-                          Text("Seri: ${item['seri'] ?? '-'}",
-                              style: const TextStyle(fontSize: 13)),
-                          if (widget.serviceType == 'repair' &&
-                              item['part'] != null)
-                            Text("Keluhan: ${item['part']}",
-                                style: const TextStyle(fontSize: 13)),
-                          const SizedBox(height: 6),
-                          const Text("1x   Rp 50.000",
-                              style: TextStyle(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14)),
-                        ],
-                      ),
-                    )
-                  ],
-                ),
-              )),
+          ...widget.items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.serviceType == 'cleaning'
+                        ? Icons.cleaning_services
+                        : Icons.build,
+                    color: Colors.blue,
+                    size: 40,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "${item['merek']} ${item['device']}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          "Status: ${item['status'] ?? '-'}",
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        Text(
+                          "Seri: ${item['seri'] ?? '-'}",
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        if (widget.serviceType == 'repair' &&
+                            item['part'] != null)
+                          Text(
+                            "Keluhan: ${item['part']}",
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          "1x   Rp 50.000",
+                          style: TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -214,16 +246,22 @@ class _DetailServicePageState extends State<DetailServicePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Ringkasan Pesanan",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text(
+            "Ringkasan Pesanan",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
           const SizedBox(height: 10),
           _summaryRow("Subtotal", "Rp ${widget.jumlahBarang * 50000}"),
           _summaryRow("Diskon", "Rp 0"),
           _summaryRow("Voucher", "Rp 0"),
           _summaryRow("Total ongkos kirim", "Rp 0"),
           const Divider(),
-          _summaryRow("Total Belanja", "Rp ${widget.jumlahBarang * 50000}",
-              isTotal: true, color: Colors.blue),
+          _summaryRow(
+            "Total Belanja",
+            "Rp ${widget.jumlahBarang * 50000}",
+            isTotal: true,
+            color: Colors.blue,
+          ),
         ],
       ),
     );
@@ -252,14 +290,18 @@ class _DetailServicePageState extends State<DetailServicePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                Text("Kirim ke Alamat",
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                Text("Tambahkan Alamat",
-                    style: TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13)),
+                Text(
+                  "Kirim ke Alamat",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                Text(
+                  "Tambahkan Alamat",
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -269,44 +311,64 @@ class _DetailServicePageState extends State<DetailServicePage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               padding: const EdgeInsets.all(10),
-              child: selectedAddress != null
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text(selectedAddress!['detailAlamat'],
+              child:
+                  selectedAddress != null
+                      ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            selectedAddress!['detailAlamat'],
                             style: const TextStyle(
-                                fontSize: 13, color: Colors.black87)),
-                        if (selectedAddress!['catatan'] != null &&
-                            selectedAddress!['catatan'].isNotEmpty)
-                          Text("Catatan: ${selectedAddress!['catatan']}",
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          if (selectedAddress!['catatan'] != null &&
+                              selectedAddress!['catatan'].isNotEmpty)
+                            Text(
+                              "Catatan: ${selectedAddress!['catatan']}",
                               style: const TextStyle(
-                                  fontSize: 12, color: Colors.black54)),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("Atur alamat anda di sini",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 2),
-                        Text(widget.alamat,
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
+                            ),
+                        ],
+                      )
+                      : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Atur alamat anda di sini",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.alamat,
                             style: const TextStyle(
-                                fontSize: 13, color: Colors.black87)),
-                        const SizedBox(height: 6),
-                        const Text(
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
                             "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
-                            style:
-                                TextStyle(fontSize: 12, color: Colors.black54)),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
-                          style: TextStyle(color: Colors.blue, fontSize: 12),
-                        ),
-                      ],
-                    ),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
+                            style: TextStyle(color: Colors.blue, fontSize: 12),
+                          ),
+                        ],
+                      ),
             ),
           ],
         ),
@@ -322,23 +384,27 @@ class _DetailServicePageState extends State<DetailServicePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Metode Pembayaran",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text(
+            "Metode Pembayaran",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
-              Icon(_getPaymentIcon(selectedPaymentMethod!),
-                  color: Colors.blue),
+              Icon(_getPaymentIcon(selectedPaymentMethod!), color: Colors.blue),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(selectedPaymentMethod!,
-                        style: const TextStyle(fontSize: 14)),
-                    const Text("Nomor Rekening: 1234567890",
-                        style:
-                            TextStyle(color: Colors.black54, fontSize: 12)),
+                    Text(
+                      selectedPaymentMethod!,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const Text(
+                      "Nomor Rekening: 1234567890",
+                      style: TextStyle(color: Colors.black54, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
@@ -349,15 +415,21 @@ class _DetailServicePageState extends State<DetailServicePage> {
     );
   }
 
-  Widget _summaryRow(String label, String value,
-      {bool isTotal = false, Color? color}) {
+  Widget _summaryRow(
+    String label,
+    String value, {
+    bool isTotal = false,
+    Color? color,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Colors.black87),
+          ),
           Text(
             value,
             style: TextStyle(
@@ -376,20 +448,25 @@ class _DetailServicePageState extends State<DetailServicePage> {
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Pilih Metode Pembayaran",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text(
+                "Pilih Metode Pembayaran",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
               const SizedBox(height: 20),
               _paymentItem(Icons.account_balance, "Transfer Bank BCA"),
               _paymentItem(Icons.account_balance_wallet, "Transfer Bank BRI"),
               _paymentItem(
-                  Icons.account_balance_rounded, "Transfer Bank Mandiri"),
+                Icons.account_balance_rounded,
+                "Transfer Bank Mandiri",
+              ),
               const SizedBox(height: 10),
             ],
           ),
@@ -424,9 +501,54 @@ class _DetailServicePageState extends State<DetailServicePage> {
     }
   }
 
-  void _completeOrder(BuildContext context) {
+  void _completeOrder(BuildContext context) async {
     // Buat kode antrean baru setiap pesanan selesai
-    currentQueueCode = _generateQueueCode();
+    currentQueueCode = _generateQueueCode(widget.serviceType);
+
+    // Simpan informasi pesanan ke SharedPreferences
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('${currentQueueCode}_nama', widget.nama);
+    await prefs.setString(
+      '${currentQueueCode}_serviceType',
+      widget.serviceType,
+    );
+    await prefs.setString(
+      '${currentQueueCode}_device',
+      widget.items.isNotEmpty
+          ? widget.items[0]['device'] ?? 'Unknown'
+          : 'Unknown',
+    );
+    await prefs.setString(
+      '${currentQueueCode}_merek',
+      widget.items.isNotEmpty
+          ? widget.items[0]['merek'] ?? 'Unknown'
+          : 'Unknown',
+    );
+    await prefs.setString(
+      '${currentQueueCode}_seri',
+      widget.items.isNotEmpty
+          ? widget.items[0]['seri'] ?? 'Unknown'
+          : 'Unknown',
+    );
+    await prefs.setString(
+      '${currentQueueCode}_jamMulai',
+      DateTime.now().toString(),
+    );
+
+    // Debug print untuk memastikan data tersimpan
+    print('Data tersimpan untuk kode: $currentQueueCode');
+    print('Nama: ${widget.nama}');
+    print('Service Type: ${widget.serviceType}');
+    print(
+      'Device: ${widget.items.isNotEmpty ? widget.items[0]['device'] : 'Unknown'}',
+    );
+    print(
+      'Merek: ${widget.items.isNotEmpty ? widget.items[0]['merek'] : 'Unknown'}',
+    );
+    print(
+      'Seri: ${widget.items.isNotEmpty ? widget.items[0]['seri'] : 'Unknown'}',
+    );
+
     _showSuccessPopup(context, currentQueueCode);
   }
 
@@ -443,8 +565,10 @@ class _DetailServicePageState extends State<DetailServicePage> {
             children: [
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 25,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF90CAF9),
                   borderRadius: BorderRadius.circular(20),
@@ -492,8 +616,7 @@ class _DetailServicePageState extends State<DetailServicePage> {
                           const SizedBox(height: 20),
                           Container(
                             width: double.infinity,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               color: const Color(0xFF1976D2),
                               borderRadius: BorderRadius.circular(30),
@@ -521,47 +644,83 @@ class _DetailServicePageState extends State<DetailServicePage> {
                       ),
                     ),
                     const SizedBox(height: 25),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    Column(
                       children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ServicePage(),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1976D2),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              child: const Text(
+                                "Kembali",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: queueCode),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Kode berhasil disalin"),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1976D2),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              child: const Text(
+                                "Salin Kode",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
                         ElevatedButton(
                           onPressed: () {
-                            Navigator.of(context).pop();
-                            Navigator.pushReplacement(
+                            Navigator.of(context).pop(); // Close dialog
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => const ServicePage()),
+                                builder:
+                                    (context) =>
+                                        TrackingPage(queueCode: queueCode),
+                              ),
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1976D2),
+                            backgroundColor: Colors.green,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
+                            minimumSize: const Size(double.infinity, 45),
                           ),
-                          child: const Text("Kembali",
-                              style: TextStyle(color: Colors.white)),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Clipboard.setData(
-                                ClipboardData(text: queueCode));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("Kode berhasil disalin")),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1976D2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
+                          child: const Text(
+                            "Lacak Pesanan",
+                            style: TextStyle(color: Colors.white, fontSize: 16),
                           ),
-                          child: const Text("Salin Kode",
-                              style: TextStyle(color: Colors.white)),
                         ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),

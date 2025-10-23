@@ -1,36 +1,109 @@
-
+import 'dart:convert';
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/checkout.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-
+import 'package:shimmer/shimmer.dart';
 
 class DetailProdukPage extends StatefulWidget {
   final Map<String, dynamic> produk;
 
-  DetailProdukPage({super.key, required this.produk});
-
-  
+  const DetailProdukPage({super.key, required this.produk});
 
   @override
   State<DetailProdukPage> createState() => _DetailProdukPageState();
 }
 
-
 class _DetailProdukPageState extends State<DetailProdukPage> {
   int currentIndex = 1;
   String? selectedShipping;
+  List<String> imageUrls = []; // List untuk menyimpan semua URL gambar
+  int _currentImageIndex = 0; // Index gambar saat ini untuk indicator
+  List<dynamic> produkList = []; // Untuk rekomendasi produk
+  bool isProductLoading = true;
 
-  final formatRupiah = NumberFormat.currency(
-  locale: 'id_ID',
-  symbol: 'Rp ',
-  decimalDigits: 0,
-  );
+  @override
+  void initState() {
+    super.initState();
+    _loadImageUrls();
+    _loadProducts(); // Load produk untuk rekomendasi
+  }
+
+  // Fungsi untuk mendapatkan semua URL gambar dari produk
+  void _loadImageUrls() {
+    final gambarField = widget.produk['gambar'];
+    if (gambarField != null) {
+      if (gambarField is List && gambarField.isNotEmpty) {
+        imageUrls = gambarField.map<String>((img) => 'http://192.168.1.15:8000/storage/$img').toList();
+      } else if (gambarField is String && gambarField.isNotEmpty) {
+        try {
+          if (gambarField.contains('[')) {
+            // JSON array
+            final List list = List<String>.from(jsonDecode(gambarField));
+            imageUrls = list.map<String>((img) => 'http://192.168.1.15:8000/storage/$img').toList();
+          } else {
+            // Split by comma (untuk string dengan koma sebagai pemisah)
+            final List<String> list = gambarField.split(',').map((s) => s.trim()).toList();
+            imageUrls = list.map<String>((img) => 'http://192.168.1.15:8000/storage/$img').toList();
+          }
+        } catch (_) {
+          // Fallback jika parsing gagal
+          imageUrls = ['http://192.168.1.15:8000/storage/$gambarField'];
+        }
+      }
+    }
+    if (imageUrls.isEmpty) {
+      imageUrls = ['']; // Placeholder jika tidak ada gambar
+    }
+  }
+
+  // Load produk untuk rekomendasi (mirip HomePage)
+  Future<void> _loadProducts() async {
+    try {
+      final data = await ApiService.getProduk();
+      final filtered = data.where((p) {
+        final gambar = p['gambar']?.toString().trim() ?? '';
+        return gambar.isNotEmpty;
+      }).toList();
+      setState(() {
+        produkList = filtered;
+        isProductLoading = false;
+      });
+    } catch (e) {
+      setState(() => isProductLoading = false);
+    }
+  }
+
+  // Fungsi untuk format Rupiah (mirip HomePage)
+  String formatRupiah(dynamic harga) {
+    if (harga == null) return 'Rp 0';
+    double number;
+    if (harga is String) {
+      number = double.tryParse(harga) ?? 0;
+    } else if (harga is num) {
+      number = harga.toDouble();
+    } else {
+      number = 0;
+    }
+    final formatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    return formatter.format(number);
+  }
+
+  // Fungsi untuk mendapatkan ImageProvider (mirip HomePage)
+  ImageProvider? getImageProvider(String url) {
+    if (url.isEmpty) return null;
+    return NetworkImage(url);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,31 +127,66 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ==== GAMBAR PRODUK ====
+            // ==== GAMBAR PRODUK (SLIDER) ====
             Container(
               height: 200,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFF90CAF9),
                 borderRadius: BorderRadius.circular(16),
-                image: (widget.produk['gambar'] != null &&
-                        widget.produk['gambar'].toString().isNotEmpty)
-                    ? DecorationImage(
-                        image: widget.produk['gambar'].toString().startsWith('assets/')
-                            ? AssetImage(widget.produk['gambar'].toString())
-                            : NetworkImage(widget.produk['gambar'].toString())
-                                as ImageProvider,
-                        fit: BoxFit.cover,
-                      )
-                    : null,
               ),
-              child: (widget.produk['gambar'] == null ||
-                      widget.produk['gambar'].toString().isEmpty)
-                  ? const Center(
+              child: imageUrls.isNotEmpty && imageUrls.first.isNotEmpty
+                  ? Stack(
+                      children: [
+                        PageView.builder(
+                          itemCount: imageUrls.length,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _currentImageIndex = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final imageUrl = imageUrls[index];
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                image: DecorationImage(
+                                  image: NetworkImage(imageUrl),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        // Indicator Dots
+                        Positioned(
+                          bottom: 10,
+                          left: 0,
+                          right: 0,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              imageUrls.length,
+                              (index) => Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: _currentImageIndex == index ? 10 : 6,
+                                height: _currentImageIndex == index ? 10 : 6,
+                                decoration: BoxDecoration(
+                                  color: _currentImageIndex == index
+                                      ? Colors.blue
+                                      : Colors.grey.shade400,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Center(
                       child: Icon(Icons.image_outlined,
                           color: Colors.white70, size: 64),
-                    )
-                  : null,
+                    ),
             ),
             const SizedBox(height: 12),
 
@@ -113,21 +221,14 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
             const SizedBox(height: 10),
 
             // ==== HARGA ====
-            
-           Text(
-              formatRupiah.format(
-                (widget.produk['harga'] is int)
-                    ? widget.produk['harga']
-                    : (widget.produk['harga'] is double)
-                        ? widget.produk['harga']
-                        : double.tryParse(widget.produk['harga'].toString()) ?? 0,
+            Text(
+              formatRupiah(widget.produk['harga']),
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0B4D3B),
               ),
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF0B4D3B),
             ),
-          ),
             const SizedBox(height: 8),
 
             // ==== TOMBOL BELI ====
@@ -156,7 +257,7 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
 
             const SizedBox(height: 16),
 
-            // ==== LAINNYA ====
+            // ==== LAINNYA (REKOMENDASI) ====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -171,11 +272,11 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
               ],
             ),
             const SizedBox(height: 8),
-            _buildProductList(),
+            isProductLoading ? _buildProductShimmer() : _buildProductList(),
 
             const SizedBox(height: 16),
 
-            // ==== SERUPA ====
+            // ==== SERUPA (REKOMENDASI LAIN) ====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -190,11 +291,10 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
               ],
             ),
             const SizedBox(height: 8),
-            _buildProductList(),
+            isProductLoading ? _buildProductShimmer() : _buildProductList(),
           ],
         ),
       ),
-
 
       // ===== Bottom Navigation Bar =====
       bottomNavigationBar: BottomNavigationBar(
@@ -276,67 +376,118 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
     );
   }
 
-  Widget _buildProductList() {
-    return SizedBox(
-      height: 150,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: 5,
-        itemBuilder: (context, index) {
-          return Container(
+  // Widget untuk shimmer loading produk
+  Widget _buildProductShimmer() => SizedBox(
+        height: 150,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: 3,
+          itemBuilder: (context, index) => Container(
             width: 120,
             margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: const Offset(2, 2),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey[300]!,
+              highlightColor: Colors.grey[100]!,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFBBDEFB),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+          ),
+        ),
+      );
+
+  // Widget untuk list produk rekomendasi (mirip HomePage)
+  Widget _buildProductList() => SizedBox(
+        height: 150,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: produkList.length,
+          itemBuilder: (context, index) {
+            final produk = produkList[index];
+            final nama = produk['nama_produk'] ?? 'Produk';
+            final harga = produk['harga'] ?? 0;
+            final imageProvider = getImageProvider(getFirstImageUrl(produk['gambar']));
+
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => DetailProdukPage(produk: produk)));
+              },
+              child: Container(
+                width: 120,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(2, 2))],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 80,
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        color: Colors.grey[300],
+                        image: imageProvider != null ? DecorationImage(image: imageProvider, fit: BoxFit.cover) : null,
+                      ),
+                      child: imageProvider == null ? const Center(child: Icon(Icons.image_outlined, color: Colors.white70, size: 36)) : null,
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ASUS Mouse',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
+                          ),
+                          Text(
+                            formatRupiah(harga),
+                            style: GoogleFonts.poppins(color: Colors.red.shade700, fontWeight: FontWeight.w500, fontSize: 11),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Rp 150.000',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+              ),
+            );
+          },
+        ),
+      );
+
+  // Fungsi untuk mendapatkan URL gambar pertama (mirip HomePage)
+  String getFirstImageUrl(dynamic gambarField) {
+    if (gambarField == null) return '';
+
+    if (gambarField is List && gambarField.isNotEmpty) {
+      return 'http://192.168.1.15:8000/storage/${gambarField.first}';
+    }
+
+    if (gambarField is String && gambarField.isNotEmpty) {
+      try {
+        if (gambarField.contains('[')) {
+          final List list = List<String>.from(jsonDecode(gambarField));
+          if (list.isNotEmpty) {
+            return 'http://192.168.1.15:8000/storage/${list.first}';
+          }
+        } else {
+          // Split by comma
+          final List<String> list = gambarField.split(',').map((s) => s.trim()).toList();
+          if (list.isNotEmpty) {
+            return 'http://192.168.1.15:8000/storage/${list.first}';
+          }
+        }
+      } catch (_) {}
+      return 'http://192.168.1.15:8000/storage/$gambarField';
+    }
+
+    return '';
   }
 
   void _showShippingOptions(BuildContext context) {

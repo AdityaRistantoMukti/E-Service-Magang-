@@ -5,7 +5,6 @@ import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'detail_service.dart';
 
@@ -24,6 +23,7 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
   int jumlahBarang = 1;
   List<TextEditingController> seriControllers = [];
   List<TextEditingController> partControllers = [];
+  List<TextEditingController> emailControllers = []; // Tambahkan untuk email
   List<String?> selectedMereks = [];
   List<String?> selectedDevices = [];
   List<String?> selectedStatuses = [];
@@ -41,6 +41,7 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
   void _initializeItemFields() {
     seriControllers = List.generate(jumlahBarang, (_) => TextEditingController());
     partControllers = List.generate(jumlahBarang, (_) => TextEditingController());
+    emailControllers = List.generate(jumlahBarang, (_) => TextEditingController()); // Tambahkan emailControllers
     selectedMereks = List.filled(jumlahBarang, null);
     selectedDevices = List.filled(jumlahBarang, null);
     selectedStatuses = List.filled(jumlahBarang, null);
@@ -53,13 +54,21 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
     });
   }
 
+  // Fungsi untuk mendapatkan email lengkap
+  String _getFullEmail(int index) {
+    String username = emailControllers[index].text.trim();
+    if (username.isEmpty) return '';
+    return '$username@gmail.com';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (selectedStatuses.length != jumlahBarang ||
         selectedMereks.length != jumlahBarang ||
         selectedDevices.length != jumlahBarang ||
         seriControllers.length != jumlahBarang ||
-        partControllers.length != jumlahBarang) {
+        partControllers.length != jumlahBarang ||
+        emailControllers.length != jumlahBarang) { // Tambahkan emailControllers
       _initializeItemFields();
     }
 
@@ -163,6 +172,12 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
                                 _inputField("Seri", seriControllers[index]),
                                 const SizedBox(height: 10),
                                 _inputField("Keterangan Keluhan", partControllers[index]),
+                                // Kondisi untuk menampilkan field email
+                                if (selectedStatuses[index] == "IW (Masih Garansi)" &&
+                                    selectedMereks[index] == "Lenovo") ...[
+                                  const SizedBox(height: 10),
+                                  _emailField("Email *", emailControllers[index]), // Gunakan _emailField khusus
+                                ],
                               ],
                             ),
                           );
@@ -210,6 +225,32 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
                                   );
                                   return;
                                 }
+                                // Validasi email jika kondisi terpenuhi
+                                if (selectedStatuses[i] == "IW (Masih Garansi)" &&
+                                    selectedMereks[i] == "Lenovo") {
+                                  String fullEmail = _getFullEmail(i);
+                                  if (fullEmail.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Email untuk Barang ${i + 1} wajib diisi',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  // Validasi format email lengkap
+                                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(fullEmail)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Format email untuk Barang ${i + 1} tidak valid',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                }
                               }
                               // If all validations pass
                               List<Map<String, String?>> items = [];
@@ -220,6 +261,10 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
                                   'status': selectedStatuses[i],
                                   'seri': seriControllers[i].text,
                                   'part': partControllers[i].text,
+                                  'email': (selectedStatuses[i] == "IW (Masih Garansi)" &&
+                                           selectedMereks[i] == "Lenovo")
+                                      ? _getFullEmail(i)
+                                      : null,
                                 });
                               }
                               Navigator.push(
@@ -323,6 +368,51 @@ class _PerbaikanServicePageState extends State<PerbaikanServicePage> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFF1976D2)),
             ),
+          ),
+          style: const TextStyle(color: Colors.black, fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  // Widget khusus untuk email dengan keyboard email
+  Widget _emailField(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress, // Keyboard email untuk bantuan format
+          autofillHints: [AutofillHints.email], // Bantuan autofill email
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF1976D2)),
+            ),
+            hintText: 'Masukkan email Gmail',
           ),
           style: const TextStyle(color: Colors.black, fontSize: 14),
         ),

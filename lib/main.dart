@@ -1,11 +1,15 @@
 import 'package:e_service/Auth/login.dart';
 import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/birthday_notification_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart'; 
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'Others/session_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize birthday notification service
+  await BirthdayNotificationService.initialize();
 
   bool isLoggedIn = await SessionManager.isLoggedIn();
 
@@ -76,6 +80,9 @@ class _SplashScreenState extends State<SplashScreen>
       if (status == AnimationStatus.completed) {
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
+            // Start birthday notification checking
+            BirthdayNotificationService.scheduleDailyBirthdayCheck();
+
             if (widget.isLoggedIn) {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (context) => const HomePage()),

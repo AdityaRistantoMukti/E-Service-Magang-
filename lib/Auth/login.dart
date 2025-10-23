@@ -21,8 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool showPassword = false;
   final AuthService _authService = AuthService();
 
-  TextEditingController _namaController = TextEditingController();
-  TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -207,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             // Login berhasil
                             Navigator.pushReplacement(
                               context,
-                              MaterialPageRoute(builder: (context) => const HomePage()),
+                              MaterialPageRoute(builder: (context) => const HomePage(isFreshLogin: true)),
                             );
                           } else {
                             // Login gagal

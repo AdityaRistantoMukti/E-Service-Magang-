@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class UserDetailPage extends StatelessWidget {
   final Map<String, dynamic> data;
-  const UserDetailPage({Key? key, required this.data}) : super(key: key);
+  const UserDetailPage({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
