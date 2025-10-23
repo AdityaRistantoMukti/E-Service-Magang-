@@ -1,4 +1,6 @@
-  import 'package:e_service/Beli/detail_produk.dart';
+  import 'dart:convert';
+
+import 'package:e_service/Beli/detail_produk.dart';
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Others/session_manager.dart';
@@ -115,6 +117,53 @@ import 'package:shimmer/shimmer.dart';
           return formatter.format(number);
         }
 
+      String getFirstImageUrl(dynamic gambarField) {
+        if (gambarField == null) return '';
+
+        if (gambarField is List && gambarField.isNotEmpty) {
+          return 'http://192.168.1.15:8000/storage/${gambarField.first}';
+        }
+
+        if (gambarField is String && gambarField.isNotEmpty) {
+          // handle string JSON array
+          if (gambarField.contains('[')) {
+            try {
+              final List list = List<String>.from(jsonDecode(gambarField));
+              if (list.isNotEmpty) {
+                return 'http://192.168.1.15:8000/storage/${list.first}';
+              }
+            } catch (_) {}
+          }
+          return 'http://192.168.1.15:8000/storage/$gambarField';
+        }
+
+        return '';
+      }
+
+      ImageProvider getImageProvider(dynamic gambarField) {
+        final url = getFirstImageUrl(gambarField);
+        if (url.isEmpty) {
+          return const AssetImage('assets/image/no_image.png');
+        }
+        return NetworkImage(url);
+      }
+      Widget buildProductImage(String? gambar) {
+        if (gambar == null || gambar.isEmpty) {
+          return const Center(
+            child: Icon(Icons.image_outlined, color: Colors.white70, size: 36),
+          );
+        }
+
+        return Image.network(
+          gambar,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return const Center(
+              child: Icon(Icons.broken_image, color: Colors.white70, size: 36),
+            );
+          },
+        );
+      }
 
     @override
     Widget build(BuildContext context) {
@@ -204,20 +253,14 @@ import 'package:shimmer/shimmer.dart';
                           itemCount: produkList.length,
                           itemBuilder: (context, index) {
                             final produk = produkList[index];
-                            final gambar = (produk['gambar']?.toString().trim().replaceAll(',', '') ?? '');
+                            final gambar = getFirstImageUrl(produk['gambar']);
                             final nama = produk['nama_produk'] ?? 'Produk';
                             final harga = produk['harga'] ?? 0;
                             final rating = produk['rating'] ?? 0;
                             final terjual = produk['terjual'] ?? 0;
                       
-                            ImageProvider? imageProvider;
-                            if (gambar.isNotEmpty) {
-                              if (gambar.startsWith('http')) {
-                                imageProvider = NetworkImage(gambar);
-                              } else if (gambar.startsWith('assets/')) {
-                                imageProvider = AssetImage(gambar);
-                              }
-                            }
+                            final imageProvider = getImageProvider(produk['gambar']);
+
 
                             return GestureDetector(
                               onTap: () {
@@ -511,6 +554,8 @@ import 'package:shimmer/shimmer.dart';
 
     // Member Card (Data)
     Widget _buildMemberCard(String nama, String id) {
+      final foto = userData?['cos_gambar'];
+
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -526,7 +571,22 @@ import 'package:shimmer/shimmer.dart';
               decoration: BoxDecoration(
                 color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(8),
+                image: (foto != null && foto.toString().isNotEmpty)
+                    ? DecorationImage(
+                        image: NetworkImage(
+                          "http://192.168.1.15:8000/storage/$foto",
+                        ),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
+              child: (foto == null || foto.toString().isEmpty)
+                  ? const Icon(
+                      Icons.person,
+                      size: 36,
+                      color: Colors.white70,
+                    )
+                  : null,
             ),
             const SizedBox(width: 16),
             Column(
@@ -554,6 +614,7 @@ import 'package:shimmer/shimmer.dart';
         ),
       );
     }
+
 
     // Shimmer Member Card
     Widget _buildShimmerMemberCard() {

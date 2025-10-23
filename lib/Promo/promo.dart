@@ -36,7 +36,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
   void initState() {
     super.initState();
     _fetchPromo();
-
+     UserPointData.loadUserPoints();
     // List banner online (bisa diganti sesuai kebutuhan)
     _bannerImages = [
       "https://storage-asset.msi.com/global/picture/promotion/seo_17149799016638843d7c58d2.68846293.jpeg",

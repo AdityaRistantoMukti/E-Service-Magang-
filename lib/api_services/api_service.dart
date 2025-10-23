@@ -49,7 +49,7 @@ class ApiService {
     static Future<Map<String, String>> uploadProfile(File file) async {
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl/costomers/upload-profile'),
+        Uri.parse('$baseUrl/upload-profile'), 
       );
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
@@ -70,27 +70,25 @@ class ApiService {
     // Update data costomer
     static Future<void> updateCostomer(String id, Map<String, dynamic> data) async {
       var uri = Uri.parse('$baseUrl/costomers/$id');
-      var request = http.MultipartRequest('POST', uri); // Laravel bisa tangkap method spoof
-      request.fields['_method'] = 'PUT'; // biar Laravel anggap ini PUT
 
-      data.forEach((key, value) {
-        if (value != null && value is String) {
-          request.fields[key] = value;
-        }
-      });
-
-      if (data['cos_gambar'] != null && File(data['cos_gambar']).existsSync()) {
-        request.files.add(await http.MultipartFile.fromPath('cos_gambar', data['cos_gambar']));
-      }
-
-      var response = await request.send();
+      var response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          '_method': 'PUT', // spoof method PUT
+          ...data,
+        }),
+      );
 
       if (response.statusCode != 200) {
-        final resBody = await response.stream.bytesToString();
-        print('Gagal update: $resBody');
+        print('Gagal update: ${response.body}');  
         throw Exception('Gagal memperbarui profil');
       }
     }
+
+
 
 
   //  DELETE - Hapus costomer

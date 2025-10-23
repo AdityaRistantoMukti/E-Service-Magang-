@@ -49,6 +49,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadUserData();
+    UserPointData.loadUserPoints();
   }
 
   Future<void> _loadUserData() async {
@@ -85,10 +86,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size; 
     final nama = userData?['cos_nama'] ?? '-';
     final id = userData?['id_costomer'] != null ? 'Id ${userData!['id_costomer']}' : '-';
     final nohp = userData?['cos_hp'] ?? '-';
-    final tglLahir = userData?['cos_tgl_lahir'] ?? '-';
+    final tglLahir = userData?['cos_tgl_lahir'] ?? '-'; 
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -209,9 +211,30 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    _contactTile(Icons.phone, nohp, Icons.chat),
+                    _contactTile(Icons.wechat, nohp, Icons.chat),
                     const SizedBox(height: 12),
-                    _contactTile(Icons.email_outlined, userData?['cos_email'] ?? '-', Icons.chat),
+                    _contactTile(Icons.facebook, userData?['cos_email'] ?? '-', Icons.chat),
+                    
+                    const SizedBox(height: 30),
+                      Align(
+                      alignment: Alignment.center,
+                      child: ElevatedButton.icon(
+                        onPressed: _logout,
+                        icon: const Icon(Icons.logout, size: 18),
+                        label: const Text("Logout"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenSize.width * 0.25,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      ),
                   ],
                 ),
               ),
@@ -246,10 +269,15 @@ class _ProfilePageState extends State<ProfilePage> {
           alignment: Alignment.center,
           children: [
             // 🔹 Foto profil user
-            const CircleAvatar(
+            CircleAvatar(
               radius: 35,
               backgroundColor: Colors.black12,
-              child: Icon(Icons.person, size: 50, color: Colors.black),
+              backgroundImage: (userData?['cos_gambar'] != null && userData!['cos_gambar'].isNotEmpty)
+                  ? NetworkImage("http://192.168.1.15:8000/storage/${userData!['cos_gambar']}")
+                  : null,
+              child: (userData?['cos_gambar'] == null || userData!['cos_gambar'].isEmpty)
+                  ? const Icon(Icons.person, size: 50, color: Colors.black)
+                  : null,
             ),
 
             // 🔹 Tombol edit (pensil) di kanan atas
@@ -258,13 +286,18 @@ class _ProfilePageState extends State<ProfilePage> {
               right: 0,
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
-               onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => EditProfilePage(userData: userData ?? {}),
                     ),
                   );
+
+                  // 🔹 Jika dari EditProfilePage ada data baru, refresh profil
+                  if (result != null && result.isNotEmpty) {
+                    await _loadUserData();
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.all(4),

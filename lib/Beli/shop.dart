@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:e_service/Beli/detail_produk.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/notifikasi.dart';
@@ -9,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:http/http.dart' as http;
 
 class MarketplacePage extends StatefulWidget {
   const MarketplacePage({super.key});
@@ -73,15 +76,27 @@ class _MarketplacePageState extends State<MarketplacePage> {
           }).toList();
     }
 
-    // Urutkan harga dari tertinggi
-    filtered.sort((a, b) {
-      final hargaA = double.tryParse(a['harga'].toString()) ?? 0.0;
-      final hargaB = double.tryParse(b['harga'].toString()) ?? 0.0;
-      return hargaB.compareTo(hargaA);
-    });
+    // Urutkan: produk dengan gambar duluan, lalu harga tertinggi
+    _sortProdukList(filtered);
 
     setState(() {
       _filteredProduk = filtered;
+    });
+  }
+
+  // Fungsi sorting: prioritas produk dengan gambar, lalu harga tertinggi
+  void _sortProdukList(List<dynamic> list) {
+    list.sort((a, b) {
+      final aHasImage = a['gambar'] != null && a['gambar'].toString().isNotEmpty;
+      final bHasImage = b['gambar'] != null && b['gambar'].toString().isNotEmpty;
+
+      if (aHasImage && !bHasImage) return -1; // a (ada gambar) di atas b
+      if (!aHasImage && bHasImage) return 1;  // b (ada gambar) di atas a
+
+      // Jika keduanya sama (keduanya ada gambar atau tidak), urutkan harga descending
+      final hargaA = double.tryParse(a['harga'].toString()) ?? 0.0;
+      final hargaB = double.tryParse(b['harga'].toString()) ?? 0.0;
+      return hargaB.compareTo(hargaA);
     });
   }
 
@@ -94,33 +109,79 @@ class _MarketplacePageState extends State<MarketplacePage> {
     ).format(number);
   }
 
-  String getFirstImage(dynamic gambarField) {
-    try {
-      if (gambarField == null) return '';
-      // Jika field berupa list JSON (contoh: ["a.jpg","b.jpg"])
-      if (gambarField.toString().trim().startsWith('[')) {
-        final List<dynamic> list = List.from(
-          (gambarField is String)
-              ? List<String>.from(List<dynamic>.from(
-                  (gambarField)
-                      .replaceAll('[', '')
-                      .replaceAll(']', '')
-                      .replaceAll('"', '')
-                      .split(','),
-                ))
-              : gambarField,
-        );
-        return list.isNotEmpty ? list.first.trim() : '';
-      }
-      // Jika hanya string biasa
-      return gambarField.toString();
-    } catch (e) {
-      debugPrint('Error parsing gambar: $e');
-      return '';
+  
+  // Fungsi helper untuk build gambar dengan fallback
+  Widget _buildImageWithFallback(String gambarField, double height, BoxFit fit, BorderRadius borderRadius, {int currentIndex = 0}) {
+    if (gambarField == null || gambarField.isEmpty) {
+      return Container(
+        height: height,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey[400],
+          borderRadius: borderRadius,
+        ),
+        child: const Center(
+          child: Icon(Icons.image_outlined, color: Colors.white70, size: 36),
+        ),
+      );
     }
+
+    String cleaned = gambarField
+        .toString()
+        .replaceAll('[', '')
+        .replaceAll(']', '')
+        .replaceAll('"', '')
+        .trim();
+    List<String> paths = cleaned.split(',');
+    paths = paths.map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+
+    if (currentIndex >= paths.length) {
+      return Container(
+        height: height,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey[400],
+          borderRadius: borderRadius,
+        ),
+        child: const Center(
+          child: Icon(Icons.image_outlined, color: Colors.white70, size: 36),
+        ),
+      );
+    }
+
+  
+    const String baseUrl = 'http://192.168.1.15:8000/storage/';
+    String imageUrl = '$baseUrl${paths[currentIndex]}';
+
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Image.network(
+          imageUrl,
+          fit: fit,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey[300],
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            // Coba path berikutnya
+            return _buildImageWithFallback(gambarField, height, fit, borderRadius, currentIndex: currentIndex + 1);
+          },
+        ),
+      ),
+    );
   }
 
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -232,7 +293,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     );
   }
 
-  // <-- INI METHOD YANG KAMU BUTUHKAN (ditambahkan)
+  
   Widget _buildBrandItem(String name) {
     final bool isSelected = (selectedBrand != null && selectedBrand == name);
 
@@ -321,161 +382,64 @@ class _MarketplacePageState extends State<MarketplacePage> {
     );
   }
 
-  Widget _buildProductList({String? brand, String? filterKeyword}) {
-    List<Map<String, dynamic>> produkList = List<Map<String, dynamic>>.from(
-      _produkList,
-    );
+ Widget _buildProductList({String? brand, String? filterKeyword}) {
+  List<Map<String, dynamic>> produkList = List<Map<String, dynamic>>.from(_produkList);
 
-    // Filter berdasarkan brand jika ada
-    if (brand != null && brand.isNotEmpty) {
-      final bUpper = brand.toUpperCase();
-      produkList =
-          produkList
-              .where(
-                (p) => (p['nama_produk'] ?? '')
-                    .toString()
-                    .toUpperCase()
-                    .contains(bUpper),
-              )
-              .toList();
-    }
+  // 🔹 Bersihkan data gambar
+  produkList = produkList.map((p) {
+    final g = p['gambar'];
+    final cleaned = g?.toString()
+        .replaceAll('[', '')
+        .replaceAll(']', '')
+        .replaceAll('"', '')
+        .trim();
 
-    // 🔹 Filter berdasarkan keyword tipe_produk (misalnya "Mouse")
-    if (filterKeyword != null && filterKeyword.isNotEmpty) {
-      final keyword = filterKeyword.toLowerCase();
-      produkList =
-          produkList.where((p) {
-            final tipe = (p['nama_produk'] ?? '').toString().toLowerCase();
-            return tipe.contains(keyword);
-          }).toList();
-    }
+    return {
+      ...p,
+      'gambar': cleaned ?? '',
+    };
+  }).toList();
 
-    // Urutkan berdasarkan harga tertinggi
-    produkList.sort((a, b) {
-      final hargaA = double.tryParse(a['harga'].toString()) ?? 0;
-      final hargaB = double.tryParse(b['harga'].toString()) ?? 0;
-      return hargaB.compareTo(hargaA);
-    });
+  // 🔹 Filter berdasarkan brand
+  if (brand != null && brand.isNotEmpty) {
+    final bUpper = brand.toUpperCase();
+    produkList = produkList.where((p) {
+      final nama = (p['nama_produk'] ?? '').toString().toUpperCase();
+      return nama.contains(bUpper);
+    }).toList();
+  }
 
-    if (produkList.isEmpty) {
-      return const Center(child: Text('Tidak ada produk'));
-    }
+  // 🔹 Filter berdasarkan keyword
+  if (filterKeyword != null && filterKeyword.isNotEmpty) {
+    final keyword = filterKeyword.toLowerCase();
+    produkList = produkList.where((p) {
+      final tipe = (p['nama_produk'] ?? '').toString().toLowerCase();
+      return tipe.contains(keyword);
+    }).toList();
+  }
 
-    // 🔹 Jika brand dipilih → tampil grid 2 kolom
-    if (brand != null && brand.isNotEmpty) {
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, // dua kolom
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 0.7,
-        ),
-        itemCount: produkList.length,
-        itemBuilder: (context, index) {
-          final produk = produkList[index];
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DetailProdukPage(
-                  produk: {
-                    'nama_produk': produk['nama_produk'],
-                    'harga': produk['harga'],
-                    'gambar': produk['gambar'],
-                    'brand': produk['brand'],
-                    'deskripsi': produk['deskripsi'],
-                  },
-                ),
-              ),
-            );
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 6,
-                    offset: const Offset(2, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[400],
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.image_outlined, color: Colors.white70, size: 32),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          produk['nama_produk'] ?? 'Tanpa Nama',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          formatRupiah(produk['harga']),
-                          style: GoogleFonts.poppins(
-                            color: Colors.red.shade700,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.star, color: Colors.amber, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+  // 🔹 Urutkan
+  _sortProdukList(produkList);
 
-        },
-      );
-    }
+  if (produkList.isEmpty) {
+    return const Center(child: Text('Tidak ada produk'));
+  }
 
-    //  Jika tidak ada brand → tampil horizontal (default)
-    return SizedBox(
-      height: 240,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: produkList.length,
-        itemBuilder: (context, index) {
-          final produk = produkList[index];
-          final firstImage = getFirstImage(produk['gambar']);
-         return GestureDetector(
+  // 🔹 Jika ada brand → tampilkan grid 2 kolom
+  if (brand != null && brand.isNotEmpty) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 0.7,
+      ),
+      itemCount: produkList.length,
+      itemBuilder: (context, index) {
+        final produk = produkList[index];
+        return GestureDetector(
           onTap: () {
             Navigator.push(
               context,
@@ -491,7 +455,103 @@ class _MarketplacePageState extends State<MarketplacePage> {
                 ),
               ),
             );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 6,
+                  offset: const Offset(2, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                  Align(
+                    alignment: Alignment.center,
+                    child: _buildImageWithFallback(
+                      produk['gambar'],
+                      80,
+                      BoxFit.contain,
+                      const BorderRadius.vertical(top: Radius.circular(12)),
+                    ),
+                  ),
+                  Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        produk['nama_produk'] ?? 'Tanpa Nama',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatRupiah(produk['harga']),
+                        style: GoogleFonts.poppins(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${produk['rating'] ?? 0} | ${produk['terjual'] ?? 0} terjual',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
+  // 🔹 Jika tidak ada brand → tampil horizontal
+  return SizedBox(
+    height: 240,
+    child: ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: produkList.length,
+      itemBuilder: (context, index) {
+        final produk = produkList[index];
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailProdukPage(
+                  produk: {
+                    'nama_produk': produk['nama_produk'],
+                    'harga': produk['harga'],
+                    'gambar': produk['gambar'],
+                    'brand': produk['brand'],
+                    'deskripsi': produk['deskripsi'],
+                  },
+                ),
+              ),
+            );
           },
           child: Container(
             width: 160,
@@ -510,28 +570,14 @@ class _MarketplacePageState extends State<MarketplacePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  height: 110,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(12)),                        
-                          image: (firstImage.isNotEmpty)
-                              ? DecorationImage(
-                                  image: firstImage.startsWith('assets/')
-                                      ? AssetImage(firstImage)
-                                      : NetworkImage(firstImage) as ImageProvider,
-                                  fit: BoxFit.cover,
-                                )
-                          : null,
+                 Align(
+                  alignment: Alignment.center,
+                  child: _buildImageWithFallback(
+                    produk['gambar'],
+                    80,
+                    BoxFit.contain,
+                    const BorderRadius.vertical(top: Radius.circular(12)),
                   ),
-                  child: (produk['gambar'] == null ||
-                          produk['gambar'].toString().isEmpty)
-                      ? const Center(
-                          child: Icon(Icons.image_outlined,
-                              color: Colors.white70, size: 36),
-                        )
-                      : null,
                 ),
                 Padding(
                   padding: const EdgeInsets.all(8.0),
@@ -577,11 +623,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
             ),
           ),
         );
+      },
+    ),
+  );
+}
 
-        },
-      ),
-    );
-  }
 
   Widget _buildSearchResultsList() {
     if (_filteredProduk.isEmpty) {
@@ -607,8 +653,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       ),
       itemCount: _filteredProduk.length,
       itemBuilder: (context, index) {
-        final produk = _filteredProduk[index];
-        final firstImage = getFirstImage(produk['gambar']);
+        final produk = _filteredProduk[index];    
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -624,20 +669,13 @@ class _MarketplacePageState extends State<MarketplacePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [               
-              Container(
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.image_outlined,
-                    color: Colors.white70,
-                    size: 28,
-                  ),
+              Align(
+                alignment: Alignment.center,
+                child: _buildImageWithFallback(
+                  produk['gambar'],
+                  80,
+                  BoxFit.contain,
+                  const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
               ),
               Padding(
