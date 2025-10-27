@@ -44,4 +44,10 @@ class SessionManager {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyPoin, poin);
   }
+
+  // Get customer ID
+  static Future<String?> getCustomerId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyUserId);
+  }
 }

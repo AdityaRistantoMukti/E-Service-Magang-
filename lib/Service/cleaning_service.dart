@@ -51,8 +51,8 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
   ];
   final List<String> statusOptions = [
     'CID',
-    'IW(Masih Garansi)',
-    'OOW(Tidak Garansi)',
+    'IW (Masih Garansi)',
+    'OOW (Tidak Garansi)',
   ];
 
   @override
@@ -208,11 +208,11 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                 const SizedBox(height: 10),
                                 _inputField("Seri", seriControllers[index]),
                                 // Kondisi untuk menampilkan field email
-                                if (selectedStatuses[index] == "IW(Masih Garansi)" &&
-                                    selectedMereks[index] == "Lenovo") ...[
-                                  const SizedBox(height: 10),
-                                  _emailField("Email *", emailControllers[index]), // Gunakan _emailField khusus
-                                ],
+                               if (selectedStatuses[index] == "IW (Masih Garansi)" &&
+                                      selectedMereks[index] == "Lenovo") ...[
+                                    const SizedBox(height: 10),
+                                    _emailField("Email *", emailControllers[index]), // Gunakan _emailField khusus
+                                  ],
                               ],
                             ),
                           );
@@ -238,7 +238,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Status untuk Barang ${i + 1} wajib dipilih',
+                                        'Status wajib dipilih',
                                       ),
                                     ),
                                   );
@@ -248,7 +248,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Merek untuk Barang ${i + 1} wajib dipilih',
+                                        'Merek wajib dipilih',
                                       ),
                                     ),
                                   );
@@ -258,7 +258,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Device untuk Barang ${i + 1} wajib dipilih',
+                                        'Device wajib dipilih',
                                       ),
                                     ),
                                   );
@@ -268,43 +268,38 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Seri untuk Barang ${i + 1} wajib diisi dan tidak boleh kosong',
+                                        'Seri wajib diisi dan tidak boleh kosong',
                                       ),
                                     ),
                                   );
                                   return;
                                 }
                                 // Validasi email jika kondisi terpenuhi
-                               if (selectedStatuses[i] == "IW (Masih Garansi)" &&
-                                  selectedMereks[i] == "Lenovo") {
-                                String username = emailControllers[i].text.trim();
-                                if (username.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Email wajib diisi'),
-                                    ),
-                                  );
-                                  return;
+                                if (selectedStatuses[i] == "IW (Masih Garansi)" &&
+                                    selectedMereks[i] == "Lenovo") {
+                                  String fullEmail = _getFullEmail(i);
+                                  if (fullEmail.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Email wajib diisi',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  // Validasi format email lengkap
+                                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(fullEmail)) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Format email tidak valid',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                 }
-                                if (username.contains('@')) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Email tidak boleh mengandung "@"'),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                String fullEmail = _getFullEmail(i);
-                                // Validasi format email lengkap
-                                if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(fullEmail)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Format email tidak valid'),
-                                    ),
-                                  );
-                                  return;
-                                }
-                              }
                               }
                               // If all validations pass
                               List<Map<String, String?>> items = [];
@@ -314,7 +309,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                   'merek': selectedMereks[i],
                                   'device': selectedDevices[i],
                                   'seri': seriControllers[i].text,
-                                  'email': (selectedStatuses[i] == "IW(Masih Garansi)" &&
+                                  'email': (selectedStatuses[i] == "IW (Masih Garansi)" &&
                                            selectedMereks[i] == "Lenovo")
                                       ? _getFullEmail(i)
                                       : null,
@@ -486,57 +481,52 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
     );
   }
   
-  // Widget khusus untuk email dengan suffix @gmail.com
-Widget _emailField(String label, TextEditingController controller) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: Colors.black,
-        ),
-      ),
-      const SizedBox(height: 6),
-      TextField(
-        controller: controller,
-        keyboardType: TextInputType.text,
-        inputFormatters: [
-          FilteringTextInputFormatter.deny('@'), // Cegah user mengetik "@"
+
+    // Widget khusus untuk email dengan keyboard email
+    Widget _emailField(String label, TextEditingController controller) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.emailAddress, // Keyboard email untuk bantuan format
+            autofillHints: [AutofillHints.email], // Bantuan autofill email
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF1976D2)),
+              ),
+              hintText: 'Masukkan email Gmail',
+            ),
+            style: const TextStyle(color: Colors.black, fontSize: 14),
+          ),
         ],
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 10,
-          ),
-          suffixText: '@gmail.com',
-          suffixStyle: const TextStyle(
-            color: Colors.black54,
-            fontSize: 14,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF1976D2)),
-          ),
-          hintText: 'Masukkan nama email (tanpa @gmail.com)',
-        ),
-        style: const TextStyle(color: Colors.black, fontSize: 14),
-      ),
-    ],
-  );
-}
+      );
+    }
+  
 
   Widget _dropdownField(
     String label,

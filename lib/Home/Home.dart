@@ -11,11 +11,13 @@ import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
 import 'package:e_service/api_services/api_service.dart';
+import 'package:e_service/api_services/payment_service.dart';
 import 'package:e_service/models/notification_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:midtrans_sdk/midtrans_sdk.dart';
 import 'package:shimmer/shimmer.dart';
 
 class HomePage extends StatefulWidget {
@@ -43,6 +45,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _initMidtrans();
      _pageController = PageController(
       viewportFraction: 0.85,
       initialPage: 1, // mulai dari array ke-2
@@ -67,6 +70,34 @@ class _HomePageState extends State<HomePage> {
   }
 
   // =======================
+  // 🔹 MIDTRANS INIT
+  // =======================
+
+  Future<void> _initMidtrans() async {
+    try {
+      final midtransSDK = await MidtransSDK.init(
+        config: MidtransConfig(
+          clientKey: 'Mid-client-yKTO-_jT2d60u3M1', // ganti dengan client key sandbox Anda
+          merchantBaseUrl: 'http://192.168.1.6:8000/api', // URL backend Anda
+          colorTheme: ColorTheme(
+            colorPrimary: const Color(0xFF007bff),
+            colorPrimaryDark: const Color(0xFF0056b3),
+            colorSecondary: const Color(0xFF6c757d),
+          ),
+          enableLog: true,
+        ),
+      );
+
+      // 🔹 Set instance ke PaymentService
+      PaymentService.setInstance(midtransSDK);
+      debugPrint('Midtrans SDK initialized successfully in Home');
+    } catch (e) {
+      // Handle initialization error if needed
+      debugPrint('Midtrans init error: $e');
+    }
+  }
+
+  // =======================
   // 🔹 UTIL FUNCTIONS
   // =======================
 
@@ -74,7 +105,7 @@ class _HomePageState extends State<HomePage> {
     if (gambarField == null) return '';
 
     if (gambarField is List && gambarField.isNotEmpty) {
-      return 'http://192.168.1.15:8000/storage/${gambarField.first}';
+      return 'http://192.168.1.6:8000/storage/${gambarField.first}';
     }
 
     if (gambarField is String && gambarField.isNotEmpty) {
@@ -82,11 +113,11 @@ class _HomePageState extends State<HomePage> {
         if (gambarField.contains('[')) {
           final List list = List<String>.from(jsonDecode(gambarField));
           if (list.isNotEmpty) {
-            return 'http://192.168.1.15:8000/storage/${list.first}';
+            return 'http://192.168.1.6:8000/storage/${list.first}';
           }
         }
       } catch (_) {}
-      return 'http://192.168.1.15:8000/storage/$gambarField';
+      return 'http://192.168.1.6:8000/storage/$gambarField';
     }
 
     return '';
@@ -163,6 +194,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showWelcomeNotification() async {
+    if (!mounted) return;
     final nama = userData?['cos_nama'] ?? 'Pengguna';
     // Add notification to persistent storage
     await NotificationService.addNotification(
@@ -176,6 +208,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
     // Still show the banner for immediate feedback
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showMaterialBanner(
       MaterialBanner(
         leading: const Icon(Icons.waving_hand, color: Colors.white),
@@ -203,7 +236,9 @@ class _HomePageState extends State<HomePage> {
         actions: [
           TextButton(
             onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              if (mounted) {
+                ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              }
             },
             child: const Text(
               'Tutup',
@@ -418,10 +453,6 @@ Dengan mengikuti tips dan trik di atas, Anda dapat menjaga laptop Anda agar teta
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
         actions: [
           IconButton(
-            icon: const Icon(Icons.support_agent, color: Colors.white),
-            onPressed: () {},
-          ),
-          IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationPage()));
@@ -477,12 +508,27 @@ Dengan mengikuti tips dan trik di atas, Anda dapat menjaga laptop Anda agar teta
         showUnselectedLabels: true,
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.build_circle_outlined), label: 'Service'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: 'Beli'),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.local_offer_outlined), label: 'Promo'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+       items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.build_circle_outlined),
+            label: 'Service',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart_outlined),
+            label: 'Beli',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Beranda',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/image/promo.png', width: 24, height: 24, color: Colors.white70),
+            label: 'Promo',             
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
         ],
       ),
     );
@@ -514,7 +560,7 @@ Widget _buildMemberCard(String nama, String id) {
             image: (foto != null && foto.toString().isNotEmpty)
                 ? DecorationImage(
                     image: NetworkImage(
-                      "http://192.168.1.15:8000/storage/$foto",
+                      "http://192.168.1.6:8000/storage/$foto",
                     ),
                     fit: BoxFit.cover,
                   )

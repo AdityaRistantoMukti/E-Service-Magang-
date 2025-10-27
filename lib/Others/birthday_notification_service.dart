@@ -57,7 +57,7 @@ class BirthdayNotificationService {
       // Dummy data for testing - replace with API call later
       final customers = [
         {
-          'id_costomer': 'TEST003',
+          'id_costomer': 'TEST004',
           'cos_nama': 'Acep',
           'cos_tgl_lahir': '${now.year}-${currentMonth.toString().padLeft(2, '0')}-${currentDay.toString().padLeft(2, '0')}', // Today's date for testing
         },

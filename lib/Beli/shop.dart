@@ -150,7 +150,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
     }
 
   
-    const String baseUrl = 'http://192.168.1.15:8000/storage/';
+    const String baseUrl = 'http://192.168.1.6:8000/storage/';
     String imageUrl = '$baseUrl${paths[currentIndex]}';
 
     return Container(
@@ -190,11 +190,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
         backgroundColor: Colors.blue,
         elevation: 0,
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.support_agent, color: Colors.white),
-            onPressed: () {},
-          ),
+        actions: [       
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
             onPressed: () {

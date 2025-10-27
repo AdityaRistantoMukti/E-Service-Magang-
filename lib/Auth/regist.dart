@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'login.dart';
-import 'auth_service.dart';
 import '../Home/Home.dart';
 
 class AuthPage extends StatefulWidget {
@@ -18,7 +17,7 @@ class _AuthPageState extends State<AuthPage> {
   bool isLogin = false;
   bool showPassword = false;
   bool showConfirmPassword = false;
-  final AuthService _authService = AuthService();
+  bool isLoading = false;
 
   final nameController = TextEditingController();                        
   final nohpController = TextEditingController();                        
@@ -39,263 +38,254 @@ class _AuthPageState extends State<AuthPage> {
     return Scaffold(
       backgroundColor: Colors.blue,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // Header logo + title
-            SizedBox(height: screenSize.height * 0.05),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset(
-                    'assets/image/logo.png',
-                    width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
-                    height: isLandscape ? screenSize.height * 0.15 : screenSize.height * 0.12,
-                  ),
-                  Container(
-                    width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
-                    margin: const EdgeInsets.only(top: 0.4),
-                    child: Text(
-                      'Service | Penjualan | Pengadaan',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: screenSize.width * 0.02,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: screenSize.height * 0.04),
-
-            // White container
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                ),
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: padding, vertical: screenSize.height * 0.04),
+            Column(
+              children: [
+                // Header logo + title
+                SizedBox(height: screenSize.height * 0.05),
+                Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                    // Toggle buttons
-                    Container(
-                      height: screenSize.height * 0.06,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE3F2FD),
-                        borderRadius: BorderRadius.circular(20),
+                      Image.asset(
+                        'assets/image/logo.png',
+                        width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
+                        height: isLandscape ? screenSize.height * 0.15 : screenSize.height * 0.12,
                       ),
-                      child: Row(
+                      Container(
+                        width: isLandscape ? screenSize.width * 0.2 : screenSize.width * 0.45,
+                        margin: const EdgeInsets.only(top: 0.4),
+                        child: Text(
+                          'Service | Penjualan | Pengadaan',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: screenSize.width * 0.02,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: screenSize.height * 0.04),
+
+                // White container
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                    ),
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(horizontal: padding, vertical: screenSize.height * 0.04),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                              ),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isLogin
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Masuk',
-                                  style: GoogleFonts.poppins(
-                                    color: isLogin ? Colors.white : Colors.black54,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: screenSize.width * 0.04,
+                        // Toggle buttons
+                        Container(
+                          height: screenSize.height * 0.06,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const LoginScreen()),
                                   ),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isLogin
+                                          ? Colors.blue
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      'Masuk',
+                                      style: GoogleFonts.poppins(
+                                        color: isLogin ? Colors.white : Colors.black54,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: screenSize.width * 0.04,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => isLogin = false),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: !isLogin
+                                          ? Colors.blue
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      'Daftar',
+                                      style: GoogleFonts.poppins(
+                                        color: !isLogin ? Colors.white : Colors.black54,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: screenSize.width * 0.04,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Form fields
+                        if (!isLogin) ...[
+                          _buildTextField('Nama Lengkap', false),
+                          SizedBox(height: screenSize.height * 0.02),
+                           _buildTextField('Nomor HP', false, icon: Icons.phone),
+                            SizedBox(height: screenSize.height * 0.02),
+                        ],
+                       _buildTextField('Tanggal Lahir', false, icon: Icons.calendar_today),
+                        SizedBox(height: screenSize.height * 0.02),
+                        _buildTextField('Kata Sandi', true),
+                        if (!isLogin) ...[
+                          SizedBox(height: screenSize.height * 0.02),
+                          _buildTextField('Konfirmasi Kata Sandi', true),
+                        ],
+
+                        if (isLogin)
+                          Padding(
+                            padding: EdgeInsets.only(top: screenSize.height * 0.01),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                'Lupa Kata Sandi',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.blue,
+                                  fontSize: screenSize.width * 0.035,
                                 ),
                               ),
                             ),
                           ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => isLogin = false),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: !isLogin
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Daftar',
-                                  style: GoogleFonts.poppins(
-                                    color: !isLogin ? Colors.white : Colors.black54,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: screenSize.width * 0.04,
-                                  ),
+                        SizedBox(height: screenSize.height * 0.03),
+
+                        // Tombol utama
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isLogin ? Colors.white : Colors.blue,
+                            foregroundColor:
+                                isLogin ? Colors.blue : Colors.white,
+                            side: const BorderSide(color: Colors.blue),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
+                          ),
+                         onPressed: () async {
+                            if (isLoading) return;
+
+                            if (nameController.text.isEmpty || passwordController.text.isEmpty || nohpController.text.isEmpty || tglLahirController.text.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Harap isi semua kolom terlebih dahulu')),
+                              );
+                              return;
+                            }
+
+                            if (passwordController.text != confirmController.text) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Kata sandi dan konfirmasi tidak sama')),
+                              );
+                              return;
+                            }
+                            setState(() => isLoading = true);
+
+                            try {
+                              final result = await ApiService.registerUser(
+                                nameController.text.trim(),
+                                passwordController.text.trim(),
+                                nohpController.text.trim(),
+                                tglLahirAsli.trim(),
+                              );
+                              setState(() => isLoading = false);
+
+                              if (result['success'] == true) {
+                                await SessionManager.saveUserSession(
+                                  result['costomer']['id_costomer'].toString(),
+                                  result['costomer']['cos_nama'],
+                                  int.tryParse(result['costomer']['cos_poin'].toString()) ?? 0,
+                                );
+
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Registrasi berhasil!')),
+                                );
+
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const HomePage(isFreshLogin: true)),
+                                );
+                              } else {
+                                String message = result['message'] ?? 'Terjadi kesalahan. Coba lagi.';
+                                if (result['code'] != null) {
+                                  switch (result['code']) {
+                                    case 4091:
+                                      message = 'Nomor HP sudah terdaftar. Gunakan nomor lain.';
+                                      break;
+                                    case 4092:
+                                      message = 'Nama dan password sudah digunakan.';
+                                      break;
+                                    case 422:
+                                      message = 'Nomor HP harus berupa angka 10-13 digit.';
+                                      break;
+                                  }
+                                }
+
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(message)),
+                                );
+                              }
+                            } catch (e) {
+                              print('Register error: $e'); // Debug print
+                              setState(() => isLoading = false);
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Gagal terhubung ke server.')),
+                              );
+                            }
+
+                            },
+                            child: Text(
+                                isLogin ? 'Masuk' : 'Daftar',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: screenSize.width * 0.04,
                                 ),
                               ),
-                            ),
-                          ),
+                        ),
+
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    // Form fields
-                    if (!isLogin) ...[
-                      _buildTextField('Nama Lengkap', false),
-                      SizedBox(height: screenSize.height * 0.02),
-                       _buildTextField('Nomor HP', false, icon: Icons.phone), 
-                        SizedBox(height: screenSize.height * 0.02),
-                    ],                    
-                   _buildTextField('Tanggal Lahir', false, icon: Icons.calendar_today),
-                    SizedBox(height: screenSize.height * 0.02),                                          
-                    _buildTextField('Kata Sandi', true),
-                    if (!isLogin) ...[
-                      SizedBox(height: screenSize.height * 0.02),
-                      _buildTextField('Konfirmasi Kata Sandi', true),
-                    ],
-
-                    if (isLogin)
-                      Padding(
-                        padding: EdgeInsets.only(top: screenSize.height * 0.01),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            'Lupa Kata Sandi',
-                            style: GoogleFonts.poppins(
-                              color: Colors.blue,
-                              fontSize: screenSize.width * 0.035,
-                            ),
-                          ),
-                        ),
-                      ),
-                    SizedBox(height: screenSize.height * 0.03),
-
-                    // Tombol utama
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isLogin ? Colors.white : Colors.blue,
-                        foregroundColor:
-                            isLogin ? Colors.blue : Colors.white,
-                        side: const BorderSide(color: Colors.blue),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
-                      ),
-                     onPressed: () async {
-                        
-                        if (nameController.text.isEmpty || passwordController.text.isEmpty || nohpController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Harap isi semua kolom terlebih dahulu')),
-                          );
-                          return;
-                        }
-
-                        if (passwordController.text != confirmController.text) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Kata sandi dan konfirmasi tidak sama')),
-                          );
-                          return;
-                        }
-
-                        try {
-                          final result = await ApiService.registerUser(
-                            nameController.text.trim(),
-                            passwordController.text.trim(),
-                            nohpController.text.trim(),
-                            tglLahirAsli.trim(),
-                          );
-
-                          if (result['success'] == true) {
-                            await SessionManager.saveUserSession(
-                              result['costomer']['id_costomer'].toString(),
-                              result['costomer']['cos_nama'],              
-                              int.tryParse(result['costomer']['cos_poin'].toString()) ?? 0,
-                            );
-
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Registrasi berhasil!')),
-                            );
-
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const HomePage(isFreshLogin: true)),
-                            );
-                          } else {
-                            String message;
-                            switch (result['code']) {
-                              case 4091:
-                                message = 'Nomor HP sudah terdaftar. Gunakan nomor lain.';
-                                break;
-                              case 4092:
-                                message = 'Nama dan password sudah digunakan.';
-                                break;
-                              case 422:
-                                message = 'Nomor HP harus berupa angka 10-13 digit.';
-                                break;
-                              default:
-                                message = 'Terjadi kesalahan. Coba lagi.';
-                            }
-
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
-                          }
-                        } catch (_) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Gagal terhubung ke server.')),
-                          );
-                        }
-
-                        },
-                        child: Text(
-                        isLogin ? 'Masuk' : 'Daftar',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                          fontSize: screenSize.width * 0.04,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: screenSize.height * 0.02),
-
-                    // Tombol Google
-                    OutlinedButton.icon(
-                      icon: Image.asset(
-                        'assets/image/google.png',
-                        width: screenSize.width * 0.06,
-                        height: screenSize.width * 0.06,
-                      ),
-                      label: Text(
-                        'Masuk menggunakan Akun Google',
-                        style: GoogleFonts.poppins(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.w500,
-                          fontSize: screenSize.width * 0.035,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.blue),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
-                      ),
-                      onPressed: _signInWithGoogle,
-                    ),
-                    ],
                   ),
                 ),
-              ),
+              ],
             ),
+            if (isLoading)
+              Container(
+                color: Colors.black.withValues(alpha: 0.5),
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
           ],
         ),
       ),
@@ -334,6 +324,7 @@ class _AuthPageState extends State<AuthPage> {
               initialDate: DateTime(2000),
               firstDate: DateTime(1950),
               lastDate: DateTime.now(),
+              
               locale: const Locale('id', 'ID'),
             );
             if (pickedDate != null) {
@@ -400,41 +391,5 @@ class _AuthPageState extends State<AuthPage> {
 
 
 
-  Future<void> _signInWithGoogle() async {
-    try {
-      final account = await _authService.signInWithGoogle();
-      if (account != null) {
-        // Successfully signed in
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Welcome, ${account.displayName}!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          // Navigate to home screen or next screen
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
-        }
-      } else {
-        // Sign in failed
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Google Sign-In failed'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+
 }

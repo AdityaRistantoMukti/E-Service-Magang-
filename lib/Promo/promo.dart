@@ -13,6 +13,7 @@ import 'package:e_service/Service/cleaning_service.dart';
 import 'package:e_service/Service/perbaikan_service.dart';
 import 'package:e_service/api_services/api_service.dart';
 import 'package:e_service/models/promo_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -100,11 +101,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
             child: Row(
               children: [
                 Image.asset('assets/image/logo.png', width: 130, height: 40),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.support_agent, color: Colors.white),
-                  onPressed: () {},
-                ),
+                const Spacer(),               
                 IconButton(
                   icon: const Icon(
                     Icons.chat_bubble_outline,
@@ -405,7 +402,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                                     promo.koin.toString(),
                                     promo.gambar.startsWith('http')
                                         ? promo.gambar
-                                        : 'http://192.168.1.15:8000/storage/${promo.gambar}',
+                                        : 'http://192.168.1.6:8000/storage/${promo.gambar}',
                                     promo.diskon,
                                   ),
                                 );
@@ -611,9 +608,15 @@ Widget _productCard(
                           context,
                           MaterialPageRoute(
                             builder:
-                                (context) => const CheckoutPage(
-                                  usePointsFromPromo:
-                                      true, // Tambahkan parameter ini
+                                (context) => CheckoutPage(
+                                  usePointsFromPromo: true,
+                                  produk: {
+                                    'nama_produk': name,
+                                    'harga': 0,
+                                    'poin': int.tryParse(poin) ?? 0,
+                                    'gambar': img,
+                                    'deskripsi': name,
+                                  },
                                 ),
                           ),
                         );

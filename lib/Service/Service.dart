@@ -49,11 +49,7 @@ class _ServicePageState extends State<ServicePage> {
         elevation: 0,
         leading: null,
         title: Image.asset('assets/image/logo.png', width: 95, height: 30),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.support_agent, color: Colors.white),
-            onPressed: () {},
-          ),
+        actions: [       
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
             onPressed: () {

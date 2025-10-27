@@ -7,7 +7,7 @@ import 'tracking_driver.dart';
 import '../api_services/payment_service.dart';
 import '../Others/session_manager.dart';
 
-class DetailServicePage extends StatefulWidget {
+class DetailServiceMidtransPage extends StatefulWidget {
   final String serviceType;
   final String nama;
   final String? status;
@@ -15,7 +15,7 @@ class DetailServicePage extends StatefulWidget {
   final List<Map<String, String?>> items;
   final String alamat;
 
-  const DetailServicePage({
+  const DetailServiceMidtransPage({
     super.key,
     required this.serviceType,
     required this.nama,
@@ -26,10 +26,10 @@ class DetailServicePage extends StatefulWidget {
   });
 
   @override
-  State<DetailServicePage> createState() => _DetailServicePageState();
+  State<DetailServiceMidtransPage> createState() => _DetailServiceMidtransPageState();
 }
 
-class _DetailServicePageState extends State<DetailServicePage> {
+class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
   String? selectedPaymentMethod;
   Map<String, dynamic>? selectedAddress;
 
@@ -479,92 +479,97 @@ class _DetailServicePageState extends State<DetailServicePage> {
     );
   }
 
+  Widget _paymentItem(IconData icon, String label) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.blue),
+      title: Text(label, style: const TextStyle(fontSize: 15)),
+      onTap: () async {
+        if (label == "Midtrans Payment") {
+          // Close bottom sheet dulu
+          Navigator.pop(context);
 
- Widget _paymentItem(IconData icon, String label) {
-  return ListTile(
-    leading: Icon(icon, color: Colors.blue),
-    title: Text(label, style: const TextStyle(fontSize: 15)),
-    onTap: () async {
-      if (label == "Midtrans Payment") {
-        // Close bottom sheet dulu
-        Navigator.pop(context);
+          // Tampilkan loading
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
 
-        // Tampilkan loading
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
+          try {
+            // 🔹 Dapatkan customerId dari session
+            String? customerId = await SessionManager.getCustomerId();
+            if (customerId == null) {
+              // Close loading
+              Navigator.of(context, rootNavigator: true).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Customer ID tidak ditemukan. Silakan login ulang.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return;
+            }
 
-        try {
-          // 🔹 Dapatkan customerId dari session
-          String? customerId = await SessionManager.getCustomerId();
-          if (customerId == null) {
-            // Close loading
-            Navigator.of(context, rootNavigator: true).pop();
+            await PaymentService.startMidtransPayment(
+              context: context,
+              orderId: 'order_${DateTime.now().millisecondsSinceEpoch}',
+              amount: widget.jumlahBarang * 50000,
+              customerId: customerId, // 🔹 Tambahkan customerId
+              customerName: widget.nama,
+              customerEmail: '${widget.nama.replaceAll(' ', '').toLowerCase()}@example.com',
+              customerPhone: selectedAddress != null ? selectedAddress!['hp'] ?? '08123456789' : '08123456789',
+              itemDetails: widget.items.map((item) => {
+                'id': '34GM',
+                'price': 50000,
+                'quantity': 1,
+                'name': 'Service ${item['merek']} ${item['device']}',
+              }).toList(),
+              onTransactionFinished: (result) {
+                // Close loading
+                Navigator.of(context, rootNavigator: true).pop();
+
+                // 🔹 Debug: print result details (HANYA status!)
+                print('Payment Result - Status: ${result.status}');
+
+                // 🔹 Cek apakah transaksi sukses menggunakan helper method
+                if (PaymentService.isTransactionSuccess(result)) {
+                  _onPaymentSuccess();
+                } else {
+                  // Tampilkan pesan error
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(PaymentService.getStatusMessage(result)),
+                      backgroundColor: Colors.orange,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              },
+            );
+          } catch (e) {
+            // Close loading jika masih ada
+            if (Navigator.canPop(context)) {
+              Navigator.of(context, rootNavigator: true).pop();
+            }
+
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Customer ID tidak ditemukan. Silakan login ulang.'),
+              SnackBar(
+                content: Text('Error: $e'),
                 backgroundColor: Colors.red,
               ),
             );
-            return;
           }
-
-          await PaymentService.startMidtransPayment(
-            context: context,
-            orderId: 'order_${DateTime.now().millisecondsSinceEpoch}',
-            amount: widget.jumlahBarang * 50000,
-            customerId: customerId, // 🔹 Tambahkan customerId
-            customerName: widget.nama,
-            customerEmail: '${widget.nama.replaceAll(' ', '').toLowerCase()}@example.com',
-            customerPhone: selectedAddress != null ? selectedAddress!['hp'] ?? '08123456789' : '08123456789',
-            onTransactionFinished: (result) {
-              // Close loading
-              Navigator.of(context, rootNavigator: true).pop();
-
-              // 🔹 Debug: print result details (HANYA status!)
-              print('Payment Result - Status: ${result.status}');
-
-              // 🔹 Cek apakah transaksi sukses menggunakan helper method
-              if (PaymentService.isTransactionSuccess(result)) {
-                _onPaymentSuccess();
-              } else {
-                // Tampilkan pesan error
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(PaymentService.getStatusMessage(result)),
-                    backgroundColor: Colors.orange,
-                    duration: const Duration(seconds: 3),
-                  ),
-                );
-              }
-            },
-          );
-        } catch (e) {
-          // Close loading jika masih ada
-          if (Navigator.canPop(context)) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
+        } else {
+          setState(() {
+            selectedPaymentMethod = label;
+          });
+          Navigator.pop(context);
         }
-      } else {
-        setState(() {
-          selectedPaymentMethod = label;
-        });
-        Navigator.pop(context);
-      }
-    },
-  );
-}
+      },
+    );
+  }
 
   // Dan update method _onPaymentSuccess:
   void _onPaymentSuccess() async {
@@ -584,12 +589,12 @@ class _DetailServicePageState extends State<DetailServicePage> {
         // Continue with order completion even if payment record fails
       }
     }
-    
+
     // Set selected payment method
     setState(() {
       selectedPaymentMethod = "Midtrans Payment";
     });
-    
+
     // Complete order
     _completeOrder(context);
   }

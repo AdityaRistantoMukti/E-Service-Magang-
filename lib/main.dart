@@ -1,8 +1,10 @@
 import 'package:e_service/Auth/login.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/birthday_notification_service.dart';
+import 'package:e_service/api_services/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:midtrans_sdk/midtrans_sdk.dart';
 import 'Others/session_manager.dart';
 
 void main() async {
@@ -28,7 +30,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-       supportedLocales: const [
+      supportedLocales: const [
         Locale('en', 'US'),
         Locale('id', 'ID'),
       ],
@@ -37,7 +39,6 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-
       home: SplashScreen(isLoggedIn: isLoggedIn),
     );
   }
@@ -80,7 +81,6 @@ class _SplashScreenState extends State<SplashScreen>
       if (status == AnimationStatus.completed) {
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
-            // Start birthday notification checking
             BirthdayNotificationService.scheduleDailyBirthdayCheck();
 
             if (widget.isLoggedIn) {
@@ -96,7 +96,6 @@ class _SplashScreenState extends State<SplashScreen>
         });
       }
     });
-
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.forward();
@@ -125,12 +124,10 @@ class _SplashScreenState extends State<SplashScreen>
             fit: StackFit.expand,
             children: [
               Container(color: Colors.white),
-
               CustomPaint(
                 painter: CircleRevealPainter(circleValue),
                 child: Container(),
               ),
-
               if (logoVisible)
                 Center(
                   child: Opacity(
@@ -169,13 +166,10 @@ class CircleRevealPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.blue;
-
     final maxRadius =
         (size.width > size.height ? size.width : size.height) * 1.2;
     final radius = maxRadius * progress;
-
     final center = Offset(size.width / 2, size.height / 2);
-
     canvas.drawCircle(center, radius, paint);
   }
 

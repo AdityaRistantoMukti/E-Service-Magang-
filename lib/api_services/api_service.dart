@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Ganti dengan alamat server Laravel kamu
-  static const String baseUrl = 'http://192.168.1.15:8000/api'; 
+  static const String baseUrl = 'http://192.168.1.6:8000/api'; 
 
 //Customer
   //  GET semua costomer
@@ -153,24 +153,17 @@ class ApiService {
       Uri.parse('$baseUrl/register'),
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: {
+      body: jsonEncode({
         'cos_nama': name,
         'password': password,
         'cos_hp': nohp,
         'cos_tgl_lahir': tglLahir,
-      },
+      }),
     );
 
-    final data = json.decode(response.body);
-    return {
-      'status': response.statusCode,
-      'success': data['success'] ?? false,
-      'code': data['code'] ?? 0,
-      'message': data['message'] ?? 'Terjadi kesalahan',
-      'costomer': data['costomer'],
-    };
+    return json.decode(response.body);
   }
 
 

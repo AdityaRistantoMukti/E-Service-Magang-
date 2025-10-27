@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoadingWrapper extends StatelessWidget {
   final bool isLoading;
@@ -148,11 +150,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Row(
                   children: [
                     Image.asset('assets/image/logo.png', width: 95, height: 30),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.support_agent, color: Colors.white),
-                      onPressed: () {},
-                    ),
+                    const Spacer(),               
                     IconButton(
                       icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
                       onPressed: () {
@@ -211,9 +209,26 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    _contactTile(Icons.wechat, nohp, Icons.chat),
+                    _contactTile(
+                      const Icon(Icons.support_agent, color: Colors.blue),
+                      '085942001720',
+                      Icons.chat,
+                      onTrailingTap: () async {
+                        final wa = Uri.parse('https://wa.me/6285942001720?text=Halo%20Admin,%20saya%20user');
+                        await launchUrl(wa, mode: LaunchMode.externalApplication);
+                      },
+                    ),
                     const SizedBox(height: 12),
-                    _contactTile(Icons.facebook, userData?['cos_email'] ?? '-', Icons.chat),
+                    _contactTile(
+                      const FaIcon(FontAwesomeIcons.instagram, color: Colors.purple),
+                      userData?['cos_instagram'] ?? 'authorized_servicecenter.tegal',
+                      Icons.chat,
+                      onTrailingTap: () async {
+                        final username = userData?['cos_instagram'] ?? 'authorized_servicecenter.tegal';
+                        final url = Uri.parse('instagram://user?username=$username');
+                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                      },
+                    ),
                     
                     const SizedBox(height: 30),
                       Align(
@@ -418,7 +433,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _contactTile(IconData icon, String text, IconData actionIcon) {
+   Widget _contactTile(Widget leadingIcon, String title, IconData trailingIcon, {Color color = Colors.blue, VoidCallback? onTrailingTap}) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
@@ -434,10 +449,19 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.blue),
+          leadingIcon,
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-          Icon(actionIcon, color: Colors.blue),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          GestureDetector(
+            onTap: onTrailingTap,
+            child: Icon(trailingIcon, color: color),
+          ),
         ],
       ),
     );

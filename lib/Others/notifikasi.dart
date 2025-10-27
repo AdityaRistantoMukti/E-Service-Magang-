@@ -50,7 +50,7 @@ class _NotificationPageState extends State<NotificationPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 10),
+          const SizedBox( height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
