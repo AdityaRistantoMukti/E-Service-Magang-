@@ -2,21 +2,55 @@ import 'dart:convert';
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/sell.dart';
+import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-class ShowQrDetail extends StatefulWidget {
-  const ShowQrDetail({super.key});
+class ShowQrCustomerData extends StatefulWidget {
+  const ShowQrCustomerData({super.key});
 
   @override
-  State<ShowQrDetail> createState() => _ShowQrDetailState();
+  State<ShowQrCustomerData> createState() => _ShowQrCustomerDataState();
 }
 
-class _ShowQrDetailState extends State<ShowQrDetail> {
-  int currentIndex = 4;
+class _ShowQrCustomerDataState extends State<ShowQrCustomerData> {
+  int currentIndex = 4; // default di tengah (Home)
+
+  Map<String, dynamic>? userData;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final session = await SessionManager.getUserSession();
+      final userId = session['id'];
+      if (userId != null) {
+        final data = await ApiService.getCostomerById(userId);
+        setState(() {
+          userData = data;
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   void _navigateWithAnimation(Widget page) {
     Navigator.pushReplacement(
@@ -25,13 +59,10 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
         transitionDuration: const Duration(milliseconds: 400),
         pageBuilder: (_, __, ___) => page,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          // 🔹 Transisi Slide dari kanan ke kiri
           const begin = Offset(0.5, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOut;
-
           var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-
           return SlideTransition(
             position: animation.drive(tween),
             child: FadeTransition(opacity: animation, child: child),
@@ -43,13 +74,27 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic> userData = {
-      "id": "202234001",
-      "name": "Udin",
-      "points": 25,
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (userData == null) {
+      return const Scaffold(
+        body: Center(child: Text('Failed to load user data')),
+      );
+    }
+
+    // 🔹 Data QR dengan data customer
+    final Map<String, dynamic> qrPayload = {
+      "user_id": userData!['id'] ?? '',
+      "user_name": userData!['cos_nama'] ?? '',
+      "user_points": userData!['cos_poin'] ?? '0',
     };
 
-    final String qrData = jsonEncode(userData);
+    // 🔹 Encode jadi string JSON agar bisa dibaca oleh scanner
+    final String qrData = jsonEncode(qrPayload);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -69,7 +114,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
                   ),
                   const SizedBox(width: 4),
                   const Text(
-                    "Azzahra",
+                    "QR Data Customer",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -80,9 +125,9 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
 
-            // 🔹 Kartu Member
+            // 🔹 Info customer
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 24),
               padding: const EdgeInsets.all(16),
@@ -99,41 +144,23 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.account_circle, size: 60, color: Colors.black54),
+                  const Icon(Icons.person, size: 60, color: Colors.black54),
                   const SizedBox(height: 8),
                   Text(
-                    userData["name"],
+                    userData!['cos_nama'] ?? 'Nama tidak tersedia',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
                   ),
-                  Text(
-                    "Id ${userData["id"]}",
-                    style: const TextStyle(color: Colors.black54),
-                  ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Poin ",
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                      Text(
-                        "${userData["points"]} ",
-                        style: const TextStyle(
-                          color: Color(0xFF1976D2),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Image.asset(
-                        'assets/image/coin.png',
-                        width: 16,
-                        height: 16,
-                      ),
-                    ],
+                  Text(
+                    "Poin: ${userData!['cos_poin'] ?? '0'}",
+                    style: const TextStyle(
+                      color: Color(0xFF1976D2),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -141,7 +168,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
 
             const SizedBox(height: 30),
 
-            // 🔹 QR Code
+            // 🔹 QR Code yang akan discan oleh user
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
@@ -168,11 +195,16 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        "Tunjukkan QR ini ke admin",
+                        "Tampilkan QR ini kepada admin",
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w500,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "(QR berisi data customer untuk verifikasi)",
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
                       ),
                     ],
                   ),
@@ -183,7 +215,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
         ),
       ),
 
-      // 🔹 Bottom Navigation dengan animasi antar halaman
+      // 🔹 Bottom Navigation seperti halaman lain
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {
@@ -196,7 +228,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
           } else if (index == 2) {
             _navigateWithAnimation(const HomePage());
           } else if (index == 3) {
-            _navigateWithAnimation(const CekHargaPage());
+            _navigateWithAnimation(const TukarPoinPage());
           } else if (index == 4) {
             _navigateWithAnimation(const ProfilePage());
           }
@@ -208,7 +240,7 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
         showUnselectedLabels: true,
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        items: const [
+        items:  [
           BottomNavigationBarItem(
             icon: Icon(Icons.build_circle_outlined),
             label: 'Service',
@@ -219,8 +251,12 @@ class _ShowQrDetailState extends State<ShowQrDetail> {
           ),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.sell_outlined),
-            label: 'Jual',
+            icon: currentIndex == 3
+                ? Image.asset('assets/image/promo.png', width: 24, height: 24)
+                : Opacity(
+                    opacity: 0.6,
+                    child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
+            label: 'Promo',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

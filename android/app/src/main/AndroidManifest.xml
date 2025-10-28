@@ -35,6 +35,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+         <!-- 🔹 Activity Midtrans UI -->
+         <activity
+        android:name="id.midtrans.sdk.uikit.internal.ui.MidtransActivity"
+        android:exported="false" />
 
         <!-- Flutter Metadata -->
         <meta-data
@@ -46,6 +51,14 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
         </intent>
     </queries>
 </manifest>

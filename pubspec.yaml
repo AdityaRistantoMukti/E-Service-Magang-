@@ -87,6 +87,7 @@ flutter:
     - assets/image/asus_logo.png
     - assets/image/produk.jpg
     - assets/image/service_image.jpeg
+    - assets/image/sultan_bg.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
   # For details regarding adding assets from package dependencies, see

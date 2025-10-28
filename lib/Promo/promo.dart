@@ -396,15 +396,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                                     left: index == 0 ? 16 : 8,
                                     right: 8,
                                   ),
-                                  child: _productCard(
-                                    context,
-                                    promo.tipeProduk,
-                                    promo.koin.toString(),
-                                    promo.gambar.startsWith('http')
-                                        ? promo.gambar
-                                        : 'http://192.168.1.6:8000/storage/${promo.gambar}',
-                                    promo.diskon,
-                                  ),
+                                  child: _productCard(context, promo),
                                 );
                               },
                             ),
@@ -499,11 +491,14 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
 // ==== PRODUK CARD ====
 Widget _productCard(
   BuildContext context,
-  String name,
-  String poin,
-  String img,
-  int diskon,
+  Promo promo,
 ) {
+  String name = promo.tipeProduk;
+  String poin = promo.koin.toString();
+  String img = promo.gambar.startsWith('http')
+      ? promo.gambar
+      : 'http://192.168.1.6:8000/storage/${promo.gambar}';
+  int diskon = promo.diskon;
   return Container(
     width: 160,
     margin: const EdgeInsets.only(right: 12),
@@ -611,11 +606,12 @@ Widget _productCard(
                                 (context) => CheckoutPage(
                                   usePointsFromPromo: true,
                                   produk: {
-                                    'nama_produk': name,
-                                    'harga': 0,
-                                    'poin': int.tryParse(poin) ?? 0,
+                                    'nama_produk': promo.tipeProduk,
+                                    'harga': promo.harga,
+                                    'poin': promo.koin,
                                     'gambar': img,
-                                    'deskripsi': name,
+                                    'deskripsi': promo.tipeProduk,
+                                    'kode_barang': promo.kodeBarang,
                                   },
                                 ),
                           ),

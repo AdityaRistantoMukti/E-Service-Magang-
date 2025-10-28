@@ -109,11 +109,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
             child: Row(
               children: [
                 Image.asset('assets/image/logo.png', width: 130, height: 40),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.support_agent, color: Colors.white),
-                  onPressed: () {},
-                ),
+                const Spacer(),            
                 IconButton(
                   icon: const Icon(
                     Icons.chat_bubble_outline,

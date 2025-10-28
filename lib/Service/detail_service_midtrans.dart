@@ -531,7 +531,7 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
                 Navigator.of(context, rootNavigator: true).pop();
 
                 // 🔹 Debug: print result details (HANYA status!)
-                print('Payment Result - Status: ${result.status}');
+                print('Payment Result - Status: $result');
 
                 // 🔹 Cek apakah transaksi sukses menggunakan helper method
                 if (PaymentService.isTransactionSuccess(result)) {

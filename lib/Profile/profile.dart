@@ -3,10 +3,12 @@ import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Others/session_manager.dart';
+import 'package:e_service/Others/tier_utils.dart';
 import 'package:e_service/Others/user_point_data.dart';
 import 'package:e_service/Profile/edit_profile.dart';
 import 'package:e_service/Profile/scan_qr.dart';
 import 'package:e_service/Profile/show_qr_addcoin.dart';
+import 'package:e_service/Profile/show_qr_detail.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
 import 'package:e_service/api_services/api_service.dart';
@@ -54,6 +56,9 @@ class _ProfilePageState extends State<ProfilePage> {
     UserPointData.loadUserPoints();
   }
 
+  
+
+
   Future<void> _loadUserData() async {
     final session = await SessionManager.getUserSession();
     final id = session['id'];
@@ -92,7 +97,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final nama = userData?['cos_nama'] ?? '-';
     final id = userData?['id_costomer'] != null ? 'Id ${userData!['id_costomer']}' : '-';
     final nohp = userData?['cos_hp'] ?? '-';
-    final tglLahir = userData?['cos_tgl_lahir'] ?? '-'; 
+    final displayNohp = nohp.startsWith('62') ? '0${nohp.substring(2)}' : nohp;
+    final tglLahir = userData?['cos_tgl_lahir'] ?? '-';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -167,7 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // PROFILE CARD
             Positioned(
-              top: 120,
+              top: 115,
               left: 16,
               right: 16,
               child: _buildProfileCard(context, nama, id),
@@ -175,7 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // BODY
             Padding(
-              padding: const EdgeInsets.only(top: 300),
+              padding: const EdgeInsets.only(top: 340),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -184,7 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 12),
                     _infoTile(Icons.calendar_month, 'Tanggal Lahir', tglLahir),
                     const SizedBox(height: 12),
-                    _infoTile(Icons.phone, 'Nomor Telpon', nohp),
+                    _infoTile(Icons.phone, 'Nomor Telpon', displayNohp),
                     const SizedBox(height: 24),
 
                     Row(
@@ -195,7 +201,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           'Tunjukan QR',
                           onTap: () {
                             Navigator.push(context,
-                              MaterialPageRoute(builder: (context) => const ShowQrToAddCoins()));
+                              MaterialPageRoute(builder: (context) => const ShowQrCustomerData()));
                           },
                         ),
                         _qrBox(
@@ -263,108 +269,195 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // ==================== SUPPORTING WIDGETS ====================
 
-    Widget _buildProfileCard(BuildContext context, String nama, String id) {
-  return Container(
-    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFF1976D2), width: 2),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 5,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Column(
-      children: [
-        Stack(
-          alignment: Alignment.center,
+Widget _buildProfileCard(BuildContext context, String nama, String id) {
+  return ValueListenableBuilder<int>(
+    valueListenable: UserPointData.userPoints,
+    builder: (context, points, _) {
+      final tierInfo = getTierInfo(points);
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: tierInfo.decoration,
+        child: Column(
           children: [
-            // 🔹 Foto profil user
-            CircleAvatar(
-              radius: 35,
-              backgroundColor: Colors.black12,
-              backgroundImage: (userData?['cos_gambar'] != null && userData!['cos_gambar'].isNotEmpty)
-                  ? NetworkImage("http://192.168.1.15:8000/storage/${userData!['cos_gambar']}")
-                  : null,
-              child: (userData?['cos_gambar'] == null || userData!['cos_gambar'].isEmpty)
-                  ? const Icon(Icons.person, size: 50, color: Colors.black)
-                  : null,
-            ),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // 🔹 Foto profil user
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: Colors.black.withOpacity(0.2),
+                  backgroundImage: (userData?['cos_gambar'] != null && userData!['cos_gambar'].isNotEmpty)
+                      ? NetworkImage("http://192.168.1.6:8000/storage/${userData!['cos_gambar']}")
+                      : null,
+                  child: (userData?['cos_gambar'] == null || userData!['cos_gambar'].isEmpty)
+                      ? Icon(Icons.person, size: 50, color: tierInfo.textColor.withOpacity(0.7))
+                      : null,
+                ),
 
-            // 🔹 Tombol edit (pensil) di kanan atas
-            Positioned(
-              top: 0,
-              right: 0,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditProfilePage(userData: userData ?? {}),
+                // 🔹 Tombol edit (pensil) di kanan atas
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfilePage(userData: userData ?? {}),
+                        ),
+                      );
+
+                      // 🔹 Jika dari EditProfilePage ada data baru, refresh profil
+                      if (result != null && result.isNotEmpty) {
+                        await _loadUserData();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.edit,
+                        color: tierInfo.textColor,
+                        size: 14,
+                      ),
                     ),
-                  );
-
-                  // 🔹 Jika dari EditProfilePage ada data baru, refresh profil
-                  if (result != null && result.isNotEmpty) {
-                    await _loadUserData();
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1976D2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.edit,
-                    color: Colors.white,
-                    size: 14,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // 🔹 Nama dan ID
+            Text(
+              nama,
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: tierInfo.textColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              id,
+              style: GoogleFonts.poppins(
+                color: tierInfo.textColor.withOpacity(0.8),
+                fontSize: 12,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
-        // 🔹 Nama dan ID
-        Text(
-          nama,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        Text(
-          id,
-          style: const TextStyle(color: Colors.black54, fontSize: 12),
-        ),
-        const SizedBox(height: 8),
-
-        // 🔹 Poin user
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Poin', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(width: 10),
-            ValueListenableBuilder<int>(
-              valueListenable: UserPointData.userPoints,
-              builder: (context, points, _) {
-                return Text(
-                  '$points',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                );
-              },
+            // 🔹 Tier Label dan Poin berdampingan
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Tier Label dengan Icon
+                if (tierInfo.label.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        buildTierIcon(tierInfo.label),
+                        const SizedBox(width: 6),
+                        Text(
+                          tierInfo.label,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: tierInfo.textColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                
+                // Poin user
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Poin',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
+                          color: tierInfo.textColor.withOpacity(0.9),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$points',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          color: tierInfo.textColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Image.asset('assets/image/coin.png', width: 18, height: 18),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            Image.asset('assets/image/coin.png', width: 16, height: 16),
           ],
         ),
-      ],
-    ),
+      );
+    },
   );
+}
+
+
+Widget _buildTierIcon(String label) {
+  switch (label) {
+    case 'Cuanners':
+      return const Icon(
+        Icons.stars_rounded,
+        color: Colors.white,
+        size: 16,
+      );
+    case 'Crazy Rich':
+      return const Icon(
+        Icons.diamond_rounded,
+        color: Colors.white,
+        size: 16,
+      );
+    case 'Sultan':
+      return const FaIcon(
+        FontAwesomeIcons.crown,
+        color: Color(0xFFFFEB3B),
+        size: 16,
+      );
+    default:
+      return const SizedBox.shrink();
+  }
 }
 
 

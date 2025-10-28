@@ -32,18 +32,17 @@
     @override
     Widget build(BuildContext context) {
       final String? fotoPath = widget.userData['cos_gambar'];
-      final ImageProvider defaultImage = const AssetImage('assets/images/default_profile.png');
-      final ImageProvider profileImage;
+      final ImageProvider? profileImage;
 
       if (_image != null) {
         // Jika user baru saja memilih foto baru
         profileImage = FileImage(_image!);
       } else if (fotoPath != null && fotoPath.isNotEmpty) {
         // Jika user punya foto dari database
-        profileImage = NetworkImage("http://192.168.1.15:8000/storage/$fotoPath");
+        profileImage = NetworkImage("http://192.168.1.6:8000/storage/$fotoPath");
       } else {
         // Default foto
-        profileImage = defaultImage;
+        profileImage = null;
       }
 
       return Scaffold(

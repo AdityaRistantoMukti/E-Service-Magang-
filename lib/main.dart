@@ -15,6 +15,25 @@ void main() async {
 
   bool isLoggedIn = await SessionManager.isLoggedIn();
 
+  //   // 🔹 Inisialisasi Midtrans SDK sesuai versi 1.1.0
+  //   final midtrans = await MidtransSDK.init(
+  //     config: MidtransConfig(
+  //       clientKey: PaymentService.midtransClientKey,
+  //       merchantBaseUrl: PaymentService.baseUrl,
+  //       enableLog: true,
+  //       colorTheme: ColorTheme(
+  //         colorPrimary: Colors.blue,
+  //         colorPrimaryDark: Colors.blueAccent,
+  //         colorSecondary: Colors.white,
+  //       ),
+  //     ),
+  //   );
+
+  // // Set instance ke PaymentService 
+  // PaymentService.setInstance(midtrans);
+
+
+  
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 

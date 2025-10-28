@@ -1,7 +1,8 @@
 import 'package:e_service/Auth/reset_password.dart';
+import 'package:e_service/api_services/forget_password_service.dart';
+import 'package:e_service/api_services/sms_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 
 class ForgetPasswordScreen extends StatefulWidget {
   const ForgetPasswordScreen({super.key});
@@ -11,7 +12,11 @@ class ForgetPasswordScreen extends StatefulWidget {
 }
 
 class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _verificationCodeController = TextEditingController();
+  bool _isLoading = false;
+  String? _customerId;
+  bool _codeSent = false;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +49,9 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                   ),
                   SizedBox(height: screenSize.height * 0.01),
                   Text(
-                    'Masukkan kode verifikasi yang telah dikirim',
+                    _codeSent
+                        ? 'Masukkan kode verifikasi yang telah dikirim'
+                        : 'Masukkan username Anda untuk verifikasi',
                     style: GoogleFonts.poppins(
                       color: Colors.white70,
                       fontSize: screenSize.width * 0.035,
@@ -70,53 +77,62 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildTextField(
-                        controller: _verificationCodeController,
-                        hint: 'Kode Verifikasi',
-                        icon: Icons.verified_outlined,
-                      ),
-                      SizedBox(height: screenSize.height * 0.03),
-
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1976D2),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
+                      if (!_codeSent) ...[
+                        _buildTextField(
+                          controller: _usernameController,
+                          hint: 'Username',
+                          icon: Icons.person,
                         ),
-                        onPressed: () {
-                          String code = _verificationCodeController.text.trim();
-                          if (code.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Kode verifikasi wajib diisi')),
-                            );
-                            return;
-                          }
-
-                          // Simulasi kode benar (nanti bisa integrasi dengan API)
-                          if (code == "123456") {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const ResetPasswordScreen()),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Kode verifikasi salah')),
-                            );
-                          }
-                        },
-                        child: Text(
-                          'Verifikasi Kode',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w500,
-                            fontSize: screenSize.width * 0.04,
+                        SizedBox(height: screenSize.height * 0.03),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1976D2),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                           ),
+                          onPressed: _isLoading ? null : _sendVerificationCode,
+                          child: _isLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : Text(
+                                  'Kirim Kode Verifikasi',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: screenSize.width * 0.04,
+                                  ),
+                                ),
                         ),
-                      ),
+                      ] else ...[
+                        _buildTextField(
+                          controller: _verificationCodeController,
+                          hint: 'Kode Verifikasi',
+                          icon: Icons.verified_outlined,
+                        ),
+                        SizedBox(height: screenSize.height * 0.03),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1976D2),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
+                          ),
+                          onPressed: _isLoading ? null : _verifyCode,
+                          child: _isLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : Text(
+                                  'Verifikasi Kode',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: screenSize.width * 0.04,
+                                  ),
+                                ),
+                        ),
+                      ],
                       SizedBox(height: screenSize.height * 0.02),
-
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         child: Text(
@@ -136,6 +152,92 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _sendVerificationCode() async {
+    final username = _usernameController.text.trim();
+    if (username.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username wajib diisi')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ForgetPasswordService.sendVerificationCode(username);
+
+      if (result['success']) {
+        // Get phone number and verification code from result
+        final phoneNumber = result['phone'] ?? result['customer_phone'];
+        final verificationCode = result['code'] ?? result['verification_code'];
+
+        // Send SMS via Zenziva
+        await SmsService.sendSms(phoneNumber, 'Kode verifikasi Anda adalah: $verificationCode');
+
+        setState(() {
+          _codeSent = true;
+          _customerId = result['customer_id'];
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Kode verifikasi telah dikirim ke $phoneNumber')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal mengirim kode')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+
+  Future<void> _verifyCode() async {
+    final code = _verificationCodeController.text.trim();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kode verifikasi wajib diisi')),
+      );
+      return;
+    }
+
+    if (_customerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Customer ID tidak ditemukan')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ForgetPasswordService.verifyCode(_customerId!, code);
+      if (result['success']) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ResetPasswordScreen(customerId: _customerId!),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Widget _buildTextField({

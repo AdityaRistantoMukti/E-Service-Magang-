@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'notification_service.dart';
 
 class NotificationDetailPage extends StatelessWidget {
   final String title;
@@ -56,7 +57,7 @@ class NotificationDetailPage extends StatelessWidget {
             const SizedBox(height: 10),
             if (timestamp != null) ...[
               Text(
-                'Waktu: ${timestamp!.day}-${timestamp!.month}-${timestamp!.year} ${timestamp!.hour}:${timestamp!.minute.toString().padLeft(2, '0')}',
+                'Waktu: ${TimeFormatter.formatRelativeTime(timestamp!)}',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: Colors.black45,

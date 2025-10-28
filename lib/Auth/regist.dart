@@ -19,8 +19,9 @@ class _AuthPageState extends State<AuthPage> {
   bool showConfirmPassword = false;
   bool isLoading = false;
 
-  final nameController = TextEditingController();                        
-  final nohpController = TextEditingController();                        
+  final nameController = TextEditingController();
+  final usernameController = TextEditingController();
+  final nohpController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmController = TextEditingController();
   final tglLahirController = TextEditingController();
@@ -150,6 +151,8 @@ class _AuthPageState extends State<AuthPage> {
                         if (!isLogin) ...[
                           _buildTextField('Nama Lengkap', false),
                           SizedBox(height: screenSize.height * 0.02),
+                          _buildTextField('Username', false, icon: Icons.person),
+                          SizedBox(height: screenSize.height * 0.02),
                            _buildTextField('Nomor HP', false, icon: Icons.phone),
                             SizedBox(height: screenSize.height * 0.02),
                         ],
@@ -192,7 +195,7 @@ class _AuthPageState extends State<AuthPage> {
                          onPressed: () async {
                             if (isLoading) return;
 
-                            if (nameController.text.isEmpty || passwordController.text.isEmpty || nohpController.text.isEmpty || tglLahirController.text.isEmpty) {
+                            if (nameController.text.isEmpty || usernameController.text.isEmpty || passwordController.text.isEmpty || nohpController.text.isEmpty || tglLahirController.text.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Harap isi semua kolom terlebih dahulu')),
                               );
@@ -210,10 +213,12 @@ class _AuthPageState extends State<AuthPage> {
                             try {
                               final result = await ApiService.registerUser(
                                 nameController.text.trim(),
+                                usernameController.text.trim(),
                                 passwordController.text.trim(),
                                 nohpController.text.trim(),
                                 tglLahirAsli.trim(),
                               );
+                              print('Registration result: $result'); // Debug print
                               setState(() => isLoading = false);
 
                               if (result['success'] == true) {
@@ -301,8 +306,10 @@ class _AuthPageState extends State<AuthPage> {
   TextEditingController? controller;
   if (hint == 'Nama Lengkap') {
     controller = nameController;
+  } else if (hint == 'Username') {
+    controller = usernameController;
   } else if (hint == 'Nomor HP') {
-      controller = nohpController;  
+      controller = nohpController;
   }else if (hint == 'Kata Sandi') {
     controller = passwordController;
   } else if (hint == 'Konfirmasi Kata Sandi') {

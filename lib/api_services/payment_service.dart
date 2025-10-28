@@ -1,27 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:midtrans_sdk/midtrans_sdk.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 
 class PaymentService {
   static const String baseUrl = 'http://192.168.1.6:8000/api';
   static const String midtransClientKey = 'Mid-client-yKTO-_jT2d60u3M1';
-  
-  // 🔹 Singleton instance untuk Midtrans SDK
-  static MidtransSDK? _midtransSDKInstance;
-
-  /// 🔹 Get Midtrans SDK instance (sudah diinisialisasi di main.dart)
-  static MidtransSDK _getMidtransSDK({required BuildContext context}) {
-    if (_midtransSDKInstance == null) { 
-      throw Exception('Midtrans SDK belum diinisialisasi! Pastikan MidtransSDK.init() dipanggil di main.dart');
-    }
-    return _midtransSDKInstance!;
-  }
-
-  /// 🔹 Set instance setelah inisialisasi di main.dart
-  static void setInstance(MidtransSDK sdk) {
-    _midtransSDKInstance = sdk;
-  }
 
   /// 🔹 Buat transaksi ke backend
   static Future<Map<String, dynamic>> createPayment({
@@ -76,7 +60,7 @@ class PaymentService {
       final data = json.decode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        return data['data'];
+        return data;
       } else {
         throw Exception(data['message'] ?? 'Gagal membuat pembayaran');
       }
@@ -86,7 +70,7 @@ class PaymentService {
     }
   }
 
-  /// 🔹 Jalankan UI pembayaran Midtrans
+  /// 🔹 Jalankan UI pembayaran Midtrans menggunakan redirect_url
   static Future<void> startMidtransPayment({
     required BuildContext context,
     required String orderId,
@@ -96,10 +80,10 @@ class PaymentService {
     required String customerEmail,
     required String customerPhone,
     List<Map<String, dynamic>>? itemDetails,
-    required Function(TransactionResult) onTransactionFinished,
+    required Function(String) onTransactionFinished,
   }) async {
     try {
-      // Dapatkan snap token dari backend
+      // Dapatkan redirect_url dari backend
       final paymentData = await createPayment(
         customerId: customerId,
         amount: amount,
@@ -110,22 +94,26 @@ class PaymentService {
         itemDetails: itemDetails,
       );
 
-      if (!paymentData.containsKey('snap_token')) {
-        throw Exception('Backend tidak mengembalikan snap_token');
+      if (!paymentData.containsKey('redirect_url')) {
+        throw Exception('Backend tidak mengembalikan redirect_url');
       }
 
-      // Dapatkan instance SDK
-      final midtransSDK = _getMidtransSDK(context: context);
+      final redirectUrl = paymentData['redirect_url'];
 
-      // Set callback
-      midtransSDK.setTransactionFinishedCallback((result) {
-        // 🔹 TransactionResult hanya punya 1 properti: status
-        print('Transaction finished - Status: ${result.status}');
-        onTransactionFinished(result);
-      });
+      // Buka URL menggunakan url_launcher
+      if (await canLaunchUrl(Uri.parse(redirectUrl))) {
+        await launchUrl(
+          Uri.parse(redirectUrl),
+          mode: LaunchMode.externalApplication, // Buka di browser eksternal
+        );
 
-      // Mulai payment UI
-      midtransSDK.startPaymentUiFlow(token: paymentData['snap_token']);
+        // Untuk simulasi callback, kita bisa polling status atau menggunakan deep link
+        // Untuk sekarang, kita akan memanggil callback dengan status 'pending'
+        // Dalam implementasi nyata, Anda perlu menangani callback dari Midtrans
+        onTransactionFinished('pending');
+      } else {
+        throw Exception('Tidak dapat membuka URL pembayaran');
+      }
 
     } catch (e) {
       print('Error starting Midtrans payment: $e');
@@ -179,34 +167,35 @@ class PaymentService {
     }
   }
   
+
   /// 🔹 Helper untuk mengecek apakah transaksi sukses
-  static bool isTransactionSuccess(TransactionResult result) {
+  static bool isTransactionSuccess(String status) {
     // Status yang valid dari Midtrans:
     // - "capture" atau "settlement" = sukses
     // - "pending" = menunggu
     // - "deny" atau "cancel" atau "expire" = gagal
-    
-    final status = result.status?.toLowerCase() ?? '';
-    
+
+    final statusLower = status.toLowerCase();
+
     // Jika status kosong atau cancel, berarti gagal/dibatalkan
-    if (status.isEmpty || status == 'cancel' || status == 'failure') {
+    if (statusLower.isEmpty || statusLower == 'cancel' || statusLower == 'failure') {
       return false;
     }
-    
-    return status == 'capture' || 
-           status == 'settlement' || 
-           status == 'success';
+
+    return statusLower == 'capture' ||
+           statusLower == 'settlement' ||
+           statusLower == 'success';
   }
-  
+
   /// 🔹 Helper untuk mendapatkan pesan status yang user-friendly
-  static String getStatusMessage(TransactionResult result) {
-    final status = result.status?.toLowerCase() ?? '';
-    
-    if (status.isEmpty) {
+  static String getStatusMessage(String status) {
+    final statusLower = status.toLowerCase();
+
+    if (statusLower.isEmpty) {
       return 'Pembayaran dibatalkan';
     }
-    
-    switch (status) {
+
+    switch (statusLower) {
       case 'capture':
       case 'settlement':
       case 'success':

@@ -132,12 +132,12 @@ class ApiService {
 
 //AUTH    
     // LOGIN USER
-    static Future<Map<String, dynamic>> login(String nama, String password) async {
+    static Future<Map<String, dynamic>> login(String username, String password) async {
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'cos_nama': nama, 'password': password}),
-      );      
+        body: jsonEncode({'username': username, 'password': password}),
+      );
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else if (response.statusCode == 401) {
@@ -145,10 +145,13 @@ class ApiService {
       } else {
       throw Exception('Gagal login');
     }
-  } 
+  }
   //REGISTER
   static Future<Map<String, dynamic>> registerUser(
-    String name, String password, String nohp, String tglLahir) async {
+    String name, String username, String password, String nohp, String tglLahir) async {
+    // Convert phone number: replace leading '0' with '62'
+    String formattedNohp = nohp.startsWith('0') ? '62${nohp.substring(1)}' : nohp;
+
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
       headers: {
@@ -157,8 +160,9 @@ class ApiService {
       },
       body: jsonEncode({
         'cos_nama': name,
+        'username': username,
         'password': password,
-        'cos_hp': nohp,
+        'cos_hp': formattedNohp,
         'cos_tgl_lahir': tglLahir,
       }),
     );

@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool showPassword = false;
   bool isLoading = false;
 
-  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   @override
@@ -156,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 24),
 
                           // Input fields
-                          _buildTextField('Nama', false, icon: Icons.person),
+                          _buildTextField('username', false, icon: Icons.person),
                           SizedBox(height: screenSize.height * 0.02),
                           _buildTextField('Kata sandi', true),
 
@@ -206,15 +206,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             onPressed: () async {
                               if (isLoading) return;
-                              String nama = _namaController.text.trim();
+                              String username = _usernameController.text.trim();
                               String password =
                                   _passwordController.text.trim();
 
-                              if (nama.isEmpty || password.isEmpty) {
+                              if (username.isEmpty || password.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                       content: Text(
-                                          'Nama dan password wajib diisi')),
+                                          'Username dan password wajib diisi')),
                                 );
                                 return;
                               }
@@ -223,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                               try {
                                 final result =
-                                    await ApiService.login(nama, password);
+                                    await ApiService.login(username, password);
                                 setState(() => isLoading = false);
 
                                 if (result['success']) {
@@ -296,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildTextField(String hint, bool isPassword, {IconData? icon}) {
     final screenSize = MediaQuery.of(context).size;
     final controller =
-        hint == 'Nama' ? _namaController : _passwordController;
+        hint == 'username' ? _usernameController : _passwordController;
 
     return TextField(
       controller: controller,

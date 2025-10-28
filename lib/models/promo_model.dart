@@ -4,6 +4,7 @@ class Promo {
   final int diskon;
   final int koin;
   final String gambar;
+  final double harga;
 
   Promo({
     required this.kodeBarang,
@@ -11,6 +12,7 @@ class Promo {
     required this.diskon,
     required this.koin,
     required this.gambar,
+    required this.harga,
   });
 
   factory Promo.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class Promo {
       diskon: json['diskon'] ?? 0,
       koin: json['koin'] ?? 0,
       gambar: json['gambar'] ?? '',
+      harga: double.tryParse(json['harga']?.toString() ?? '0') ?? 0.0,
     );
   }
 }

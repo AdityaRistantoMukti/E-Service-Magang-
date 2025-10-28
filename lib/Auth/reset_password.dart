@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:e_service/api_services/forget_password_service.dart';
 import 'login.dart'; // pastikan arah import sesuai lokasi file kamu
 
 class ResetPasswordScreen extends StatefulWidget {
-  const ResetPasswordScreen({super.key});
+  final String customerId;
+
+  const ResetPasswordScreen({super.key, required this.customerId});
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -12,6 +15,7 @@ class ResetPasswordScreen extends StatefulWidget {
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final TextEditingController _newPasswordController = TextEditingController();
   bool showPassword = false;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -84,32 +88,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           ),
                           padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.02),
                         ),
-                        onPressed: () {
-                          String newPassword = _newPasswordController.text.trim();
-                          if (newPassword.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Kata sandi baru wajib diisi')),
-                            );
-                            return;
-                          }
-
-                          // Simulasi reset password berhasil
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Kata sandi berhasil diubah!')),
-                          );
-
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const LoginScreen()),
-                          );
-                        },
-                        child: Text(
-                          'Konfirmasi',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w500,
-                            fontSize: screenSize.width * 0.04,
-                          ),
-                        ),
+                        onPressed: _isLoading ? null : _resetPassword,
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                                'Konfirmasi',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: screenSize.width * 0.04,
+                                ),
+                              ),
                       ),
                     ],
                   ),
@@ -120,6 +108,41 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _resetPassword() async {
+    final newPassword = _newPasswordController.text.trim();
+    if (newPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kata sandi baru wajib diisi')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await ForgetPasswordService.resetPassword(widget.customerId, newPassword);
+      if (result['success'] ?? false) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kata sandi berhasil diubah!')),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal reset password')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Widget _buildTextField({

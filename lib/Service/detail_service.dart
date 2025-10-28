@@ -525,11 +525,11 @@ class _DetailServicePageState extends State<DetailServicePage> {
               // Close loading
               Navigator.of(context, rootNavigator: true).pop();
 
-              // 🔹 Debug: print result details (HANYA status!)
-              print('Payment Result - Status: ${result.status}');
+                // 🔹 Debug: print result details (HANYA status!)
+                print('Payment Result - Status: $result');
 
-              // 🔹 Cek apakah transaksi sukses menggunakan helper method
-              if (PaymentService.isTransactionSuccess(result)) {
+                // 🔹 Cek apakah transaksi sukses menggunakan helper method
+                if (PaymentService.isTransactionSuccess(result)) {
                 _onPaymentSuccess();
               } else {
                 // Tampilkan pesan error
