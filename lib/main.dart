@@ -1,6 +1,7 @@
 import 'package:e_service/Auth/login.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/birthday_notification_service.dart';
+import 'package:e_service/Teknisi/teknisi_home.dart';
 import 'package:e_service/api_services/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -14,6 +15,8 @@ void main() async {
   await BirthdayNotificationService.initialize();
 
   bool isLoggedIn = await SessionManager.isLoggedIn();
+  final session = await SessionManager.getUserSession();
+  final role = session['role'];
 
   //   // 🔹 Inisialisasi Midtrans SDK sesuai versi 1.1.0
   //   final midtrans = await MidtransSDK.init(
@@ -29,17 +32,18 @@ void main() async {
   //     ),
   //   );
 
-  // // Set instance ke PaymentService 
+  // // Set instance ke PaymentService
   // PaymentService.setInstance(midtrans);
 
 
-  
-  runApp(MyApp(isLoggedIn: isLoggedIn));
+
+  runApp(MyApp(isLoggedIn: isLoggedIn, role: role));
 }
 
 class MyApp extends StatelessWidget {
   final bool isLoggedIn;
-  const MyApp({super.key, required this.isLoggedIn});
+  final String? role;
+  const MyApp({super.key, required this.isLoggedIn, this.role});
 
   @override
   Widget build(BuildContext context) {
@@ -58,14 +62,15 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: SplashScreen(isLoggedIn: isLoggedIn),
+      home: SplashScreen(isLoggedIn: isLoggedIn, role: role),
     );
   }
 }
 
 class SplashScreen extends StatefulWidget {
   final bool isLoggedIn;
-  const SplashScreen({super.key, required this.isLoggedIn});
+  final String? role;
+  const SplashScreen({super.key, required this.isLoggedIn, this.role});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -103,8 +108,14 @@ class _SplashScreenState extends State<SplashScreen>
             BirthdayNotificationService.scheduleDailyBirthdayCheck();
 
             if (widget.isLoggedIn) {
+              Widget nextPage;
+              if (widget.role == 'karyawan') {
+                nextPage = const TeknisiHomePage();
+              } else {
+                nextPage = const HomePage();
+              }
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const HomePage()),
+                MaterialPageRoute(builder: (context) => nextPage),
               );
             } else {
               Navigator.of(context).pushReplacement(

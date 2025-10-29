@@ -2,6 +2,7 @@ import 'package:e_service/Auth/forget_password.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Others/user_point_data.dart';
+import 'package:e_service/Teknisi/teknisi_home.dart';
 import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -228,26 +229,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                 if (result['success']) {
                                   final user = result['user'];
+                                  final role = result['role'] ?? 'customer';
                                   final poin =
                                       int.tryParse(user['cos_poin'].toString()) ??
                                           0;
 
-                                  // Simpan session
+                                  // Simpan session dengan role
                                   await SessionManager.saveUserSession(
-                                    result['user']['id_costomer'].toString(),
-                                    result['user']['cos_nama'],
+                                    user['id_costomer']?.toString() ?? user['kry_kode']?.toString() ?? '',
+                                    user['cos_nama'] ?? user['kry_nama'] ?? '',
                                     poin,
+                                    role: role,
                                   );
 
                                   UserPointData.setPoints(poin);
 
-                                  // Login berhasil
+                                  // Navigasi berdasarkan role
+                                  Widget nextPage;
+                                  if (role == 'karyawan') {
+                                    nextPage = const TeknisiHomePage();
+                                  } else {
+                                    nextPage = const HomePage(isFreshLogin: true);
+                                  }
+
                                   Navigator.pushReplacement(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const HomePage(isFreshLogin: true),
-                                    ),
+                                    MaterialPageRoute(builder: (context) => nextPage),
                                   );
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(

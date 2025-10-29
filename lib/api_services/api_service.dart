@@ -139,13 +139,25 @@ class ApiService {
         body: jsonEncode({'username': username, 'password': password}),
       );
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        // Pastikan response memiliki 'role'
+        if (data['success'] == true && data.containsKey('role')) {
+          return data;
+        } else {
+          // Jika tidak ada role, anggap sebagai customer
+          return {
+            'success': data['success'] ?? false,
+            'message': data['message'] ?? 'Login berhasil',
+            'user': data['user'],
+            'role': 'customer',
+          };
+        }
       } else if (response.statusCode == 401) {
         return json.decode(response.body);
       } else {
-      throw Exception('Gagal login');
+        throw Exception('Gagal login');
+      }
     }
-  }
   //REGISTER
   static Future<Map<String, dynamic>> registerUser(
     String name, String username, String password, String nohp, String tglLahir) async {

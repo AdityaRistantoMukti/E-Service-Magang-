@@ -81,8 +81,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await SessionManager.clearSession();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,

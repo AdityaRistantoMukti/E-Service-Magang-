@@ -4,14 +4,18 @@ class SessionManager {
   static const String _keyUserId = 'id_costomer';
   static const String _keyUserName = 'cos_nama';
   static const String _keyPoin = 'cos_poin';
+  static const String _keyRole = 'role';
 
   // Simpan data login
-  static Future<void> saveUserSession(String id, String name, int poin) async {
+  static Future<void> saveUserSession(String id, String name, int poin, {String? role}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', true);
     await prefs.setString(_keyUserId, id);
     await prefs.setString(_keyUserName, name);
     await prefs.setInt(_keyPoin, poin);
+    if (role != null) {
+      await prefs.setString(_keyRole, role);
+    }
   }
 
   // Ambil data login
@@ -21,6 +25,7 @@ class SessionManager {
       'id': prefs.getString(_keyUserId),
       'name': prefs.getString(_keyUserName),
       'poin': prefs.getInt(_keyPoin) ?? 0,
+      'role': prefs.getString(_keyRole),
     };
   }
 
@@ -29,7 +34,8 @@ class SessionManager {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyUserId);
     await prefs.remove(_keyUserName);
-    await prefs.remove(_keyPoin); // 🟢 Tambahkan ini
+    await prefs.remove(_keyPoin);
+    await prefs.remove(_keyRole);
     await prefs.setBool('isLoggedIn', false);
   }
 

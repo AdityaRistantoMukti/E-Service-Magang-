@@ -224,63 +224,73 @@ import 'package:flutter/services.dart';
           ).animate(curvedAnimation),
           child: FadeTransition(
             opacity: curvedAnimation,
-            child: Material(
-              color: Colors.transparent,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade600,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.waving_hand, color: Colors.white, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Welcome!',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            'Halooo, $nama 👋',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        animationController.reverse().then((_) {
-                          overlayEntry.remove();
-                        });
-                      },
-                      child: const Icon(Icons.close, color: Colors.white, size: 20),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+child: GestureDetector(
+onHorizontalDragEnd: (DragEndDetails details) {
+if (details.velocity.pixelsPerSecond.dx.abs() > 200) {
+HapticFeedback.lightImpact();
+animationController.reverse().then((_) {
+overlayEntry.remove();
+});
+}
+},
+child: Material(
+color: Colors.transparent,
+child: AnimatedContainer(
+duration: const Duration(milliseconds: 500),
+curve: Curves.easeInOut,
+padding: const EdgeInsets.all(16),
+decoration: BoxDecoration(
+color: Colors.green.shade600,
+borderRadius: BorderRadius.circular(14),
+boxShadow: [
+BoxShadow(
+color: Colors.black.withOpacity(0.25),
+blurRadius: 10,
+offset: const Offset(0, 5),
+),
+],
+),
+child: Row(
+crossAxisAlignment: CrossAxisAlignment.center,
+children: [
+const Icon(Icons.waving_hand, color: Colors.white, size: 28),
+const SizedBox(width: 12),
+Expanded(
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+mainAxisSize: MainAxisSize.min,
+children: [
+Text(
+'Welcome!',
+style: GoogleFonts.poppins(
+color: Colors.white,
+fontWeight: FontWeight.bold,
+fontSize: 16,
+),
+),
+Text(
+'Halooo, $nama 👋',
+style: GoogleFonts.poppins(
+color: Colors.white.withOpacity(0.9),
+fontSize: 13,
+),
+),
+],
+),
+),
+GestureDetector(
+onTap: () {
+animationController.reverse().then((_) {
+overlayEntry.remove();
+});
+},
+child: const Icon(Icons.close, color: Colors.white, size: 20),
+),
+],
+),
+),
+),
+),
           ),
         ),
       );
@@ -728,7 +738,7 @@ import 'package:flutter/services.dart';
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    shape: BoxShape.circle, 
                     color: Colors.blue.withOpacity(0.05),
                   ),
                 ),
