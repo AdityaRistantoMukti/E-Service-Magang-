@@ -4,10 +4,11 @@ import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
+import 'package:e_service/Service/detail_service_midtrans.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'detail_service.dart';
+
 
 class CleaningServicePage extends StatefulWidget {
   const CleaningServicePage({super.key});
@@ -315,7 +316,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                 context,
                                 MaterialPageRoute(
                                   builder:
-                                      (context) => DetailServicePage(
+                                      (context) => DetailServiceMidtransPage(
                                         serviceType: 'cleaning',
                                         nama: namaController.text,
                                         status:

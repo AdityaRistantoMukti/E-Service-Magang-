@@ -6,6 +6,7 @@ import 'detail_alamat.dart';
 import 'tracking_driver.dart';
 import '../api_services/payment_service.dart';
 import '../Others/session_manager.dart';
+import '../api_services/api_service.dart';
 
 class DetailServiceMidtransPage extends StatefulWidget {
   final String serviceType;
@@ -26,18 +27,19 @@ class DetailServiceMidtransPage extends StatefulWidget {
   });
 
   @override
-  State<DetailServiceMidtransPage> createState() => _DetailServiceMidtransPageState();
+  State<DetailServiceMidtransPage> createState() =>
+      _DetailServiceMidtransPageState();
 }
 
-class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
+class _DetailServiceMidtransPageState
+    extends State<DetailServiceMidtransPage> {
   String? selectedPaymentMethod;
   Map<String, dynamic>? selectedAddress;
+  int selectedDiscount = 0; // 0, 10, or 50
 
-  // --- Tambahan untuk kode antrean ---
   static int _lastQueueNumber = 0;
   late String currentQueueCode;
 
-  // Fungsi untuk membuat kode antrean baru
   String _generateQueueCode(String serviceType) {
     _lastQueueNumber++;
     return "TTS${_lastQueueNumber.toString().padLeft(3, '0')}-$serviceType";
@@ -73,23 +75,19 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
           ],
         ),
       ),
-
-      // --- Tombol bawah ---
       bottomNavigationBar: Container(
         color: Colors.white,
         padding: const EdgeInsets.all(12),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
-          onPressed:
-              selectedPaymentMethod != null
-                  ? () => _completeOrder(context)
-                  : () => _showPaymentOptions(context),
+          onPressed: selectedPaymentMethod != null
+              ? () => _completeOrder(context)
+              : () => _showPaymentOptions(context),
           child: Text(
             selectedPaymentMethod != null
                 ? "Selesaikan Pesanan"
@@ -105,8 +103,6 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
     );
   }
 
-  // --- Widget Section ---
-
   Widget _buildPengiriman() {
     return Container(
       width: double.infinity,
@@ -115,13 +111,11 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "${widget.jumlahBarang} Barang",
-            style: const TextStyle(color: Colors.black54, fontSize: 13),
-          ),
+          Text("${widget.jumlahBarang} Barang",
+              style: const TextStyle(color: Colors.black54, fontSize: 13)),
           const SizedBox(height: 6),
-          Row(
-            children: const [
+          const Row(
+            children: [
               Icon(Icons.local_shipping, color: Colors.orange, size: 20),
               SizedBox(width: 6),
               Text(
@@ -131,33 +125,28 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            "Service Online",
-            style: TextStyle(color: Colors.black54, fontSize: 12),
-          ),
+          const Text("Service Online",
+              style: TextStyle(color: Colors.black54, fontSize: 12)),
           const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF4E5),
+              color: Color(0xFFFFF4E5),
               borderRadius: BorderRadius.circular(10),
             ),
             padding: const EdgeInsets.all(10),
-            child: Row(
-              children: const [
+            child: const Row(
+              children: [
                 Icon(Icons.delivery_dining, color: Colors.blue, size: 30),
                 SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Estimasi sampai: Maks. Senin, 20 Okt",
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      Text(
-                        "Jam 07:00 – 21:00",
-                        style: TextStyle(color: Colors.black54, fontSize: 12),
-                      ),
+                      Text("Estimasi sampai: Maks. Senin, 20 Okt",
+                          style: TextStyle(fontSize: 13)),
+                      Text("Jam 07:00 – 21:00",
+                          style:
+                              TextStyle(color: Colors.black54, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -181,8 +170,8 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 10),
-          ...widget.items.map(
-            (item) => Padding(
+          ...widget.items.map((item) {
+            return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
@@ -198,49 +187,42 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "${item['merek']} ${item['device']}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          "Status: ${item['status'] ?? '-'}",
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        Text(
-                          "Seri: ${item['seri'] ?? '-'}",
-                          style: const TextStyle(fontSize: 13),
-                        ),
+                        Text("${item['merek']} ${item['device']}",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text("Status: ${item['status'] ?? '-'}",
+                            style: const TextStyle(fontSize: 13)),
+                        Text("Seri: ${item['seri'] ?? '-'}",
+                            style: const TextStyle(fontSize: 13)),
                         if (widget.serviceType == 'repair' &&
                             item['part'] != null)
-                          Text(
-                            "Keluhan: ${item['part']}",
-                            style: const TextStyle(fontSize: 13),
-                          ),
+                          Text("Keluhan: ${item['part']}",
+                              style: const TextStyle(fontSize: 13)),
                         const SizedBox(height: 6),
                         const Text(
                           "1x   Rp 50.000",
                           style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
+            );
+          }).toList(),
         ],
       ),
     );
   }
 
   Widget _buildRingkasan() {
+    int subtotal = widget.jumlahBarang * 50000;
+    int biayaTeknisi = 0;
+    int discountAmount = 0;
+
     return Container(
       width: double.infinity,
       color: Colors.white,
@@ -248,22 +230,35 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Ringkasan Pesanan",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          ),
+          const Text("Ringkasan Pesanan",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
-          _summaryRow("Subtotal", "Rp ${widget.jumlahBarang * 50000}"),
+          _summaryRow("Biaya Pengecekan", "Rp 50.000"),
+          _summaryRow("Biaya Teknisi", "Rp 0"),
           _summaryRow("Diskon", "Rp 0"),
-          _summaryRow("Voucher", "Rp 0"),
-          _summaryRow("Total ongkos kirim", "Rp 0"),
           const Divider(),
-          _summaryRow(
-            "Total Belanja",
-            "Rp ${widget.jumlahBarang * 50000}",
-            isTotal: true,
-            color: Colors.blue,
-          ),
+          _summaryRow("Subtotal", "Rp 50.000",
+              isTotal: true, color: Colors.blue),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value,
+      {bool isTotal = false, Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          Text(value,
+              style: TextStyle(
+                fontSize: isTotal ? 15 : 13,
+                fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+                color: color ?? Colors.black,
+              )),
         ],
       ),
     );
@@ -288,92 +283,92 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  "Kirim ke Alamat",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                Text(
-                  "Tambahkan Alamat",
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.blueAccent, width: 1),
-                borderRadius: BorderRadius.circular(8),
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text(
+                "Kirim ke Alamat",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
-              padding: const EdgeInsets.all(10),
-              child:
-                  selectedAddress != null
-                      ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                "Tambahkan Alamat",
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.blueAccent, width: 1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(10),
+            child:
+                selectedAddress != null
+                    ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          selectedAddress!['detailAlamat'],
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
                           ),
-                          const SizedBox(height: 4),
+                        ),
+                        if (selectedAddress!['catatan'] != null &&
+                            selectedAddress!['catatan'].isNotEmpty)
                           Text(
-                            selectedAddress!['detailAlamat'],
+                            "Catatan: ${selectedAddress!['catatan']}",
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          if (selectedAddress!['catatan'] != null &&
-                              selectedAddress!['catatan'].isNotEmpty)
-                            Text(
-                              "Catatan: ${selectedAddress!['catatan']}",
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.black54,
-                              ),
-                            ),
-                        ],
-                      )
-                      : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Atur alamat anda di sini",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.alamat,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
-                            style: TextStyle(
                               fontSize: 12,
                               color: Colors.black54,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
-                            style: TextStyle(color: Colors.blue, fontSize: 12),
+                      ],
+                    )
+                    : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Atur alamat anda di sini",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.alamat,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
                           ),
-                        ],
-                      ),
-            ),
-          ],
-        ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
+                          style: TextStyle(color: Colors.blue, fontSize: 12),
+                        ),
+                      ],
+                    ),
+          ),
+        ],
+      ),
       ),
     );
   }
@@ -416,31 +411,22 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
       ),
     );
   }
-
-  Widget _summaryRow(
-    String label,
-    String value, {
-    bool isTotal = false,
-    Color? color,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 13, color: Colors.black87),
+  Widget _discountButton(int discount, String label) {
+    return Expanded(
+      child: ElevatedButton(
+        onPressed: () {
+          setState(() {
+            selectedDiscount = discount;
+          });
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: selectedDiscount == discount ? Colors.blue : Colors.grey[300],
+          foregroundColor: selectedDiscount == discount ? Colors.white : Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isTotal ? 15 : 13,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: color ?? Colors.black,
-            ),
-          ),
-        ],
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 12)),
       ),
     );
   }
@@ -588,6 +574,55 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
         print('Failed to create payment record: $e');
         // Continue with order completion even if payment record fails
       }
+
+      // Create transaction record in backend
+      bool transactionCreated = false;
+      try {
+        int subtotal = widget.jumlahBarang * 50000;
+        String currentDate = DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD format
+
+        // Extract details from the first item (assuming single item per transaction)
+        String merek = widget.items.isNotEmpty ? widget.items[0]['merek'] ?? '' : '';
+        String device = widget.items.isNotEmpty ? widget.items[0]['device'] ?? '' : '';
+        String seri = widget.items.isNotEmpty ? widget.items[0]['seri'] ?? '' : '';
+        String ketKeluhan = (widget.serviceType == 'repair' && widget.items.isNotEmpty && widget.items[0]['part'] != null)
+            ? widget.items[0]['part']!
+            : '';
+        String statusGaransi = widget.items.isNotEmpty ? widget.items[0]['status'] ?? 'Tidak Ada Garansi' : 'Tidak Ada Garansi'; // Assuming status indicates warranty
+
+        final response = await ApiService.createTransaksi({
+          'cos_kode': customerId,
+          'kry_kode': 'KRY001', // Placeholder technician code, adjust as needed
+          'trans_total': subtotal.toDouble(),
+          'trans_discount': 0.0,
+          'trans_tanggal': currentDate,
+          'trans_status': 'Waiting',
+          'merek': merek,
+          'device': device,
+          'seri': seri,
+          'ket_keluhan': ketKeluhan,
+          'status_garansi': statusGaransi,
+        });
+
+        // Check if the response indicates success
+        if (response['success'] == true) {
+          print('Transaction record created successfully');
+          transactionCreated = true;
+        } else {
+          print('Transaction creation failed: ${response['message'] ?? 'Unknown error'}');
+          transactionCreated = false;
+        }
+      } catch (e) {
+        print('Failed to create transaction record: $e');
+        transactionCreated = false;
+      }
+
+      // Check if transaction creation failed
+      if (!transactionCreated) {
+        // Show payment failed popup
+        _showPaymentFailedPopup(context);
+        return;
+      }
     }
 
     // Set selected payment method
@@ -613,6 +648,67 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
   }
 
   void _completeOrder(BuildContext context) async {
+    // Get customer ID from session
+    String? customerId = await SessionManager.getCustomerId();
+    if (customerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer ID tidak ditemukan. Silakan login ulang.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Create transaction record in backend
+    bool transactionCreated = false;
+    try {
+      int subtotal = widget.jumlahBarang * 50000;
+      String currentDate = DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD format
+
+      // Extract details from the first item (assuming single item per transaction)
+      String merek = widget.items.isNotEmpty ? widget.items[0]['merek'] ?? '' : '';
+      String device = widget.items.isNotEmpty ? widget.items[0]['device'] ?? '' : '';
+      String seri = widget.items.isNotEmpty ? widget.items[0]['seri'] ?? '' : '';
+      String ketKeluhan = (widget.serviceType == 'repair' && widget.items.isNotEmpty && widget.items[0]['part'] != null)
+          ? widget.items[0]['part']!
+          : '';
+      String statusGaransi = widget.items.isNotEmpty ? widget.items[0]['status'] ?? 'Tidak Ada Garansi' : 'Tidak Ada Garansi'; // Assuming status indicates warranty
+
+        final response = await ApiService.createTransaksi({
+          'cos_kode': customerId,
+          'kry_kode': 'KRY001', // Valid technician code
+          'trans_total': subtotal.toDouble(),
+          'trans_discount': 0.0,
+          'trans_tanggal': currentDate,
+          'trans_status': 'Waiting',
+          'merek': merek,
+          'device': device,
+          'seri': seri,
+          'ket_keluhan': ketKeluhan,
+          'status_garansi': statusGaransi,
+        });
+
+      // Check if the response indicates success
+      if (response['success'] == true) {
+        print('Transaction record created successfully');
+        transactionCreated = true;
+      } else {
+        print('Transaction creation failed: ${response['message'] ?? 'Unknown error'}');
+        transactionCreated = false;
+      }
+    } catch (e) {
+      print('Failed to create transaction record: $e');
+      transactionCreated = false;
+    }
+
+    // Check if transaction creation failed
+    if (!transactionCreated) {
+      // Show payment failed popup
+      _showPaymentFailedPopup(context);
+      return;
+    }
+
     // Buat kode antrean baru setiap pesanan selesai
     currentQueueCode = _generateQueueCode(widget.serviceType);
 
@@ -828,6 +924,130 @@ class _DetailServiceMidtransPageState extends State<DetailServiceMidtransPage> {
                           child: const Text(
                             "Lacak Pesanan",
                             style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPaymentFailedPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 25,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Pembayaran Gagal",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 48,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            "Terjadi kesalahan saat memproses pembayaran.\n"
+                            "Silakan coba lagi atau hubungi customer service.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ServicePage(),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: const Text(
+                            "Kembali",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            // Retry payment - go back to payment selection
+                            _showPaymentOptions(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: const Text(
+                            "Coba Lagi",
+                            style: TextStyle(color: Colors.white),
                           ),
                         ),
                       ],

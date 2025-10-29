@@ -56,4 +56,10 @@ class SessionManager {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyUserId);
   }
+
+  // Get technician ID (kry_kode)
+  static Future<String?> getkry_kode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyUserId); // Assuming technician ID is stored in the same key for now
+  }
 }

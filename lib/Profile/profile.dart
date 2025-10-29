@@ -1,7 +1,9 @@
+import 'package:e_service/Auth/auth_service.dart';
 import 'package:e_service/Auth/login.dart';
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/notification_service.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Others/tier_utils.dart';
 import 'package:e_service/Others/user_point_data.dart';
@@ -81,7 +83,19 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout() async {
+    // Hapus semua data lokal
     await SessionManager.clearSession();
+    await NotificationService.clearNotifications();
+    UserPointData.userPoints.value = 0;
+
+    // Sign out dari Google jika diperlukan
+    try {
+      await AuthService().signOut();
+    } catch (e) {
+      // Handle error gracefully, tidak perlu throw
+      debugPrint('Error signing out from Google: $e');
+    }
+
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,

@@ -1,13 +1,11 @@
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/notifikasi.dart';
-import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 class RiwayatPage extends StatefulWidget {
   const RiwayatPage({super.key});
@@ -20,23 +18,38 @@ class _RiwayatPageState extends State<RiwayatPage> {
   int currentIndex =
       4; // Assuming Riwayat is added to nav, but for now set to Profile index
   List<Map<String, dynamic>> orderHistory = [];
+  List<dynamic> completedTransactions = [];
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadOrderHistory();
+    _loadCompletedTransactions();
   }
 
-  Future<void> _loadOrderHistory() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? historyJson = prefs.getStringList('order_history');
-    if (historyJson != null) {
+
+
+  Future<void> _loadCompletedTransactions() async {
+    setState(() => isLoading = true);
+    try {
+      final allTransactions = await ApiService.getTransaksi();
+      final filteredTransactions = <dynamic>[];
+      for (final transaksi in allTransactions) {
+        final status = transaksi['trans_status']?.toString().toLowerCase() ?? '';
+        if (status == 'completed' || status == 'selesai' || status == 'finished') {
+          filteredTransactions.add(transaksi);
+        }
+      }
       setState(() {
-        orderHistory =
-            historyJson
-                .map((jsonStr) => jsonDecode(jsonStr) as Map<String, dynamic>)
-                .toList();
+        completedTransactions = filteredTransactions;
+        isLoading = false;
       });
+    } catch (e) {
+      setState(() {
+        completedTransactions = [];
+        isLoading = false;
+      });
+      // Error loading completed transactions
     }
   }
 
@@ -66,76 +79,84 @@ class _RiwayatPageState extends State<RiwayatPage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child:
-            orderHistory.isEmpty
-                ? Center(
-                  child: Text(
-                    'Belum ada riwayat pemesanan.',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+      body: RefreshIndicator(
+        onRefresh: _loadCompletedTransactions,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : completedTransactions.isEmpty
+              ? Center(
+                child: Text(
+                  'Belum ada riwayat transaksi yang selesai.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.grey,
                   ),
-                )
-                : ListView.builder(
-                  itemCount: orderHistory.length,
-                  itemBuilder: (context, index) {
-                    final order = orderHistory[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                ),
+              )
+              : ListView.builder(
+                itemCount: completedTransactions.length,
+                itemBuilder: (context, index) {
+                  final transaksi = completedTransactions[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Transaksi: ${transaksi['trans_kode'] ?? 'N/A'}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _infoRow(
+                            'Tanggal',
+                            transaksi['trans_tanggal'] ?? 'N/A',
+                            'Total',
+                            'Rp ${transaksi['trans_total']?.toString() ?? '0'}',
+                          ),
+                          const SizedBox(height: 8),
+                          _infoRow(
+                            'Metode Pembayaran',
+                            transaksi['trans_metode'] ?? 'N/A',
+                            'Status',
+                            transaksi['trans_status'] ?? 'N/A',
+                          ),
+                          if (transaksi['cos_nama'] != null) ...[
+                            const SizedBox(height: 8),
+                            _infoRow(
+                              'Pelanggan',
+                              transaksi['cos_nama'],
+                              'Keluhan',
+                              transaksi['ket_keluhan'] ?? 'Tidak ada keluhan',
+                            ),
+                          ],
+                          if (transaksi['service_type'] != null) ...[
+                            const SizedBox(height: 8),
                             Text(
-                              'Queue Code: ${order['queueCode'] ?? 'N/A'}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            _infoRow(
-                              'Nama',
-                              order['nama'] ?? 'N/A',
-                              'Device',
-                              order['device'] ?? 'N/A',
-                            ),
-                            const SizedBox(height: 8),
-                            _infoRow(
-                              'Merek',
-                              order['merek'] ?? 'N/A',
-                              'Seri',
-                              order['seri'] ?? 'N/A',
-                            ),
-                            const SizedBox(height: 8),
-                            _infoRow(
-                              'Layanan',
-                              order['layanan'] ?? 'N/A',
-                              'Jam Mulai',
-                              order['jamMulai'] ?? 'N/A',
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Status: ${order['status'] ?? 'Selesai'}',
+                              'Jenis Layanan: ${transaksi['service_type']}',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
-                                color: Colors.green,
+                                color: Colors.blue,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              ),
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,

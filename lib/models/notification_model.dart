@@ -34,7 +34,7 @@ class NotificationModel {
     return NotificationModel(
       title: map['title'],
       subtitle: map['subtitle'],
-      icon: IconData(map['icon'], fontFamily: 'MaterialIcons'),
+      icon: const IconData(0xe3e1, fontFamily: 'MaterialIcons'), // Use constant icon
       color: Color(map['color']),
       textColor: Color(map['textColor']),
       timestamp: DateTime.parse(map['timestamp']),

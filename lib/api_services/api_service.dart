@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:e_service/models/technician_order_model.dart';
 
 class ApiService {
   // Ganti dengan alamat server Laravel kamu
@@ -129,7 +130,6 @@ class ApiService {
 
 
 
-
 //AUTH    
     // LOGIN USER
     static Future<Map<String, dynamic>> login(String username, String password) async {
@@ -182,6 +182,61 @@ class ApiService {
     return json.decode(response.body);
   }
 
+//Transaksi
+  // POST - Tambah transaksi baru
+  static Future<Map<String, dynamic>> createTransaksi(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/transaksi'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(data),
+    );
 
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Gagal membuat transaksi: ${response.body}');
+    }
+  }
+
+  // GET technician orders by kry_kode
+  static Future<List<TechnicianOrder>> getkry_kode(String kryKode) async {
+    final response = await http.get(Uri.parse('$baseUrl/technician-orders/$kryKode'));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((item) => TechnicianOrder.fromMap(item)).toList();
+    } else {
+      throw Exception('Gagal memuat data pesanan teknisi');
+    }
+  }
+
+  // GET semua transaksi
+  static Future<List<dynamic>> getTransaksi() async {
+    final response = await http.get(Uri.parse('$baseUrl/transaksi'));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Gagal memuat data transaksi');
+    }
+  }
+
+  // UPDATE status transaksi
+  static Future<Map<String, dynamic>> updateTransaksiStatus(String transKode, String status) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/transaksi/$transKode'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        '_method': 'PUT', // spoof method PUT
+        'trans_status': status,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Gagal update status transaksi: ${response.body}');
+    }
+  }
 
 }

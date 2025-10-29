@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'progres_service.dart';
+import 'teknisi_status.dart';
 
 class TrackingPage extends StatefulWidget {
   final String? queueCode;
@@ -253,7 +254,22 @@ class _ServicePageState extends State<TrackingPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const CekProgresServicePage(),
+                              builder: (_) => TeknisiStatusPage(
+                                queueCode: widget.queueCode ?? '',
+                                serviceType: layanan == 'Cleaning' ? 'cleaning' : 'repair',
+                                nama: nama,
+                                jumlahBarang: 1, // Assuming 1 item for now
+                                items: [
+                                  {
+                                    'merek': merek,
+                                    'device': device,
+                                    'seri': seri,
+                                    'status': '',
+                                    'part': '',
+                                  }
+                                ],
+                                alamat: 'Default Address', // Need to get from prefs or pass properly
+                              ),
                             ),
                           );
                         },

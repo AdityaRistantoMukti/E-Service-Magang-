@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 enum OrderStatus {
-  enRoute('En Route', Icons.directions_car, Colors.orange),
-  arrived('Arrived', Icons.location_on, Colors.blue),
-  waitingApproval('Waiting Approval', Icons.hourglass_empty, Colors.yellow),
-  pickingParts('Picking Parts', Icons.build, Colors.purple),
-  repairing('Repairing', Icons.settings, Colors.red),
-  completed('Completed', Icons.check_circle, Colors.green),
-  delivering('Delivering', Icons.local_shipping, Colors.teal);
+  assigned('Ditugaskan', Icons.assignment, Colors.grey),
+  accepted('Menerima Pesanan', Icons.assignment_turned_in, Colors.blueGrey),
+  enRoute('Dalam Perjalanan', Icons.directions_car, Colors.orange),
+  arrived('Tiba', Icons.location_on, Colors.blue),
+  waitingApproval('Menunggu Persetujuan', Icons.hourglass_empty, Colors.yellow),
+  pickingParts('Mengambil Suku Cadang', Icons.build, Colors.purple),
+  repairing('Memperbaiki', Icons.settings, Colors.red),
+  completed('Selesai', Icons.check_circle, Colors.green),
+  delivering('Mengantar', Icons.local_shipping, Colors.teal);
 
   const OrderStatus(this.displayName, this.icon, this.color);
   final String displayName;
@@ -86,7 +88,7 @@ class TechnicianOrder {
       serviceType: map['serviceType'],
       status: OrderStatus.values.firstWhere(
         (e) => e.name == map['status'],
-        orElse: () => OrderStatus.enRoute,
+        orElse: () => OrderStatus.assigned,
       ),
       createdAt: DateTime.parse(map['createdAt']),
       scheduledTime:
