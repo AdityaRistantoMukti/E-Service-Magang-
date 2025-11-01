@@ -2,10 +2,8 @@ import 'package:e_service/Auth/login.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/birthday_notification_service.dart';
 import 'package:e_service/Teknisi/teknisi_home.dart';
-import 'package:e_service/api_services/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:midtrans_sdk/midtrans_sdk.dart';
 import 'Others/session_manager.dart';
 
 void main() async {

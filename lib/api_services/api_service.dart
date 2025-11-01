@@ -192,7 +192,21 @@ class ApiService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return json.decode(response.body);
+      try {
+        final decoded = json.decode(response.body);
+        // Handle if response is wrapped in 'data'
+        if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+          return decoded['data'];
+        }
+        return decoded;
+      } catch (e) {
+        if (e is FormatException) {
+          print('Response is not valid JSON: ${response.body}');
+          throw Exception('Response is not valid JSON: ${response.body}');
+        } else {
+          rethrow;
+        }
+      }
     } else {
       throw Exception('Gagal membuat transaksi: ${response.body}');
     }
@@ -221,6 +235,37 @@ class ApiService {
     }
   }
 
+  // GET transaksi by trans_kode
+  static Future<Map<String, dynamic>> getTransaksiByKode(String transKode) async {
+    final response = await http.get(Uri.parse('$baseUrl/transaksi/$transKode'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data is Map<String, dynamic> && data.containsKey('data')) {
+        return data['data'];
+      }
+      return data;
+    } else {
+      throw Exception('Gagal memuat data transaksi');
+    }
+  }
+
+  // GET pending transaksi by trans_kode
+  static Future<Map<String, dynamic>> getPendingTransaksiByKode(String transKode) async {
+    final response = await http.get(Uri.parse('$baseUrl/transaksi/pending/$transKode'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['message'] ?? 'Transaksi tidak ditemukan');
+      }
+    } else {
+      throw Exception('Gagal memuat data transaksi pending');
+    }
+  }
+
   // UPDATE status transaksi
   static Future<Map<String, dynamic>> updateTransaksiStatus(String transKode, String status) async {
     final response = await http.post(
@@ -236,6 +281,21 @@ class ApiService {
       return json.decode(response.body);
     } else {
       throw Exception('Gagal update status transaksi: ${response.body}');
+    }
+  }
+
+  // POST - Tambah order_list
+  static Future<Map<String, dynamic>> createOrderList(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/order-list'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(data),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Gagal membuat order_list: ${response.body}');
     }
   }
 

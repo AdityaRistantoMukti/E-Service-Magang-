@@ -1,10 +1,6 @@
-import 'dart:io';
-import 'package:e_service/api_services/api_service.dart';
 import 'package:e_service/models/technician_order_model.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class TasksTab extends StatelessWidget {
   final List<TechnicianOrder> assignedOrders;

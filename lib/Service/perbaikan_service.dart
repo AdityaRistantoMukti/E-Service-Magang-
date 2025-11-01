@@ -1,12 +1,15 @@
-  import 'package:e_service/Beli/shop.dart';
-  import 'package:e_service/Home/Home.dart';
-  import 'package:e_service/Others/notifikasi.dart';
-  import 'package:e_service/Profile/profile.dart';
-  import 'package:e_service/Promo/promo.dart';
-  import 'package:e_service/Service/Service.dart';
-  import 'package:flutter/material.dart';
-  import 'package:google_fonts/google_fonts.dart';
-  import 'detail_service_midtrans.dart';
+import 'package:e_service/Beli/shop.dart';
+import 'package:e_service/Home/Home.dart';
+import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/session_manager.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
+import 'package:e_service/Service/detail_alamat.dart';
+import 'package:e_service/api_services/api_service.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'waiting_approval.dart';
 
   class PerbaikanServicePage extends StatefulWidget {
     const PerbaikanServicePage({super.key});
@@ -19,6 +22,20 @@
     int currentIndex = 0;
 
     final TextEditingController namaController = TextEditingController();
+    Map<String, dynamic>? selectedAddress;
+
+    bool _isSuccess(Map<String, dynamic>? r) {
+      if (r == null) return false;
+      if (r.containsKey('success')) {
+        final v = r['success'];
+        return (v is bool) ? v : (v.toString().toLowerCase() == 'true');
+      }
+      if (r.containsKey('status')) {
+        final v = r['status'];
+        return (v is bool) ? v : (v.toString().toLowerCase() == 'true');
+      }
+      return false;
+    }
 
     int jumlahBarang = 1;
     List<TextEditingController> seriControllers = [];
@@ -36,6 +53,17 @@
     void initState() {
       super.initState();
       _initializeItemFields();
+      _loadUserData();
+    }
+
+    void _loadUserData() async {
+      final session = await SessionManager.getUserSession();
+      final userName = session['name'] as String?;
+      if (userName != null) {
+        setState(() {
+          namaController.text = userName;
+        });
+      }
     }
 
     void _initializeItemFields() {
@@ -120,9 +148,11 @@
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _inputField("Nama", namaController),
+                          _inputField("Nama", namaController, readOnly: true),
                           const SizedBox(height: 12),
                           _jumlahBarangField(),
+                          const SizedBox(height: 12),
+                          _buildAlamat(),
                           const SizedBox(height: 12),
 
                           // ==== DAFTAR BARANG ====
@@ -182,11 +212,17 @@
                           const SizedBox(height: 20),
                           Center(
                             child: ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 // Validation
                                 if (namaController.text.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('Nama wajib diisi dan tidak boleh kosong')),
+                                  );
+                                  return;
+                                }
+                                if (selectedAddress == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Alamat pengiriman wajib dipilih')),
                                   );
                                   return;
                                 }
@@ -254,28 +290,127 @@
                                   items.add({
                                     'merek': selectedMereks[i],
                                     'device': selectedDevices[i],
-                                    'status': selectedStatuses[i],
+                                    'status_garansi': selectedStatuses[i],
                                     'seri': seriControllers[i].text,
-                                    'part': partControllers[i].text,
+                                    'ket_keluhan': partControllers[i].text,
                                     'email': (selectedStatuses[i] == "IW (Masih Garansi)" &&
                                             selectedMereks[i] == "Lenovo")
                                         ? _getFullEmail(i)
                                         : null,
                                   });
                                 }
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => DetailServiceMidtransPage(
-                                      serviceType: 'repair',
-                                      nama: namaController.text,
-                                      status: null,
-                                      jumlahBarang: jumlahBarang,
-                                      items: items,
-                                      alamat: "", // alamat dihapus tapi tetap dikirim kosong agar tidak error
+
+                              // Send data to API: create transaksi and order_list in azza database
+                              try {
+                                String cosKode = await SessionManager.getCustomerId() ?? '';
+                                String transTanggal = DateTime.now().toIso8601String().split('T')[0];
+
+                                // Create transaksi and order_list for each item
+                                bool orderSuccess = true;
+                                for (var item in items) {
+                                  // Step 1: Create transaksi for each item
+                                  Map<String, dynamic> transaksiData = {
+                                    'cos_kode': cosKode,
+                                    'trans_total': 0.0,
+                                    'trans_discount': 0.0,
+                                    'trans_tanggal': transTanggal,
+                                    'trans_status': 'pending',
+                                    'merek': item['merek'],
+                                    'device': item['device'],
+                                    'status_garansi': item['status_garansi'],
+                                    'seri': item['seri'],
+                                    'ket_keluhan': item['ket_keluhan'],
+                                    'email': item['email'] ?? 'example@gmail.com',
+                                    'alamat': selectedAddress!['alamat'],
+                                  };
+                                  Map<String, dynamic> transaksiResponse = await ApiService.createTransaksi(transaksiData);
+                                  print('Transaksi response: $transaksiResponse'); // Debug: check if trans_kode is in response
+                                  // Get trans_kode from response
+                                  String transKode = transaksiResponse['trans_kode'] ?? '';
+                                  print('Extracted trans_kode: $transKode'); // Debug: check extracted trans_kode
+                                  if (transKode.isEmpty) {
+                                    orderSuccess = false;
+                                    break;
+                                  }
+
+                                  // Step 2: Create order_list for each item
+                                  Map<String, dynamic> orderData = {
+                                    'trans_kode': transKode,
+                                    'cos_kode': cosKode,
+                                    'trans_total': 0.0,
+                                    'trans_discount': 0.0,
+                                    'trans_tanggal': transTanggal,
+                                    'trans_status': 'pending',
+                                    'merek': item['merek'],
+                                    'device': item['device'],
+                                    'status_garansi': item['status_garansi'],
+                                    'seri': item['seri'],
+                                    'ket_keluhan': item['ket_keluhan'],
+                                    'email': item['email'] ?? 'example@gmail.com',
+                                    'alamat': selectedAddress!['alamat'],
+                                  };
+                                  print('Order data: $orderData'); // Debug: check order data
+                                  try {
+                                    Map<String, dynamic> orderResponse = await ApiService.createOrderList(orderData);
+                                    print('Order response: $orderResponse'); // Debug: check order response
+                                    if (!_isSuccess(orderResponse)) {
+                                      orderSuccess = false;
+                                      break;
+                                    }
+                                  } catch (e) {
+                                    print('Error creating order_list: $e'); // Debug: print the error
+                                    orderSuccess = false;
+                                    break;
+                                  }
+                                }
+
+                                if (orderSuccess) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => WaitingApprovalPage(
+                                        serviceType: 'Perbaikan',
+                                        nama: namaController.text,
+                                        jumlahBarang: jumlahBarang,
+                                        items: items,
+                                        alamat: '',
+                                      ),
                                     ),
-                                  ),
+                                  );
+                                } else {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text('Gagal'),
+                                        content: Text('Gagal membuat pesanan'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            child: Text('OK'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                }
+                              } catch (e) {
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: Text('Gagal'),
+                                      content: Text('Gagal membuat pesanan: $e'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(),
+                                          child: Text('OK'),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 );
+                              }
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1976D2),
@@ -340,7 +475,7 @@
     }
 
     // ==== WIDGET INPUT ====
-    Widget _inputField(String label, TextEditingController controller) {
+    Widget _inputField(String label, TextEditingController controller, {bool readOnly = false}) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -348,9 +483,10 @@
           const SizedBox(height: 6),
           TextField(
             controller: controller,
+            readOnly: readOnly,
             decoration: InputDecoration(
               filled: true,
-              fillColor: Colors.white,
+              fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -366,6 +502,106 @@
               ),
             ),
             style: const TextStyle(color: Colors.black, fontSize: 14),
+          ),
+        ],
+      );
+    }
+
+    Widget _buildAlamat() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Kirim Ke Alamat",
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (selectedAddress != null) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Colors.redAccent, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          selectedAddress!['alamat'] ?? '',
+                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Detail: ${selectedAddress!['detailAlamat'] ?? ''}",
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Penerima: ${selectedAddress!['nama'] ?? ''} (${selectedAddress!['hp'] ?? ''})",
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const DetailAlamatPage()),
+                        );
+                        if (result != null) {
+                          setState(() {
+                            selectedAddress = result;
+                          });
+                        }
+                      },
+                      child: const Text(
+                        "Ubah Alamat",
+                        style: TextStyle(color: Color(0xFF1976D2), fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const Text(
+                    "Belum ada alamat yang dipilih",
+                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const DetailAlamatPage()),
+                      );
+                      if (result != null) {
+                        setState(() {
+                          selectedAddress = result;
+                        });
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1976D2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      "Pilih Alamat",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       );
@@ -475,4 +711,6 @@
         ],
       );
     }
+
+
   }

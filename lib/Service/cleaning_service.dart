@@ -1,13 +1,14 @@
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
-import 'package:e_service/Service/detail_service_midtrans.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'waiting_approval.dart';
 
 
 class CleaningServicePage extends StatefulWidget {
@@ -17,10 +18,23 @@ class CleaningServicePage extends StatefulWidget {
   State<CleaningServicePage> createState() => _CleaningServicePageState();
 }
 
-class _CleaningServicePageState extends State<CleaningServicePage> {
-  int currentIndex = 0;
+  class _CleaningServicePageState extends State<CleaningServicePage> {
+    int currentIndex = 0;
 
-  final TextEditingController namaController = TextEditingController();
+    final TextEditingController namaController = TextEditingController();
+
+    bool _isSuccess(Map<String, dynamic>? r) {
+      if (r == null) return false;
+      if (r.containsKey('success')) {
+        final v = r['success'];
+        return (v is bool) ? v : (v.toString().toLowerCase() == 'true');
+      }
+      if (r.containsKey('status')) {
+        final v = r['status'];
+        return (v is bool) ? v : (v.toString().toLowerCase() == 'true');
+      }
+      return false;
+    }
 
   int jumlahBarang = 1;
   List<TextEditingController> seriControllers = [];
@@ -218,7 +232,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                         const SizedBox(height: 20),
                         Center(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               // Validation
                               if (namaController.text.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -302,7 +316,7 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                               List<Map<String, String?>> items = [];
                               for (int i = 0; i < jumlahBarang; i++) {
                                 items.add({
-                                  'status': selectedStatuses[i],
+                                  'status_garansi': selectedStatuses[i],
                                   'merek': selectedMereks[i],
                                   'device': selectedDevices[i],
                                   'seri': seriControllers[i].text,
@@ -312,23 +326,62 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
                                       : null,
                                 });
                               }
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => DetailServiceMidtransPage(
-                                        serviceType: 'cleaning',
-                                        nama: namaController.text,
-                                        status:
-                                            selectedStatuses.isNotEmpty
-                                                ? selectedStatuses[0]
-                                                : null,
-                                        jumlahBarang: jumlahBarang,
-                                        items: items,
-                                        alamat: '',
-                                      ),
-                                ),
-                              );
+
+                              // Send data to API for each item to azza database, then overall to azza_multibrand2_web
+                              try {
+                                String cosKode = await SessionManager.getCustomerId() ?? '';
+                                String transTanggal = DateTime.now().toIso8601String().split('T')[0];
+                                double pricePerItem = 0.0;
+                                double totalTrans = pricePerItem * jumlahBarang;
+
+                                // Step 1: Send to azza database (createTransaksi) for each item
+                                bool azzaSuccess = true;
+                                String? azzaError;
+                                for (var item in items) {
+                                  Map<String, dynamic> data = {
+                                    'cos_kode': cosKode,
+                                    'kry_kode': 'KRY001',
+                                    'trans_total': pricePerItem,
+                                    'trans_discount': 0.0,
+                                    'trans_tanggal': transTanggal,
+                                    'trans_status': 'pending',
+                                    'merek': item['merek'],
+                                    'device': item['device'],
+                                    'status_garansi': item['status_garansi'],
+                                    'seri': item['seri'],
+                                    'email': item['email'],
+                                  };
+                                  Map<String, dynamic> response = await ApiService.createTransaksi(data);
+                                  if (!_isSuccess(response)) {
+                                    azzaSuccess = false;
+                                    azzaError = response['message'] ?? 'Unknown error';
+                                    break;
+                                  }
+                                }
+
+                                if (!azzaSuccess) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text('Gagal'),
+                                        content: Text('Gagal membuat pesanan'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            child: Text('OK'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  return;
+                                }                              
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Terjadi kesalahan: $e')),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF1976D2),
@@ -614,5 +667,71 @@ class _CleaningServicePageState extends State<CleaningServicePage> {
         ),
       ],
     );
+  }
+
+  // Method to submit service order
+  void _submitServiceOrder(BuildContext context, String serviceType, String nama, int jumlahBarang, List<Map<String, String?>> items) async {
+    try {
+      print('=== SUBMIT SERVICE ORDER START ===');
+      print('Service Type: $serviceType');
+      print('Nama: $nama');
+      print('Jumlah Barang: $jumlahBarang');
+      print('Items: $items');
+
+      // Get customer ID from session
+      String? cosKode = await SessionManager.getCustomerId();
+      print('Customer ID from session: $cosKode');
+      if (cosKode == null) {
+        print('ERROR: Customer ID is null');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Customer ID tidak ditemukan. Silakan login kembali.')),
+        );
+        return;
+      }
+
+      // Calculate total (dummy value, adjust as needed)
+      double transTotal = 0.0 * jumlahBarang; // Example: 30k per item for cleaning
+      double transDiscount = 0.0; // No discount for now
+      String transStatus = 'pending'; // Initial status
+
+      // Prepare data for API
+      Map<String, dynamic> transaksiData = {
+        'cos_kode': cosKode,
+        'kry_kode': 'KRY001', // Valid technician code
+        'trans_total': transTotal,
+        'trans_discount': transDiscount,
+        'trans_tanggal': DateTime.now().toIso8601String().split('T')[0], // Current date in YYYY-MM-DD format
+        'trans_status': transStatus,
+      };
+
+      // Prepare full data for azza database including items
+      Map<String, dynamic> fullData = {
+        ...transaksiData,
+        'items': items,
+      };
+
+      print('Full Data for azza: $fullData');
+      print('Transaction Data for azza_multibrand2_web: $transaksiData');
+
+      // Step 1: Send to azza database with items
+      print('Calling ApiService.createTransaksi...');
+      Map<String, dynamic> response1 = await ApiService.createTransaksi(fullData);
+      print('API Response from azza: $response1');
+
+      if (response1['success'] != true) {
+        print('ERROR: Failed to create transaction in azza database');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal membuat pesanan di database utama: ${response1['message'] ?? 'Unknown error'}')),
+        );
+        return;
+      }
+    } catch (e) {
+      print('EXCEPTION: $e');
+      // Handle error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    }
+    print('=== SUBMIT SERVICE ORDER END ===');
   }
 }

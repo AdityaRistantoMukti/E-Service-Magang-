@@ -28,7 +28,7 @@ class TransactionDebugHelper {
   
   /// Cek apakah transaksi sukses berdasarkan status yang tersedia
   static bool isSuccess(TransactionResult result) {
-    final status = result.status?.toLowerCase() ?? '';
+    final status = result.status.toLowerCase() ?? '';
     return status == 'capture' || 
            status == 'settlement' || 
            status == 'success';
@@ -36,7 +36,7 @@ class TransactionDebugHelper {
   
   /// Cek apakah transaksi dibatalkan
   static bool isCanceled(TransactionResult result) {
-    final status = result.status?.toLowerCase() ?? '';
+    final status = result.status.toLowerCase() ?? '';
     return status.isEmpty || 
            status == 'cancel' || 
            status == 'failure';

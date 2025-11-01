@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
-import 'package:e_service/Others/sell.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';

@@ -4,6 +4,7 @@ import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -13,7 +14,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'progres_service.dart';
 import 'teknisi_status.dart';
 
 class TrackingPage extends StatefulWidget {
@@ -42,9 +42,12 @@ class _ServicePageState extends State<TrackingPage> {
   String device = "Laptop";
   String merek = "Asus";
   String seri = "xxxxxxxxxx";
+  String statusGaransi = "Aktif";
   String layanan = "Cleaning";
   String jamMulai = "10.00";
   String jamSelesai = "-";
+  String keluhan = "Tidak ada keluhan";
+  String alamat = "Alamat tidak tersedia";
   List<String> jenisLayanan = [];
 
   @override
@@ -56,53 +59,77 @@ class _ServicePageState extends State<TrackingPage> {
 
   void _parseQueueCode() async {
     if (widget.queueCode != null && widget.queueCode!.isNotEmpty) {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
+      try {
+        final transaksi = await ApiService.getTransaksiByKode(widget.queueCode!);
 
-      // Ambil data dari SharedPreferences berdasarkan queue code
-      String? namaFromPrefs = prefs.getString('${widget.queueCode}_nama');
-      String? serviceTypeFromPrefs = prefs.getString(
-        '${widget.queueCode}_serviceType',
-      );
-      String? deviceFromPrefs = prefs.getString('${widget.queueCode}_device');
-      String? merekFromPrefs = prefs.getString('${widget.queueCode}_merek');
-      String? seriFromPrefs = prefs.getString('${widget.queueCode}_seri');
-      String? jamMulaiFromPrefs = prefs.getString(
-        '${widget.queueCode}_jamMulai',
-      );
+        setState(() {
+          final costomer = transaksi['costomer'] as Map<String, dynamic>?;
 
-      // Debug print untuk melihat data yang diambil
-      print('Data diambil untuk kode: ${widget.queueCode}');
-      print('Nama: $namaFromPrefs');
-      print('Service Type: $serviceTypeFromPrefs');
-      print('Device: $deviceFromPrefs');
-      print('Merek: $merekFromPrefs');
-      print('Seri: $seriFromPrefs');
-      print('Jam Mulai: $jamMulaiFromPrefs');
+          nama = costomer?['cos_nama'] ?? nama;           // <= ambil dari relasi
+          device = transaksi['device'] ?? device;
+          seri = transaksi['seri'] ?? seri;
+          statusGaransi = transaksi['status_garansi'] ?? statusGaransi;
+          alamat = transaksi['alamat'] ?? alamat;
+          keluhan = transaksi['ket_keluhan'] ?? keluhan;
+          jamMulai = _formatReadableTime(transaksi['created_at']) ?? jamMulai;
+          layanan = transaksi['service_type'] == 'cleaning' ? 'Cleaning' : 'Perbaikan';
 
-      setState(() {
-        nama = namaFromPrefs ?? nama;
-        device = deviceFromPrefs ?? device;
-        merek = merekFromPrefs ?? merek;
-        seri = seriFromPrefs ?? seri;
-        layanan = serviceTypeFromPrefs == 'cleaning' ? 'Cleaning' : 'Perbaikan';
-        jamMulai =
-            jamMulaiFromPrefs != null
-                ? _formatTime(jamMulaiFromPrefs)
-                : jamMulai;
+          // Set jenis layanan berdasarkan service type
+          if (transaksi['service_type'] == 'cleaning') {
+            jenisLayanan = ["Pembersihan Hardware", "Pembersihan Software"];
+          } else if (transaksi['service_type'] == 'repair') {
+            jenisLayanan = ["Upgrade RAM", "Upgrade SSD"];
+          }
+        });
 
-        // Set jenis layanan berdasarkan service type
-        if (serviceTypeFromPrefs == 'cleaning') {
-          jenisLayanan = ["Pembersihan Hardware", "Pembersihan Software"];
-        } else if (serviceTypeFromPrefs == 'repair') {
-          jenisLayanan = ["Upgrade RAM", "Upgrade SSD"];
+        // Set user location from transaksi address if available
+        if (transaksi['cos_alamat'] != null) {
+          // Assuming address contains lat,lng or parse it
+          // For now, keep default location
         }
-      });
+      } catch (e) {
+        print('Error fetching transaction data: $e');
+        // Fallback to SharedPreferences if API fails
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+
+        String? namaFromPrefs = prefs.getString('${widget.queueCode}_nama');
+        String? serviceTypeFromPrefs = prefs.getString('${widget.queueCode}_serviceType');
+        String? deviceFromPrefs = prefs.getString('${widget.queueCode}_device');
+        String? seriFromPrefs = prefs.getString('${widget.queueCode}_seri');
+        String? statusGaransiFromPrefs = prefs.getString('${widget.queueCode}_statusGaransi');
+        String? jamMulaiFromPrefs = prefs.getString('${widget.queueCode}_jamMulai');
+        String? keluhanFromPrefs = prefs.getString('${widget.queueCode}_keluhan');
+        String? alamatFromPrefs = prefs.getString('${widget.queueCode}_alamat');
+
+        setState(() {
+          nama = namaFromPrefs ?? nama;
+          device = deviceFromPrefs ?? device;
+          seri = seriFromPrefs ?? seri;
+          statusGaransi = statusGaransiFromPrefs ?? statusGaransi;
+          layanan = serviceTypeFromPrefs == 'cleaning' ? 'Cleaning' : 'Perbaikan';
+          jamMulai = jamMulaiFromPrefs != null ? _formatTime(jamMulaiFromPrefs) : jamMulai;
+          keluhan = keluhanFromPrefs ?? keluhan;
+          alamat = alamatFromPrefs ?? alamat;
+
+          if (serviceTypeFromPrefs == 'cleaning') {
+            jenisLayanan = ["Pembersihan Hardware", "Pembersihan Software"];
+          } else if (serviceTypeFromPrefs == 'repair') {
+            jenisLayanan = ["Upgrade RAM", "Upgrade SSD"];
+          }
+        });
+      }
     }
   }
 
   String _formatTime(String dateTimeString) {
     DateTime dateTime = DateTime.parse(dateTimeString);
     return '${dateTime.hour.toString().padLeft(2, '0')}.${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String? _formatReadableTime(String? dateTimeString) {
+    if (dateTimeString == null) return null;
+    DateTime dateTime = DateTime.parse(dateTimeString);
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   Future<void> _getUserLocation() async {
@@ -197,11 +224,13 @@ class _ServicePageState extends State<TrackingPage> {
                   const SizedBox(height: 8),
                   _infoRow("Device", device, "Jam Selesai", jamSelesai),
                   const SizedBox(height: 8),
-                  _infoRow("Merek", merek, "", ""),
-                  const SizedBox(height: 8),
-                  _infoRow("Seri", seri, "", ""),
+                  _infoRow("Seri", seri, "Status Garansi", statusGaransi),
                   const SizedBox(height: 8),
                   _infoRow("Layanan", layanan, "", ""),
+                  const SizedBox(height: 8),
+                  _infoRow("Keluhan", keluhan, "", ""),
+                  const SizedBox(height: 8),
+                  _infoRow("Alamat", alamat, "", ""),
                   const SizedBox(height: 12),
 
                   // 🗺️ Map tampilan mini tracking

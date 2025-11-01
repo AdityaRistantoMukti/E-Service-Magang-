@@ -5,6 +5,7 @@ import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/cleaning_service.dart';
 import 'package:e_service/Service/perbaikan_service.dart';
+import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,11 +23,33 @@ class _ServicePageState extends State<ServicePage> {
   final TextEditingController searchController = TextEditingController();
   bool hasOngoingService = false;
   String ongoingQueueCode = '';
+  List<String> ongoingTransKodes = [];
 
   @override
   void initState() {
     super.initState();
     _checkOngoingService();
+    _loadOngoingTransactions();
+  }
+
+  Future<void> _loadOngoingTransactions() async {
+    try {
+      final allTransactions = await ApiService.getTransaksi();
+      final ongoingTransactions = <dynamic>[];
+
+      for (final transaksi in allTransactions) {
+        final status = transaksi['trans_status']?.toString().toLowerCase() ?? '';
+        if (status == 'pending' || status == 'approved' || status == 'in_progress' || status == 'on_the_way') {
+          ongoingTransactions.add(transaksi);
+        }
+      }
+
+      setState(() {
+        ongoingTransKodes = ongoingTransactions.map((t) => t['trans_kode'] as String).toList();
+      });
+    } catch (e) {
+      print('Error loading ongoing transactions: $e');
+    }
   }
 
   Future<void> _checkOngoingService() async {
@@ -67,42 +90,56 @@ class _ServicePageState extends State<ServicePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            if (hasOngoingService)
+            if (ongoingTransKodes.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) =>
-                                TrackingPage(queueCode: ongoingQueueCode),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Transaksi Pending:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.track_changes, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Lanjutkan Layanan Berjalan',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 8),
+                    ...ongoingTransKodes.map((kode) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TrackingPage(queueCode: kode),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.track_changes, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Tracking: $kode',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    )),
+                  ],
                 ),
               ),
             // Search bar

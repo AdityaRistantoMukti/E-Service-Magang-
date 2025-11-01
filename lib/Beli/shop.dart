@@ -112,7 +112,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   
   // Fungsi helper untuk build gambar dengan fallback
   Widget _buildImageWithFallback(String gambarField, double height, BoxFit fit, BorderRadius borderRadius, {int currentIndex = 0}) {
-    if (gambarField == null || gambarField.isEmpty) {
+    if (gambarField.isEmpty) {
       return Container(
         height: height,
         width: double.infinity,

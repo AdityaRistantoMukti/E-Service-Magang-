@@ -178,7 +178,7 @@ class _TeknisiProfilPageState extends State<TeknisiProfilPage> {
                               Switch(
                                 value: isOnDuty,
                                 onChanged: (value) => _toggleDutyStatus(),
-                                activeColor: const Color(0xFF1976D2),
+                                activeThumbColor: const Color(0xFF1976D2),
                                 activeTrackColor: const Color(
                                   0xFF1976D2,
                                 ).withOpacity(0.3),

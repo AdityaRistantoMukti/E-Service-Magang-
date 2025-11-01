@@ -60,7 +60,7 @@ import 'package:flutter/services.dart';
         viewportFraction: 0.85,
         initialPage: 1, // mulai dari array ke-2
       );
-      _pageController!.addListener(_onPageChanged);
+      _pageController.addListener(_onPageChanged);
       _startBannerTimer();
       _animationController = AnimationController(
         duration: const Duration(milliseconds: 300),
@@ -79,7 +79,7 @@ import 'package:flutter/services.dart';
     @override
     void dispose() {
       // karena late final, pasti sudah diinisialisasi di initState
-      _pageController?.dispose();
+      _pageController.dispose();
       _bannerTimer.cancel();
       _animationController.dispose();
       super.dispose();
@@ -321,18 +321,18 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() {
-            _currentBannerIndex = _pageController!.page?.round() ?? 0;
+            _currentBannerIndex = _pageController.page?.round() ?? 0;
           });
         }
       });
     }
       void _startBannerTimer() {
       _bannerTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-        if (_pageController != null && _pageController!.hasClients) {
-          int nextPage = _pageController!.page!.round() + 1;
+        if (_pageController.hasClients) {
+          int nextPage = _pageController.page!.round() + 1;
           final int total = 5;
 
-          _pageController!.animateToPage(
+          _pageController.animateToPage(
             nextPage,
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeInOut,
@@ -373,11 +373,11 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                 final int realIndex = index % banners.length;
 
                 return AnimatedBuilder(
-                  animation: _pageController!,
+                  animation: _pageController,
                   builder: (context, child) {
                     double value = 1.0;
-                    if (_pageController!.position.haveDimensions) {
-                      value = (_pageController!.page! - index).abs();
+                    if (_pageController.position.haveDimensions) {
+                      value = (_pageController.page! - index).abs();
                       value = (1 - (value * 0.1)).clamp(0.9, 1.0);
                     }
                     return Transform.scale(scale: value, child: child);
