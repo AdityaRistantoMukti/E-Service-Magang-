@@ -5,6 +5,7 @@ import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/cleaning_service.dart';
 import 'package:e_service/Service/perbaikan_service.dart';
+import 'package:e_service/Service/waiting_approval.dart';
 import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -63,6 +64,67 @@ class _ServicePageState extends State<ServicePage> {
     }
   }
 
+  Future<void> _handleSearch(String kode) async {
+    if (kode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Masukkan kode transaksi terlebih dahulu'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      // First, check order_list for trans_kode
+      final orderList = await ApiService.getOrderListByTransKode(kode);
+      if (orderList.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transaksi tidak ditemukan'),
+          ),
+        );
+        return;
+      }
+
+      // Check trans_status in order_list (assume first item or check if any pending)
+      final orderStatus = orderList.first['trans_status']?.toString().toLowerCase() ?? '';
+      if (orderStatus == 'pending') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WaitingApprovalPage(transKode: kode),
+          ),
+        );
+        return;
+      }
+
+      // If not pending, check transaksi status for enroute
+      final transaksi = await ApiService.getTransaksiByKode(kode);
+      final transStatus = transaksi['trans_status']?.toString().toLowerCase() ?? '';
+      if (transStatus == 'enroute') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TrackingPage(queueCode: kode),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Status transaksi tidak valid'),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error fetching transaction: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Transaksi tidak ditemukan'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,273 +148,246 @@ class _ServicePageState extends State<ServicePage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            if (ongoingTransKodes.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Transaksi Pending:',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+      body: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              if (ongoingTransKodes.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Transaksi Pending:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...ongoingTransKodes.map((kode) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TrackingPage(queueCode: kode),
+                      const SizedBox(height: 8),
+                      ...ongoingTransKodes.map((kode) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TrackingPage(queueCode: kode),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.track_changes, color: Colors.white),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Tracking: $kode',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.track_changes, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Tracking: $kode',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                      )),
+                    ],
+                  ),
+                ),
+              // Search bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: searchController,
+                        onSubmitted: (value) => _handleSearch(value.trim()),
+                        decoration: InputDecoration(
+                          hintText: 'Masukkan Kode Transaksi',
+                          hintStyle: GoogleFonts.poppins(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                          border: InputBorder.none,
                         ),
                       ),
-                    )),
+                    ),
+                    IconButton(
+                      onPressed: () => _handleSearch(searchController.text.trim()),
+                      icon: const Icon(Icons.search, color: Colors.black54),
+                    ),
                   ],
                 ),
               ),
-            // Search bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              const SizedBox(height: 32),
+
+             Container(
+              width: double.infinity,
+              height: 180,
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(8),
+                image: const DecorationImage(
+                  image: AssetImage('assets/image/service_image.jpeg'), // ganti sesuai path gambar kamu
+                  fit: BoxFit.fill, // supaya gambar memenuhi kotak
+                ),
               ),
-              child: Row(
+            ),
+
+              const SizedBox(height: 24),
+
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Tidak sempat datang ke tempat servis?',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Tenang, kami menyediakan layanan Home Delivery\n'
+                  'untuk perbaikan di rumah Anda.',
+                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Pilih Jenis Layanan',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Cards for Service Options
+              Row(
                 children: [
+                  // Left Card: Repair
                   Expanded(
-                    child: TextField(
-                      controller: searchController,
-                      onSubmitted: (value) {
-                        if (value.isNotEmpty) {
+                    child: Card(
+                      color: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: InkWell(
+                        onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder:
-                                  (context) => TrackingPage(queueCode: value),
+                              builder: (context) => const PerbaikanServicePage(),
                             ),
                           );
-                        }
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Masukan Nomor Antrean',
-                        hintStyle: GoogleFonts.poppins(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.build, color: Colors.white, size: 40),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Perbaikan',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'perbaikan (upgrade/ganti part)',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        border: InputBorder.none,
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {
-                      String value = searchController.text.trim();
-                      if (value.isNotEmpty) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => TrackingPage(queueCode: value),
-                          ),
-                        );
-                      } else {
-                        // Show error message if search is empty
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Masukkan nomor antrean terlebih dahulu',
+                  const SizedBox(width: 16),
+                  // Right Card: Cleaning
+                  Expanded(
+                    child: Card(
+                      color: Colors.teal,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CleaningServicePage(),
                             ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.cleaning_services,
+                                color: Colors.white,
+                                size: 40,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Cleaning',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'pengecekan dan pembersihan',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
                           ),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.search, color: Colors.black54),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 32),
-
-           Container(
-            width: double.infinity,
-            height: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              image: const DecorationImage(
-                image: AssetImage('assets/image/service_image.jpeg'), // ganti sesuai path gambar kamu
-                fit: BoxFit.fill, // supaya gambar memenuhi kotak
-              ),
-            ),
+            ],
           ),
-
-            const SizedBox(height: 24),
-
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Tidak sempat datang ke tempat servis?',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Tenang, kami menyediakan layanan Home Delivery\n'
-                'untuk perbaikan di rumah Anda.',
-                style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Pilih Jenis Layanan',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Cards for Service Options
-            Row(
-              children: [
-                // Left Card: Repair
-                Expanded(
-                  child: Card(
-                    color: Colors.blue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PerbaikanServicePage(),
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.build, color: Colors.white, size: 40),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Perbaikan',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'perbaikan (upgrade/ganti part)',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Right Card: Cleaning
-                Expanded(
-                  child: Card(
-                    color: Colors.teal,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CleaningServicePage(),
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.cleaning_services,
-                              color: Colors.white,
-                              size: 40,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Cleaning',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'pengecekan dan pembersihan',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
 

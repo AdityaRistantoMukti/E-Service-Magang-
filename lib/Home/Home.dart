@@ -132,6 +132,8 @@ import 'package:flutter/services.dart';
       } else {
         number = 0;
       }
+      // Multiply by 10 to correct the price display
+      number *= 10;
       final formatter = NumberFormat.currency(
         locale: 'id_ID',
         symbol: 'Rp ',

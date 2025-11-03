@@ -132,7 +132,7 @@ class ApiService {
 
 //AUTH    
     // LOGIN USER
-    static Future<Map<String, dynamic>> login(String username, String password) async {
+    static Future<Map<String, dynamic>> login(String username, String password) async {      
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
@@ -213,16 +213,99 @@ class ApiService {
   }
 
   // GET technician orders by kry_kode
+  
+  // ✅ GET technician orders by kry_kode - UPDATED WITH DEBUG LOGS
   static Future<List<TechnicianOrder>> getkry_kode(String kryKode) async {
-    final response = await http.get(Uri.parse('$baseUrl/technician-orders/$kryKode'));
+    print('🔍 [API] Fetching orders for kry_kode: $kryKode');
+
+    final response = await http.get(Uri.parse('$baseUrl/transaksi'));
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
-      return data.map((item) => TechnicianOrder.fromMap(item)).toList();
+      print('📊 [API] Total transaksi from server: ${data.length}');
+
+      // Debug: Print semua kry_kode yang ada
+      final allKryCodes = data.map((item) => item['kry_kode']).toSet();
+      print('📋 [API] All kry_kode in database: $allKryCodes');
+
+      final filteredData =
+          data.where((item) {
+            final itemKryKode = item['kry_kode']?.toString();
+            final match = itemKryKode == kryKode;
+
+            if (match) {
+              print(
+                '✅ [API] Match found - trans_kode: ${item['trans_kode']}, kry_kode: $itemKryKode, status: ${item['trans_status']}',
+              );
+            }
+
+            return match;
+          }).toList();
+
+      print('📦 [API] Filtered orders for $kryKode: ${filteredData.length}');
+
+      if (filteredData.isEmpty) {
+        print('⚠️ [API] No orders found for kry_kode: $kryKode');
+        print('   Make sure:');
+        print('   1. Database has transaksi with kry_kode = "$kryKode"');
+        print('   2. kry_kode is exact match (case-sensitive)');
+        return [];
+      }
+
+      // Fetch customer data for each transaction
+      final List<TechnicianOrder> orders = [];
+      for (var item in filteredData) {
+        print('🔄 [API] Processing transaction: ${item['trans_kode']}');
+
+        final cosKode = item['cos_kode'];
+        if (cosKode != null && cosKode.toString().isNotEmpty) {
+          try {
+            print('   Fetching customer data for cos_kode: $cosKode');
+            final customerResponse = await http.get(
+              Uri.parse('$baseUrl/costomers/$cosKode'),
+            );
+
+            if (customerResponse.statusCode == 200) {
+              final customerData = json.decode(customerResponse.body);
+              // Merge customer data into transaction data
+              item['cos_nama'] = customerData['cos_nama'];
+              item['cos_alamat'] = customerData['cos_alamat'];
+              item['cos_hp'] = customerData['cos_hp'];
+
+              print('   ✅ Customer data merged: ${customerData['cos_nama']}');
+            } else {
+              print(
+                '   ⚠️ Customer API returned ${customerResponse.statusCode} for $cosKode',
+              );
+            }
+          } catch (e) {
+            print('   ❌ Failed to fetch customer $cosKode: $e');
+          }
+        } else {
+          print('   ⚠️ No cos_kode in transaction ${item['trans_kode']}');
+        }
+
+        try {
+          final order = TechnicianOrder.fromMap(item);
+          orders.add(order);
+          print(
+            '   ✅ Order object created: ${order.orderId}, status: ${order.status.name}',
+          );
+        } catch (e) {
+          print('   ❌ Failed to create TechnicianOrder: $e');
+          print('   Item data: $item');
+        }
+      }
+
+      print('🎯 [API] Successfully created ${orders.length} order objects');
+      return orders;
     } else {
+      print('❌ [API] HTTP Error: ${response.statusCode}');
+      print('   Response: ${response.body}');
       throw Exception('Gagal memuat data pesanan teknisi');
     }
   }
+
 
   // GET semua transaksi
   static Future<List<dynamic>> getTransaksi() async {
@@ -267,14 +350,14 @@ class ApiService {
   }
 
   // UPDATE status transaksi
-  static Future<Map<String, dynamic>> updateTransaksiStatus(String transKode, String status) async {
+  static Future<Map<String, dynamic>> updateTransaksiStatus(
+    String transKode,
+    String status,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/transaksi/$transKode'),
       headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        '_method': 'PUT', // spoof method PUT
-        'trans_status': status,
-      }),
+      body: json.encode({'_method': 'PUT', 'trans_status': status}),
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -283,7 +366,117 @@ class ApiService {
       throw Exception('Gagal update status transaksi: ${response.body}');
     }
   }
+  
+  // UPDATE ket_keluhan + trans_total (Temuan Kerusakan)
+  static Future<Map<String, dynamic>> updateTransaksiTemuan(
+    String transKode,
+    String ketKeluhan,
+    num transTotal, {
+    String? alsoSetStatus,
+  }) async {
+    final uri = Uri.parse('$baseUrl/transaksi/$transKode');
+    final payload = {
+      '_method': 'PUT',
+      'ket_keluhan': ketKeluhan,
+      'trans_total': transTotal,
+      if (alsoSetStatus != null) 'trans_status': alsoSetStatus,
+    };
 
+    print('[ApiService.updateTransaksiTemuan] PUT $uri');
+    print('  payload: $payload');
+
+    final res = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(payload),
+    );
+
+    print('[ApiService.updateTransaksiTemuan] status: ${res.statusCode}');
+    print('[ApiService.updateTransaksiTemuan] body  : ${res.body}');
+
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      final data = json.decode(res.body);
+      return data is Map<String, dynamic> ? data : {'data': data};
+    } else {
+      throw Exception('Gagal simpan temuan transaksi: ${res.body}');
+    }
+  }
+
+  // DRIVER LOCATION TRACKING
+   static Future<void> updateDriverLocation({
+    required String transKode,
+    required String kryKode,
+    required double latitude,
+    required double longitude,
+  }) async {
+    // URL disesuaikan dengan standar route Laravel (tanpa .php)
+    final url = '$baseUrl/update-driver-location';
+
+    // Data yang akan dikirim dalam format JSON
+    final body = json.encode({
+      'trans_kode': transKode,
+      'kry_kode': kryKode,
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+
+    print('📍 [API] Sending location to: $url');
+    print('   Payload: $body');
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      print('📡 [API] Response status: ${response.statusCode}');
+      print('📄 [API] Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          print('✅ [API] Lokasi berhasil dikirim dan disimpan di server.');
+        } else {
+          print('⚠️ [API] Server merespons, tapi ada error: ${data['message']}');
+        }
+      } else {
+        // Jika 404, artinya route di Laravel belum ada atau salah ketik.
+        // Jika 500, artinya ada error di kode Controller Laravel.
+        print('❌ [API] Gagal mengirim lokasi, HTTP Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Error ini terjadi jika tidak ada koneksi internet atau server tidak bisa dijangkau.
+      print('🚫 [API] Network error: $e');
+    }
+  }
+
+  // Fungsi untuk getDriverLocation juga perlu disesuaikan jika ingin dipakai
+  static Future<Map<String, dynamic>?> getDriverLocation(String transKode) async {
+    // Sesuaikan dengan route di Laravel untuk mengambil lokasi
+    final url = '$baseUrl/get-driver-location/$transKode';
+
+    print('📍 [API] Fetching location from: $url');
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      print('📡 [API] Response status: ${response.statusCode}');
+      print('📄 [API] Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        print('❌ [API] Gagal mengambil lokasi driver: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('🚫 [API] Network error saat mengambil lokasi: $e');
+      return null;
+    }
+  }
+
+
+// ORDER
   // POST - Tambah order_list
   static Future<Map<String, dynamic>> createOrderList(Map<String, dynamic> data) async {
     final response = await http.post(
@@ -299,4 +492,72 @@ class ApiService {
     }
   }
 
+  // GET all order_list
+  static Future<List<dynamic>> getOrderList() async {
+    final response = await http.get(Uri.parse('$baseUrl/order-list'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['message'] ?? 'Order list tidak ditemukan');
+      }
+    } else {
+      throw Exception('Gagal memuat order list');
+    }
+  }
+
+  // GET order_list by trans_kode
+  static Future<List<dynamic>> getOrderListByTransKode(String transKode) async {
+    final response = await http.get(Uri.parse('$baseUrl/order-list/trans/$transKode'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['message'] ?? 'Order list tidak ditemukan');
+      }
+    } else {
+      throw Exception('Gagal memuat order list');
+    }
+  }
+
+  // Ambil DETAIL transaksi:
+  // 1) Coba GET /transaksi/{transKode}
+  // 2) Jika belum ada endpointnya, fallback: ambil semua /transaksi dan filter by trans_kode
+  static Future<Map<String, dynamic>?> getOrderDetail(String transKode) async {
+    // Coba endpoint langsung
+    try {
+      final url = Uri.parse('$baseUrl/transaksi/$transKode');
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data is Map<String, dynamic>) {
+          if (data['data'] is Map<String, dynamic>) return data['data'];
+          return data;
+        }
+      } else {
+        print('getOrderDetail: ${res.statusCode} ${res.body}');
+      }
+    } catch (e) {
+      print('getOrderDetail error: $e');
+    }
+
+    // Fallback: ambil dari list
+    try {
+      final list = await getTransaksi();
+      for (final it in list) {
+        if (it is Map<String, dynamic>) {
+          final code = it['trans_kode']?.toString();
+          if (code == transKode) return it;
+        }
+      }
+    } catch (e) {
+      print('getOrderDetail fallback list error: $e');
+    }
+    return null;
+  }
+  
 }

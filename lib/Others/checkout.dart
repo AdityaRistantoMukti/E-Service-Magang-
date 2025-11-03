@@ -76,7 +76,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     double harga =
-        double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0;
+        (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
     int poin = int.tryParse(widget.produk['poin']?.toString() ?? '0') ?? 0;
     String gambar = widget.produk['gambar']?.toString() ?? '';
     String namaProduk =
@@ -765,7 +765,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       double harga =
-          double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0;
+          (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
 
       await PaymentService.startMidtransPayment(
         context: context,
@@ -820,7 +820,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     String? customerId = await SessionManager.getCustomerId();
     if (customerId != null) {
       double harga =
-          double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0;
+          (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
       try {
         await PaymentService.createPayment(
           customerId: customerId,
@@ -911,7 +911,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   void _completeOrder(BuildContext context) {
     double harga =
-        double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0;
+        (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

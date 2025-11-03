@@ -200,7 +200,7 @@ class _DetailServiceMidtransPageState
                               style: const TextStyle(fontSize: 13)),
                         const SizedBox(height: 6),
                         const Text(
-                          "1x   Rp 50.000",
+                          "1x   Rp 1",
                           style: TextStyle(
                               color: Colors.blue,
                               fontWeight: FontWeight.bold,
@@ -219,7 +219,7 @@ class _DetailServiceMidtransPageState
   }
 
   Widget _buildRingkasan() {
-    int subtotal = widget.jumlahBarang * 50000;
+    int subtotal = widget.jumlahBarang * 1;
     int biayaTeknisi = 0;
     int discountAmount = 0;
 
@@ -233,11 +233,11 @@ class _DetailServiceMidtransPageState
           const Text("Ringkasan Pesanan",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
-          _summaryRow("Biaya Pengecekan", "Rp 50.000"),
+          _summaryRow("Biaya Pengecekan", "Rp 1"),
           _summaryRow("Biaya Teknisi", "Rp 0"),
           _summaryRow("Diskon", "Rp 0"),
           const Divider(),
-          _summaryRow("Subtotal", "Rp 50.000",
+          _summaryRow("Subtotal", "Rp 1",
               isTotal: true, color: Colors.blue),
         ],
       ),
@@ -501,14 +501,14 @@ class _DetailServiceMidtransPageState
             await PaymentService.startMidtransPayment(
               context: context,
               orderId: 'order_${DateTime.now().millisecondsSinceEpoch}',
-              amount: widget.jumlahBarang * 50000,
+              amount: widget.jumlahBarang * 1,
               customerId: customerId, // 🔹 Tambahkan customerId
               customerName: widget.nama,
               customerEmail: '${widget.nama.replaceAll(' ', '').toLowerCase()}@example.com',
               customerPhone: selectedAddress != null ? selectedAddress!['hp'] ?? '08123456789' : '08123456789',
               itemDetails: widget.items.map((item) => {
                 'id': '34GM',
-                'price': 50000,
+                'price': 1,
                 'quantity': 1,
                 'name': 'Service ${item['merek']} ${item['device']}',
               }).toList(),
@@ -566,7 +566,7 @@ class _DetailServiceMidtransPageState
       try {
         await PaymentService.createPayment(
           customerId: customerId,
-          amount: widget.jumlahBarang * 50000,
+          amount: widget.jumlahBarang * 1,
           kodeBarang: null,
         );
         print('Payment record created successfully');
@@ -578,7 +578,7 @@ class _DetailServiceMidtransPageState
       // Create transaction record in backend
       bool transactionCreated = false;
       try {
-        int subtotal = widget.jumlahBarang * 50000;
+        int subtotal = widget.jumlahBarang * 1;
         String currentDate = DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD format
 
         // Extract details from the first item (assuming single item per transaction)
@@ -663,7 +663,7 @@ class _DetailServiceMidtransPageState
     // Create transaction record in backend
     bool transactionCreated = false;
     try {
-      int subtotal = widget.jumlahBarang * 50000;
+      int subtotal = widget.jumlahBarang * 1;
       String currentDate = DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD format
 
       // Extract details from the first item (assuming single item per transaction)

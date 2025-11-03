@@ -300,42 +300,19 @@ import 'waiting_approval.dart';
                                   });
                                 }
 
-                              // Send data to API: create transaksi and order_list in azza database
+                              // Send data to API: create order_list in azza database
                               try {
                                 String cosKode = await SessionManager.getCustomerId() ?? '';
                                 String transTanggal = DateTime.now().toIso8601String().split('T')[0];
 
-                                // Create transaksi and order_list for each item
+                                // Create order_list for each item
                                 bool orderSuccess = true;
-                                for (var item in items) {
-                                  // Step 1: Create transaksi for each item
-                                  Map<String, dynamic> transaksiData = {
-                                    'cos_kode': cosKode,
-                                    'trans_total': 0.0,
-                                    'trans_discount': 0.0,
-                                    'trans_tanggal': transTanggal,
-                                    'trans_status': 'pending',
-                                    'merek': item['merek'],
-                                    'device': item['device'],
-                                    'status_garansi': item['status_garansi'],
-                                    'seri': item['seri'],
-                                    'ket_keluhan': item['ket_keluhan'],
-                                    'email': item['email'] ?? 'example@gmail.com',
-                                    'alamat': selectedAddress!['alamat'],
-                                  };
-                                  Map<String, dynamic> transaksiResponse = await ApiService.createTransaksi(transaksiData);
-                                  print('Transaksi response: $transaksiResponse'); // Debug: check if trans_kode is in response
-                                  // Get trans_kode from response
-                                  String transKode = transaksiResponse['trans_kode'] ?? '';
-                                  print('Extracted trans_kode: $transKode'); // Debug: check extracted trans_kode
-                                  if (transKode.isEmpty) {
-                                    orderSuccess = false;
-                                    break;
-                                  }
+                                Map<String, dynamic>? lastOrderResponse;
+                                for (int i = 0; i < items.length; i++) {
+                                  var item = items[i];
 
-                                  // Step 2: Create order_list for each item
+                                  // Create order_list for each item
                                   Map<String, dynamic> orderData = {
-                                    'trans_kode': transKode,
                                     'cos_kode': cosKode,
                                     'trans_total': 0.0,
                                     'trans_discount': 0.0,
@@ -353,6 +330,7 @@ import 'waiting_approval.dart';
                                   try {
                                     Map<String, dynamic> orderResponse = await ApiService.createOrderList(orderData);
                                     print('Order response: $orderResponse'); // Debug: check order response
+                                    lastOrderResponse = orderResponse;
                                     if (!_isSuccess(orderResponse)) {
                                       orderSuccess = false;
                                       break;
@@ -364,17 +342,13 @@ import 'waiting_approval.dart';
                                   }
                                 }
 
-                                if (orderSuccess) {
+                                if (orderSuccess && lastOrderResponse != null) {
+                                  // Get trans_kode from the last successful order response
+                                  String transKode = lastOrderResponse['data']['trans_kode'];
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => WaitingApprovalPage(
-                                        serviceType: 'Perbaikan',
-                                        nama: namaController.text,
-                                        jumlahBarang: jumlahBarang,
-                                        items: items,
-                                        alamat: '',
-                                      ),
+                                      builder: (context) => WaitingApprovalPage(transKode: transKode),
                                     ),
                                   );
                                 } else {

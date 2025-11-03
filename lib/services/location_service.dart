@@ -1,0 +1,147 @@
+// File: lib/services/location_service.dart
+
+import 'dart:async';
+import 'package:e_service/api_services/api_service.dart'; // Pastikan path ini benar
+import 'package:geolocator/geolocator.dart';
+
+class LocationService {
+  // Singleton pattern untuk memastikan hanya ada satu instance service di seluruh aplikasi.
+  // Ini mencegah beberapa pelacakan berjalan secara bersamaan secara tidak sengaja.
+  LocationService._privateConstructor();
+  static final LocationService instance = LocationService._privateConstructor();
+
+  StreamSubscription<Position>? _positionStream;
+  bool _isTracking = false;
+
+  // Variabel untuk menyimpan data order yang sedang aktif dilacak
+  String? _currentTransKode;
+  String? _currentKryKode;
+
+  // Public getter untuk status tracking
+  bool get isTracking => _isTracking;
+
+  /// Memulai proses pelacakan lokasi teknisi.
+  ///
+  /// [transKode] dan [kryKode] diperlukan untuk dikirim ke API.
+  Future<void> startTracking({
+    required String transKode,
+    required String kryKode,
+  }) async {
+    // Jika sudah melacak order yang sama, jangan mulai lagi untuk efisiensi.
+    if (_isTracking && _currentTransKode == transKode) {
+      print(
+        '📍 [LocationService] Pelacakan sudah aktif untuk order $transKode.',
+      );
+      return;
+    }
+
+    print(
+      '🚀 [LocationService] Memulai pelacakan untuk TransKode: $transKode, KryKode: $kryKode',
+    );
+    _currentTransKode = transKode;
+    _currentKryKode = kryKode;
+
+    // 1. Cek dan minta izin lokasi dari pengguna
+    bool permissionGranted = await _handleLocationPermission();
+    if (!permissionGranted) {
+      print(
+        '🚫 [LocationService] Izin lokasi tidak diberikan. Pelacakan dibatalkan.',
+      );
+      return;
+    }
+
+    // Hentikan stream lama jika ada (untuk keamanan)
+    await stopTracking();
+
+    // 2. Konfigurasi seberapa sering lokasi akan di-update
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high, // Akurasi tertinggi untuk pelacakan
+      distanceFilter: 10, // Kirim update setiap driver bergerak sejauh 10 meter
+    );
+
+    // 3. Mulai mendengarkan perubahan posisi
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      (Position position) {
+        print(
+          '📍 [LocationService] Posisi baru didapat: ${position.latitude}, ${position.longitude}',
+        );
+        _onPositionUpdate(position);
+      },
+      onError: (error) {
+        print('❌ [LocationService] Error pada stream lokasi: $error');
+        // Mungkin GPS mati atau ada masalah lain
+        _isTracking = false;
+      },
+    );
+
+    _isTracking = true;
+    print('✅ [LocationService] Pelacakan berhasil dimulai.');
+  }
+
+  /// Dipanggil setiap kali ada posisi baru dari Geolocator.
+  void _onPositionUpdate(Position position) {
+    // Pastikan data yang dibutuhkan lengkap sebelum mengirim ke server
+    if (_currentTransKode == null || _currentKryKode == null || !_isTracking) {
+      return;
+    }
+
+    // Panggil API untuk mengirim data lokasi ke server
+    ApiService.updateDriverLocation(
+      transKode: _currentTransKode!,
+      kryKode: _currentKryKode!,
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+  }
+
+  /// Menghentikan proses pelacakan lokasi.
+  Future<void> stopTracking() async {
+    if (!_isTracking) {
+      // Jika memang sudah tidak aktif, tidak perlu melakukan apa-apa.
+      return;
+    }
+    print('🛑 [LocationService] Menghentikan pelacakan...');
+    await _positionStream?.cancel();
+    _positionStream = null;
+    _isTracking = false;
+    _currentTransKode = null;
+    _currentKryKode = null;
+    print('✅ [LocationService] Pelacakan berhasil dihentikan.');
+  }
+
+  /// Fungsi internal untuk menangani logika perizinan lokasi.
+  Future<bool> _handleLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Cek apakah layanan lokasi di perangkat aktif
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      print('⚠️ [LocationService] Layanan lokasi (GPS) mati.');
+      // Anda bisa menampilkan dialog untuk meminta user menyalakan GPS
+      return false;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print('🚫 [LocationService] Pengguna menolak izin lokasi.');
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      print(
+        '🚫 [LocationService] Izin lokasi ditolak permanen. Buka pengaturan aplikasi.',
+      );
+      // Anda bisa menampilkan dialog yang mengarahkan user ke pengaturan aplikasi
+      return false;
+    }
+
+    // Jika izin diberikan
+    return true;
+  }
+}

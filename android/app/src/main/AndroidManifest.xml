@@ -3,6 +3,11 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> <!-- ✅ TAMBAHKAN INI -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/> <!-- ✅ TAMBAHKAN INI -->
 
     <application
         android:label="e_service"
@@ -38,8 +43,8 @@
         
          <!-- 🔹 Activity Midtrans UI -->
          <activity
-        android:name="id.midtrans.sdk.uikit.internal.ui.MidtransActivity"
-        android:exported="false" />
+            android:name="id.midtrans.sdk.uikit.internal.ui.MidtransActivity"
+            android:exported="false" />
 
         <!-- Flutter Metadata -->
         <meta-data

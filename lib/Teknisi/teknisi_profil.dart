@@ -2,6 +2,7 @@ import 'package:e_service/Auth/login.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'history_page.dart';
 
 class TeknisiProfilPage extends StatefulWidget {
   const TeknisiProfilPage({super.key});
@@ -257,12 +258,10 @@ class _TeknisiProfilPageState extends State<TeknisiProfilPage> {
                             subtitle:
                                 'Lihat semua pekerjaan yang telah selesai',
                             onTap: () {
-                              // Navigate to history page
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Fitur riwayat pekerjaan akan segera hadir',
-                                  ),
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const HistoryPage(),
                                 ),
                               );
                             },

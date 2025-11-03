@@ -102,11 +102,13 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
   String formatRupiah(dynamic harga) {
     final double number = double.tryParse(harga.toString()) ?? 0.0;
+    // Multiply by 10 to correct the price display
+    final double correctedNumber = number * 10;
     return NumberFormat.currency(
       locale: 'id_ID',
       symbol: 'Rp ',
       decimalDigits: 0,
-    ).format(number);
+    ).format(correctedNumber);
   }
 
   

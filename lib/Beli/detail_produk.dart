@@ -91,12 +91,14 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
     } else {
       number = 0;
     }
+    // Multiply by 10 to correct the price display
+    final double correctedNumber = number * 10;
     final formatter = NumberFormat.currency(
       locale: 'id_ID',
       symbol: 'Rp ',
       decimalDigits: 0,
     );
-    return formatter.format(number);
+    return formatter.format(correctedNumber);
   }
 
   // Fungsi untuk mendapatkan ImageProvider (mirip HomePage)

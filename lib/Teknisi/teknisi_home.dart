@@ -1,18 +1,22 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:e_service/Others/new_order_notification_service.dart';
 import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/api_services/api_service.dart';
 import 'package:e_service/models/technician_order_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'teknisi_profil.dart';
 import 'tasks_tab.dart';
 import 'tracking_tab.dart';
 import 'chat_tab.dart';
 import 'history_tab.dart';
-import 'profile_tab.dart';
+import 'package:e_service/services/location_service.dart';
 
 class TeknisiHomePage extends StatefulWidget {
   const TeknisiHomePage({super.key});
@@ -21,13 +25,34 @@ class TeknisiHomePage extends StatefulWidget {
   State<TeknisiHomePage> createState() => _TeknisiHomePageState();
 }
 
-class _TeknisiHomePageState extends State<TeknisiHomePage> {
+class _TeknisiHomePageState extends State<TeknisiHomePage>
+    with WidgetsBindingObserver {
   int currentIndex = 0;
   List<TechnicianOrder> assignedOrders = [];
   List<dynamic> transaksiList = [];
   bool isLoading = true;
 
-  // Damage form controllers
+  // ========== AUTO-REFRESH VARIABLES ==========
+  Timer? _refreshTimer;
+  Set<String> _previousOrderIds = {};
+  bool _isAutoRefreshEnabled = true;
+  static const int refreshIntervalSeconds =
+      30; // ✅ Ubah ke 30 detik (lebih hemat)
+  // ============================================
+
+  Future<void> _initializePreviousOrderIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedIds = prefs.getStringList('previous_order_ids') ?? [];
+    setState(() {
+      _previousOrderIds = storedIds.toSet();
+    });
+  }
+
+  Future<void> _savePreviousOrderIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('previous_order_ids', _previousOrderIds.toList());
+  }
+
   final TextEditingController damageDescriptionController =
       TextEditingController();
   final TextEditingController estimatedPriceController =
@@ -37,83 +62,326 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
   @override
   void initState() {
     super.initState();
-    fetchAssignedOrders();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshData();
+    _startAutoRefresh();
+    _initializePreviousOrderIds();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopAutoRefresh();
     damageDescriptionController.dispose();
     estimatedPriceController.dispose();
     super.dispose();
   }
 
-  Future<void> fetchAssignedOrders() async {
-    setState(() => isLoading = true);
-
-    final technicianId = await SessionManager.getkry_kode();
-    if (technicianId != null) {
-      try {
-        final fetchedOrders = await ApiService.getkry_kode(technicianId);
-        setState(() {
-          assignedOrders = fetchedOrders;
-        });
-      } catch (e) {
-        setState(() {
-          assignedOrders = [];
-        });
-        print("Error fetching orders: $e");
+  // Deteksi app lifecycle (pause ketika app di background)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App kembali aktif, resume auto-refresh
+      if (_isAutoRefreshEnabled && _refreshTimer == null) {
+        _startAutoRefresh();
+        _refreshDataWithNewOrderDetection();
       }
-    } else {
-      setState(() {
-        assignedOrders = [];
-      });
-    }
-
-    // Fetch transaksi data with status not completed for tasks
-    try {
-      final fetchedTransaksi = await ApiService.getTransaksi();
-      setState(() {
-        transaksiList = fetchedTransaksi;
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        transaksiList = [];
-        isLoading = false;
-      });
-      print("Error fetching transaksi: $e");
+    } else if (state == AppLifecycleState.paused) {
+      // App di background, stop timer untuk hemat resource
+      _stopAutoRefresh();
+      // Background check akan tetap berjalan via WorkManager
     }
   }
 
-  Future<void> fetchHistoryTransaksi() async {
+  // ========== AUTO-REFRESH METHODS ==========
+
+  void _startAutoRefresh() {
+    _stopAutoRefresh(); // Pastikan tidak ada timer duplikat
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: refreshIntervalSeconds),
+      (timer) {
+        if (mounted && _isAutoRefreshEnabled) {
+          _refreshDataWithNewOrderDetection();
+        }
+      },
+    );
+    print('🔄 Auto-refresh started (interval: ${refreshIntervalSeconds}s)');
+  }
+
+  void _stopAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    print('⏸️ Auto-refresh stopped');
+  }
+
+  void _toggleAutoRefresh() {
+    setState(() {
+      _isAutoRefreshEnabled = !_isAutoRefreshEnabled;
+      if (_isAutoRefreshEnabled) {
+        _startAutoRefresh();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Auto-refresh diaktifkan'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        _stopAutoRefresh();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Auto-refresh dinonaktifkan'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _refreshDataWithNewOrderDetection() async {
+    if (!mounted) return;
+
+    try {
+      final technicianId = await SessionManager.getkry_kode();
+      if (technicianId != null) {
+        final fetchedOrders = await ApiService.getkry_kode(technicianId);
+
+        if (mounted) {
+          // Deteksi pesanan baru
+          final newOrderIds = fetchedOrders.map((o) => o.orderId).toSet();
+          final newOrders = newOrderIds.difference(_previousOrderIds);
+
+          // Jika ada pesanan baru dan bukan load pertama kali
+          if (newOrders.isNotEmpty && _previousOrderIds.isNotEmpty) {
+            // ================== PERUBAHAN #1 ==================
+            // Notifikasi In-App (SnackBar) tetap ditampilkan untuk feedback langsung.
+            _showInAppNotification(newOrders.length, newOrders.toList());
+
+            // Vibrate untuk alert
+            HapticFeedback.vibrate();
+
+            // Panggilan notifikasi sistem SEKARANG DIAKTIFKAN KEMBALI.
+            // Inilah yang akan memunculkan notifikasi dari atas layar.
+            await NewOrderNotificationService.sendNewOrderNotification(
+              newOrders.length,
+              newOrders.toList(),
+            );
+            // ================================================
+          }
+
+          setState(() {
+            assignedOrders = fetchedOrders;
+            _previousOrderIds = newOrderIds;
+          });
+
+          // Simpan ke SharedPreferences
+          await _savePreviousOrderIds();
+        }
+      } else {
+        if (mounted) setState(() => assignedOrders = []);
+      }
+    } catch (e) {
+      print("Error fetching orders in auto-refresh: $e");
+      // Tidak tampilkan error di auto-refresh untuk menghindari spam
+    }
+
+    try {
+      final fetchedTransaksi = await ApiService.getTransaksi();
+      if (mounted) setState(() => transaksiList = fetchedTransaksi);
+    } catch (e) {
+      print("Error fetching transaksi in auto-refresh: $e");
+    }
+  }
+
+  // ✅ Notifikasi IN-APP saja (tidak kirim push notification)
+  void _showInAppNotification(int count, List<String> orderIds) {
+    // Tampilkan SnackBar
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.notifications_active, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '🎉 Ada $count pesanan baru!',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Lihat',
+          textColor: Colors.white,
+          onPressed: () {
+            setState(() => currentIndex = 0); // Pindah ke Tasks tab
+          },
+        ),
+      ),
+    );
+
+    // ================== PERUBAHAN #2 ==================
+    // Bagian yang menampilkan pop-up modal (AlertDialog) sekarang dinonaktifkan
+    // dengan memberinya komentar.
+    /*
+    if (currentIndex != 0) {
+      // Hanya show dialog jika user tidak di tab Tasks
+      _showNewOrderDialog(count);
+    }
+    */
+    // ================================================
+  }
+
+  void _showNewOrderDialog(int count) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.assignment_turned_in,
+                    color: Colors.green.shade700,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Pesanan Baru!',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'Anda mendapat $count pesanan baru. Segera cek dan terima pesanan!',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Nanti',
+                  style: GoogleFonts.poppins(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() => currentIndex = 0); // Pindah ke Tasks tab
+                },
+                icon: const Icon(Icons.visibility),
+                label: const Text('Lihat Sekarang'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // ==========================================
+
+  Future<void> _refreshData() async {
+    if (!mounted) return;
     setState(() => isLoading = true);
 
-    // Fetch transaksi data with status completed for history
+    try {
+      final technicianId = await SessionManager.getkry_kode();
+      if (technicianId != null) {
+        // 1. Ambil data order terbaru dari API
+        final fetchedOrders = await ApiService.getkry_kode(technicianId);
+
+        if (mounted) {
+          // 2. Langsung cek data TERBARU (fetchedOrders) untuk status 'enRoute'
+          final activeEnRouteOrders = fetchedOrders.where(
+            (order) => order.status == OrderStatus.enRoute,
+          );
+          final activeEnRouteOrder =
+              activeEnRouteOrders.isNotEmpty ? activeEnRouteOrders.first : null;
+
+          if (activeEnRouteOrder != null) {
+            // JIKA DITEMUKAN: Mulai atau lanjutkan pelacakan
+            print(
+              '▶️ Ditemukan order enRoute [${activeEnRouteOrder.orderId}]. MEMULAI/MELANJUTKAN PELACAKAN.',
+            );
+            LocationService.instance.startTracking(
+              transKode: activeEnRouteOrder.orderId,
+              kryKode: technicianId!,
+            );
+          } else {
+            // JIKA TIDAK DITEMUKAN: Pastikan pelacakan berhenti
+            print(
+              '⏹️ Tidak ada order enRoute yang aktif. Memastikan pelacakan berhenti.',
+            );
+            LocationService.instance.stopTracking();
+          }
+
+          // 3. Setelah itu, baru update state untuk UI
+          setState(() {
+            assignedOrders = fetchedOrders;
+            _previousOrderIds = fetchedOrders.map((o) => o.orderId).toSet();
+          });
+
+          await _savePreviousOrderIds();
+        }
+      } else {
+        if (mounted) setState(() => assignedOrders = []);
+      }
+    } catch (e) {
+      print("Error fetching orders: $e");
+      if (mounted) setState(() => assignedOrders = []);
+    }
+
+    // Bagian untuk getTransaksi tetap sama
     try {
       final fetchedTransaksi = await ApiService.getTransaksi();
-      setState(() {
-        transaksiList = fetchedTransaksi;
-        isLoading = false;
-      });
+      if (mounted) setState(() => transaksiList = fetchedTransaksi);
     } catch (e) {
-      setState(() {
-        transaksiList = [];
-        isLoading = false;
-      });
       print("Error fetching transaksi: $e");
+      if (mounted) setState(() => transaksiList = []);
     }
+
+    if (mounted) setState(() => isLoading = false);
   }
-
-
-
-
 
   Future<void> _updateOrderStatus(
     TechnicianOrder order,
     OrderStatus newStatus,
   ) async {
-    // Validate status transitions
+    print(
+      '>>> Tombol ditekan. Memperbarui status dari [${order.status.name}] ke [${newStatus.name}]',
+    );
+
     if (!_isValidStatusTransition(order.status, newStatus)) {
+      print('!!! Transisi status TIDAK VALID. Aksi dibatalkan.');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Transisi status tidak valid'),
@@ -123,44 +391,77 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
       return;
     }
 
+    final oldStatus = order.status;
+    final int orderIndex = assignedOrders.indexWhere(
+      (o) => o.orderId == order.orderId,
+    );
+
+    if (orderIndex == -1) {
+      print(
+        '!!! FATAL: Order dengan ID ${order.orderId} tidak ditemukan dalam list state.',
+      );
+      return;
+    }
+
+    setState(() {
+      assignedOrders[orderIndex] = order.copyWith(status: newStatus);
+      print(
+        '>>> setState dipanggil. Status order ${order.orderId} di state sekarang adalah: [${assignedOrders[orderIndex].status.name}]',
+      );
+    });
+
     try {
-      // Update status in database
       await ApiService.updateTransaksiStatus(order.orderId, newStatus.name);
+      print(
+        '>>> API call berhasil. Status [${newStatus.name}] tersimpan di server.',
+      );
 
-      setState(() {
-        final index = assignedOrders.indexWhere((o) => o.orderId == order.orderId);
-        if (index != -1) {
-          assignedOrders[index] = order.copyWith(status: newStatus);
-
-          // Move to completed if status is completed
-          if (newStatus == OrderStatus.completed) {
-            // For now, just remove from assigned orders
-            assignedOrders.removeAt(index);
-          }
+      // Handle location tracking based on status change
+      if (newStatus == OrderStatus.enRoute) {
+        // Start tracking when technician starts moving
+        final kryKode = await SessionManager.getkry_kode();
+        if (kryKode != null) {
+          await LocationService.instance.startTracking(
+            transKode: order.orderId,
+            kryKode: kryKode,
+          );
+          print('📍 Location tracking started for order ${order.orderId}');
         }
-      });
+      } else if (newStatus == OrderStatus.completed) {
+        // Stop tracking when order is completed
+        await LocationService.instance.stopTracking();
+        print(
+          '📍 Location tracking stopped for completed order ${order.orderId}',
+        );
+      }
 
-      // Show success notification
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Status diperbarui ke ${newStatus.displayName}'),
+          content: Text(
+            'Status berhasil diperbarui ke ${newStatus.displayName}',
+          ),
           backgroundColor: Colors.green,
         ),
       );
+      // Refresh data agar pesanan yang selesai muncul di history_tab
+      await _refreshData();
     } catch (e) {
-      // Show error notification
+      print('!!! API call GAGAL: $e. Mengembalikan status ke [$oldStatus].');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Gagal update status: $e'),
           backgroundColor: Colors.red,
         ),
       );
+      setState(() {
+        assignedOrders[orderIndex] = order.copyWith(status: oldStatus);
+      });
     }
   }
 
   bool _isValidStatusTransition(OrderStatus current, OrderStatus next) {
     switch (current) {
-      case OrderStatus.assigned:
+      case OrderStatus.waiting:
         return next == OrderStatus.accepted;
       case OrderStatus.accepted:
         return next == OrderStatus.enRoute;
@@ -168,43 +469,27 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
         return next == OrderStatus.arrived;
       case OrderStatus.arrived:
         return next == OrderStatus.completed ||
-            next == OrderStatus.pickingParts;
+            next == OrderStatus.waitingApproval;
       case OrderStatus.waitingApproval:
-        return next == OrderStatus.pickingParts ||
-            next == OrderStatus.repairing;
+        return next == OrderStatus.pickingParts;
       case OrderStatus.pickingParts:
         return next == OrderStatus.repairing;
       case OrderStatus.repairing:
         return next == OrderStatus.completed;
-      case OrderStatus.completed:
-        return next == OrderStatus.delivering;
-      case OrderStatus.delivering:
-        return false; // Final status
+      default:
+        return false;
     }
   }
 
   Future<void> _openMaps(String address) async {
     final encodedAddress = Uri.encodeComponent(address);
-    final url =
-        'https://www.google.com/maps/search/?api=1&query=$encodedAddress';
-
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url));
-    } else {
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$encodedAddress',
+    );
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Tidak dapat membuka maps')));
-    }
-  }
-
-  Future<void> _pickMedia() async {
-    final ImagePicker picker = ImagePicker();
-    final List<XFile> pickedFiles = await picker.pickMultiImage();
-
-    if (pickedFiles.isNotEmpty) {
-      setState(() {
-        selectedMedia.addAll(pickedFiles);
-      });
     }
   }
 
@@ -230,172 +515,207 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
                     right: 16,
                     top: 16,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Temuan Kerusakan - ${order.orderId}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Description field
-                      TextField(
-                        controller: damageDescriptionController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          labelText: 'Deskripsi Kerusakan',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Temuan Kerusakan - ${order.orderId}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Estimated price field
-                      TextField(
-                        controller: estimatedPriceController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Estimasi Harga (Rp)',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Media upload
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              await _pickMedia();
-                              setModalState(() {});
-                            },
-                            icon: const Icon(Icons.photo_camera),
-                            label: const Text('Upload Foto/Video'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1976D2),
-                              foregroundColor: Colors.white,
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: damageDescriptionController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'Deskripsi Kerusakan',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text('${selectedMedia.length} file(s) dipilih'),
-                        ],
-                      ),
-
-                      // Media preview
-                      if (selectedMedia.isNotEmpty)
-                        Container(
-                          height: 100,
-                          margin: const EdgeInsets.only(top: 8),
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: selectedMedia.length,
-                            itemBuilder: (context, index) {
-                              return Container(
-                                width: 80,
-                                height: 80,
-                                margin: const EdgeInsets.only(right: 8),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  image: DecorationImage(
-                                    image: FileImage(
-                                      File(selectedMedia[index].path),
-                                    ),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
                         ),
-
-                      const SizedBox(height: 24),
-
-                      // Action buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                side: const BorderSide(color: Colors.grey),
-                              ),
-                              child: const Text('Batal'),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: estimatedPriceController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: InputDecoration(
+                            labelText: 'Estimasi Harga (Rp)',
+                            prefixText: 'Rp ',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                // Save damage findings and update status
-                                final updatedOrder = order.copyWith(
-                                  damageDescription:
-                                      damageDescriptionController.text,
-                                  estimatedPrice: double.tryParse(
-                                    estimatedPriceController.text,
-                                  ),
-                                  damagePhotos:
-                                      selectedMedia.map((f) => f.path).toList(),
-                                );
-
-                                // Update order in state
-                                setState(() {
-                                  final index = assignedOrders.indexWhere(
-                                    (o) => o.orderId == order.orderId,
-                                  );
-                                  if (index != -1) {
-                                    assignedOrders[index] = updatedOrder;
-                                  }
-                                });
-
-                                // Update status to waiting for approval
-                                _updateOrderStatus(
-                                  updatedOrder,
-                                  OrderStatus.waitingApproval,
-                                );
-
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Temuan kerusakan disimpan'),
-                                    backgroundColor: Colors.green,
-                                  ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final picker = ImagePicker();
+                                final pickedFiles =
+                                    await picker.pickMultiImage();
+                                setModalState(
+                                  () => selectedMedia.addAll(pickedFiles),
                                 );
                               },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1976D2),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
+                              icon: const Icon(Icons.photo_camera),
+                              label: const Text('Upload Media'),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${selectedMedia.length} file dipilih',
                               ),
-                              child: const Text('Simpan'),
+                            ),
+                          ],
+                        ),
+                        if (selectedMedia.isNotEmpty)
+                          Container(
+                            height: 100,
+                            margin: const EdgeInsets.only(top: 8),
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: selectedMedia.length,
+                              itemBuilder:
+                                  (context, index) => Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: Image.file(
+                                      File(selectedMedia[index].path),
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Batal'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  await _saveDamageAndUpdateStatus(order);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Simpan'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
           ),
     );
   }
 
+  Future<void> _saveDamageAndUpdateStatus(TechnicianOrder order) async {
+    final desc = damageDescriptionController.text.trim();
+    final estStr = estimatedPriceController.text.trim().replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+    final est = num.tryParse(estStr);
+
+    if (desc.isEmpty || est == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Isi deskripsi dan estimasi harga dengan benar'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final updatedOrderWithDamage = order.copyWith(
+      damageDescription: desc,
+      estimatedPrice: (est is num) ? est.toDouble() : null,
+      damagePhotos: selectedMedia.map((f) => f.path).toList(),
+    );
+
+    final int orderIndex = assignedOrders.indexWhere(
+      (o) => o.orderId == order.orderId,
+    );
+    if (orderIndex != -1) {
+      setState(() {
+        assignedOrders[orderIndex] = updatedOrderWithDamage;
+      });
+    }
+
+    try {
+      await ApiService.updateTransaksiTemuan(order.orderId, desc, est);
+      await _updateOrderStatus(
+        updatedOrderWithDamage,
+        OrderStatus.waitingApproval,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal simpan temuan: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _updateTransaksiStatus(
+    dynamic transaksi,
+    String newStatus,
+  ) async {
+    final String transKode = transaksi['trans_kode'];
+    final int index = transaksiList.indexWhere(
+      (t) => t['trans_kode'] == transKode,
+    );
+    if (index == -1) return;
+
+    final oldStatus = transaksiList[index]['trans_status'];
+    setState(() => transaksiList[index]['trans_status'] = newStatus);
+
+    try {
+      await ApiService.updateTransaksiStatus(transKode, newStatus);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Status transaksi diperbarui ke $newStatus'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal update status transaksi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => transaksiList[index]['trans_status'] = oldStatus);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final activeOrders =
+        assignedOrders
+            .where((order) => order.status != OrderStatus.completed)
+            .toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -409,31 +729,95 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
           ),
         ),
         actions: [
+          // Debug Button
           IconButton(
-            icon: const Icon(Icons.support_agent, color: Colors.white),
-            onPressed: () {},
+            icon: Icon(Icons.bug_report, color: Colors.white),
+            onPressed: () async {
+              final kryKode = await SessionManager.getkry_kode();
+              final session = await SessionManager.getUserSession();
+
+              showDialog(
+                context: context,
+                builder:
+                    (context) => AlertDialog(
+                      title: Text('🐛 Debug Info'),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'kry_kode: ${kryKode ?? "NULL"}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color:
+                                    kryKode != null ? Colors.green : Colors.red,
+                              ),
+                            ),
+                            Divider(),
+                            Text('Role: ${session['role'] ?? "NULL"}'),
+                            Text('Name: ${session['name'] ?? "NULL"}'),
+                            Text('ID: ${session['id'] ?? "NULL"}'),
+                            Divider(),
+                            Text('Orders: ${assignedOrders.length}'),
+                            Text(
+                              'Active: ${assignedOrders.where((o) => o.status != OrderStatus.completed).length}',
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await NewOrderNotificationService.testNotification();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Test notification sent!'),
+                              ),
+                            );
+                          },
+                          child: Text('Test Notif'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _refreshData();
+                          },
+                          child: Text('Refresh'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('Close'),
+                        ),
+                      ],
+                    ),
+              );
+            },
+            tooltip: 'Debug',
+          ),
+          // Toggle Auto-Refresh Button
+          IconButton(
+            icon: Icon(
+              _isAutoRefreshEnabled ? Icons.sync : Icons.sync_disabled,
+              color: Colors.white,
+            ),
+            onPressed: _toggleAutoRefresh,
+            tooltip:
+                _isAutoRefreshEnabled
+                    ? 'Nonaktifkan Auto-Refresh'
+                    : 'Aktifkan Auto-Refresh',
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationPage(),
+            onPressed:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationPage(),
+                  ),
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TeknisiProfilPage(),
-                ),
-              );
-            },
           ),
         ],
       ),
@@ -441,49 +825,41 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
         index: currentIndex,
         children: [
           TasksTab(
-            assignedOrders: assignedOrders,
-            transaksiList: transaksiList,
+            assignedOrders: activeOrders,
             isLoading: isLoading,
-            onRefresh: fetchAssignedOrders,
+            onRefresh: _refreshData,
             onUpdateStatus: _updateOrderStatus,
             onShowDamageForm: _showDamageForm,
             onOpenMaps: _openMaps,
-            onUpdateTransaksiStatus: _updateTransaksiStatus,
+            isAutoRefreshEnabled: _isAutoRefreshEnabled,
           ),
           TrackingTab(
-            assignedOrders: assignedOrders,
-            onOpenMaps: _openMaps,
+            customerAddress:
+                activeOrders.isNotEmpty
+                    ? activeOrders.first.customerAddress
+                    : '',
           ),
           const ChatTab(),
           HistoryTab(
             transaksiList: transaksiList,
             isLoading: isLoading,
-            onRefresh: fetchHistoryTransaksi,
+            onRefresh: _refreshData,
             onUpdateTransaksiStatus: _updateTransaksiStatus,
           ),
-          const ProfileTab(),
+          const TeknisiProfilPage(),
         ],
       ),
-
-      // Bottom Navigation
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
-        onTap: (index) {
-          setState(() {
-            currentIndex = index;
-          });
-        },
+        onTap: (index) => setState(() => currentIndex = index),
         backgroundColor: const Color(0xFF1976D2),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,
-        showUnselectedLabels: true,
-        selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         items: [
           BottomNavigationBarItem(
             icon: Badge(
-              label: Text(assignedOrders.length.toString()),
+              label: Text(activeOrders.length.toString()),
               child: const Icon(Icons.assignment),
             ),
             label: 'Tugas',
@@ -492,11 +868,8 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
             icon: Icon(Icons.navigation),
             label: 'Pelacakan',
           ),
-          BottomNavigationBarItem(
-            icon: Badge(
-              label: const Text('2'), // Assume unread count
-              child: const Icon(Icons.chat),
-            ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
             label: 'Obrolan',
           ),
           const BottomNavigationBarItem(
@@ -509,391 +882,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildOrderCard(dynamic order, {bool isHistory = false}) {
-    final bool isTechOrder = order is TechnicianOrder;
-
-    final String title = isTechOrder
-        ? order.orderId
-        : 'Transaksi ${order['trans_kode'] ?? '-'}';
-
-    final String statusText = isTechOrder
-        ? order.status.displayName
-        : (order['trans_status']?.toString() ?? '-');
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: ID & Status
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.assignment, size: 16, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(
-                        statusText,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Detail untuk TechnicianOrder
-            if (isTechOrder) ...[
-              _infoRow('Nama Pelanggan', order.customerName),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _openMaps(order.customerAddress),
-                      child: Text(
-                        order.customerAddress,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _infoRow('Perangkat', '${order.deviceBrand} ${order.deviceType}'),
-              const SizedBox(height: 8),
-              _infoRow('Serial', order.deviceSerial),
-            ]
-            // Detail untuk Transaksi (map/dynamic)
-            else ...[
-              _infoRow('Keluhan', order['ket_keluhan']?.toString() ?? 'Tidak ada keluhan'),
-              const SizedBox(height: 8),
-              _infoRow('Tanggal', order['trans_tanggal']?.toString() ?? 'Tidak ada tanggal'),
-            ],
-
-            if (isTechOrder && order.visitCost != null) ...[
-              const SizedBox(height: 8),
-              _infoRow('Biaya Kunjungan', 'Rp ${order.visitCost!.toStringAsFixed(0)}'),
-            ],
-
-            // Temuan kerusakan (jika ada)
-            if (isTechOrder && order.damageDescription != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Temuan Kerusakan:',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red.shade800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      order.damageDescription!,
-                      style: GoogleFonts.poppins(fontSize: 14),
-                    ),
-                    if (order.estimatedPrice != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Estimasi: Rp ${order.estimatedPrice!.toStringAsFixed(0)}',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.red.shade800,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-
-            // Tombol aksi untuk TechnicianOrder (aktif)
-            if (!isHistory && isTechOrder) ...[
-              const SizedBox(height: 16),
-
-              if (order.status == OrderStatus.arrived) ...[
-                if (order.damageDescription == null) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _updateOrderStatus(order, OrderStatus.completed),
-                          icon: const Icon(Icons.check_circle, size: 16),
-                          label: const Text('Service Selesai'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: GoogleFonts.poppins(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _showDamageForm(order),
-                          icon: const Icon(Icons.report_problem, size: 16),
-                          label: const Text('Temuan Kerusakan'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: GoogleFonts.poppins(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _updateOrderStatus(order, OrderStatus.pickingParts),
-                          icon: const Icon(Icons.build, size: 16),
-                          label: const Text('Ambil Part'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purple,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: GoogleFonts.poppins(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ] else if (order.status == OrderStatus.pickingParts) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _updateOrderStatus(order, OrderStatus.completed),
-                        icon: const Icon(Icons.check_circle, size: 16),
-                        label: const Text('Service Selesai'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          textStyle: GoogleFonts.poppins(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else if (order.status == OrderStatus.waitingApproval) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _updateOrderStatus(order, OrderStatus.pickingParts),
-                        icon: const Icon(Icons.build, size: 16),
-                        label: const Text('Ambil Part'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          textStyle: GoogleFonts.poppins(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else if (order.status == OrderStatus.repairing) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _updateOrderStatus(order, OrderStatus.completed),
-                        icon: const Icon(Icons.check_circle, size: 16),
-                        label: const Text('Service Selesai'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          textStyle: GoogleFonts.poppins(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildActionButton(
-                        order,
-                        _getNextStatus(order.status),
-                        isPrimary: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-
-            // Tombol aksi untuk Transaksi (map) – tandai selesai
-            if (!isHistory && !isTechOrder) ...[
-              const SizedBox(height: 12),
-              if (!['completed', 'selesai', 'finished']
-                  .contains((order['trans_status']?.toString() ?? '').toLowerCase())) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _updateTransaksiStatus(order, 'completed'),
-                    icon: const Icon(Icons.check_circle, size: 16),
-                    label: const Text('Tandai Selesai'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      textStyle: GoogleFonts.poppins(fontSize: 12),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-
-
-  Future<void> _updateTransaksiStatus(dynamic transaksi, String newStatus) async {
-    try {
-      // Update status in database
-      await ApiService.updateTransaksiStatus(transaksi['trans_kode'], newStatus);
-
-      setState(() {
-        // Update the status in the local list
-        final index = transaksiList.indexWhere((t) => t['trans_kode'] == transaksi['trans_kode']);
-        if (index != -1) {
-          transaksiList[index]['trans_status'] = newStatus;
-        }
-      });
-
-      // Show success notification
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Status transaksi diperbarui ke $newStatus'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      // Show error notification
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal update status transaksi: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Widget _buildActionButton(
-    TechnicianOrder order,
-    OrderStatus? nextStatus, {
-    bool isPrimary = false,
-  }) {
-    if (nextStatus == null) return const SizedBox.shrink();
-
-    return ElevatedButton.icon(
-      onPressed: () => _updateOrderStatus(order, nextStatus),
-      icon: Icon(nextStatus.icon, size: 16),
-      label: Text(nextStatus.displayName),
-      style: ElevatedButton.styleFrom(
-        backgroundColor:
-            isPrimary ? const Color(0xFF1976D2) : Colors.grey.shade600,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        textStyle: GoogleFonts.poppins(fontSize: 12),
-      ),
-    );
-  }
-
-  OrderStatus? _getNextStatus(OrderStatus current) {
-    switch (current) {
-      case OrderStatus.assigned:
-        return OrderStatus.accepted;
-      case OrderStatus.accepted:
-        return OrderStatus.enRoute;
-      case OrderStatus.enRoute:
-        return OrderStatus.arrived;
-      case OrderStatus.arrived:
-        return null; // No next status, use buttons instead
-      case OrderStatus.waitingApproval:
-        return OrderStatus.pickingParts;
-      case OrderStatus.pickingParts:
-        return OrderStatus.repairing;
-      case OrderStatus.repairing:
-        return OrderStatus.completed;
-      case OrderStatus.completed:
-        return OrderStatus.delivering;
-      case OrderStatus.delivering:
-        return null;
-    }
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            '$label:',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(child: Text(value, style: GoogleFonts.poppins(fontSize: 14))),
-      ],
     );
   }
 }
