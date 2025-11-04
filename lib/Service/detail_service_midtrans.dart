@@ -2,11 +2,11 @@ import 'package:e_service/Service/Service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'detail_alamat.dart';
 import 'tracking_driver.dart';
 import '../api_services/payment_service.dart';
 import '../Others/session_manager.dart';
 import '../api_services/api_service.dart';
+import 'detail_alamat.dart';
 
 class DetailServiceMidtransPage extends StatefulWidget {
   final String serviceType;
@@ -34,8 +34,8 @@ class DetailServiceMidtransPage extends StatefulWidget {
 class _DetailServiceMidtransPageState
     extends State<DetailServiceMidtransPage> {
   Map<String, dynamic>? selectedAddress;
-  int selectedDiscount = 0; // 0, 10, or 50
   String? selectedPaymentMethod;
+  int? selectedDiscount;
 
   static int _lastQueueNumber = 0;
   late String currentQueueCode;
@@ -47,49 +47,80 @@ class _DetailServiceMidtransPageState
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+
+    // Scale factor based on screen width (assuming base width 375 for iPhone 6/7/8)
+    final double scale = screenWidth / 375.0;
+    final double basePadding = 16 * scale;
+    final double baseIconSize = 40 * scale;
+    final double baseTextSize = 16 * scale;
+    final double baseButtonHeight = 18 * scale;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.blue,
-        title: const Text(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        shadowColor: Colors.black12,
+        title: Text(
           "Ringkasan Pesanan",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 20 * scale,
+            color: Colors.black87,
+          ),
         ),
-        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SingleChildScrollView(
+        padding: EdgeInsets.only(left: basePadding, right: basePadding, top: 8 * scale, bottom: 8 * scale + MediaQuery.of(context).padding.bottom),
         child: Column(
           children: [
-            _buildPengiriman(),
-            const SizedBox(height: 8),
-            _buildServiceItems(),
-            const SizedBox(height: 8),
-            _buildRingkasan(),
-            const SizedBox(height: 8),
-            _buildAlamat(),
-            const SizedBox(height: 80),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.all(12),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          onPressed: () => _startMidtransPayment(context),
-          child: const Text(
-            "Selesaikan Pesanan",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+            _buildServiceItems(scale, basePadding, baseIconSize, baseTextSize),
+            SizedBox(height: 16 * scale),
+            _buildRingkasan(scale, basePadding, baseTextSize),
+            SizedBox(height: 24 * scale),
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(12 * scale),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12 * scale),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: baseButtonHeight),
+                ),
+                onPressed: () => _startMidtransPayment(context),
+                child: Text(
+                  "Selesaikan Pesanan",
+                  style: TextStyle(
+                    fontSize: baseTextSize,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ),
-          ),
+            SizedBox(height: 24 * scale), // Add some bottom padding
+          ],
         ),
       ),
     );
@@ -106,111 +137,160 @@ class _DetailServiceMidtransPageState
           Text("${widget.jumlahBarang} Barang",
               style: const TextStyle(color: Colors.black54, fontSize: 13)),
           const SizedBox(height: 6),
-          const Row(
-            children: [
-              Icon(Icons.local_shipping, color: Colors.orange, size: 20),
-              SizedBox(width: 6),
-              Text(
-                "Pengiriman 1–3 Hari",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
           const Text("Service Online",
               style: TextStyle(color: Colors.black54, fontSize: 12)),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: Color(0xFFFFF4E5),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            padding: const EdgeInsets.all(10),
-            child: const Row(
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceItems(double scale, double basePadding, double baseIconSize, double baseTextSize) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16 * scale),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(basePadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Icon(Icons.delivery_dining, color: Colors.blue, size: 30),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Estimasi sampai: Maks. Senin, 20 Okt",
-                          style: TextStyle(fontSize: 13)),
-                      Text("Jam 07:00 – 21:00",
-                          style:
-                              TextStyle(color: Colors.black54, fontSize: 12)),
-                    ],
+                Container(
+                  padding: EdgeInsets.all(8 * scale),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12 * scale),
+                  ),
+                  child: Icon(
+                    widget.serviceType == 'cleaning'
+                        ? Icons.cleaning_services
+                        : Icons.build,
+                    color: Colors.blue[700],
+                    size: 24 * scale,
+                  ),
+                ),
+                SizedBox(width: 12 * scale),
+                Text(
+                  "Layanan ${widget.serviceType == 'cleaning' ? 'Cleaning' : 'Perbaikan'}",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: baseTextSize,
+                    color: Colors.black87,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            SizedBox(height: 16 * scale),
+            ...widget.items.map((item) {
+              return Container(
+                margin: EdgeInsets.only(bottom: 12 * scale),
+                padding: EdgeInsets.all(12 * scale),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12 * scale),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8 * scale),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8 * scale),
+                      ),
+                      child: Icon(
+                        widget.serviceType == 'cleaning'
+                            ? Icons.cleaning_services
+                            : Icons.build,
+                        color: Colors.blue[600],
+                        size: 20 * scale,
+                      ),
+                    ),
+                    SizedBox(width: 12 * scale),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${item['merek']} ${item['device']}",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15 * scale,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 4 * scale),
+                          _buildInfoRow("Status", item['status'] ?? '-', scale),
+                          _buildInfoRow("Seri", item['seri'] ?? '-', scale),
+                          if (widget.serviceType == 'repair' && item['part'] != null)
+                            _buildInfoRow("Keluhan", item['part']!, scale),
+                          SizedBox(height: 8 * scale),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 4 * scale),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[600],
+                              borderRadius: BorderRadius.circular(6 * scale),
+                            ),
+                            child: Text(
+                              "1x   Rp 1",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13 * scale,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildServiceItems() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildInfoRow(String label, String value, double scale) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 2 * scale),
+      child: Row(
         children: [
           Text(
-            "Layanan ${widget.serviceType == 'cleaning' ? 'Cleaning' : 'Perbaikan'}",
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            "$label: ",
+            style: TextStyle(
+              fontSize: 12 * scale,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          const SizedBox(height: 10),
-          ...widget.items.map((item) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Icon(
-                    widget.serviceType == 'cleaning'
-                        ? Icons.cleaning_services
-                        : Icons.build,
-                    color: Colors.blue,
-                    size: 40,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("${item['merek']} ${item['device']}",
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text("Status: ${item['status'] ?? '-'}",
-                            style: const TextStyle(fontSize: 13)),
-                        Text("Seri: ${item['seri'] ?? '-'}",
-                            style: const TextStyle(fontSize: 13)),
-                        if (widget.serviceType == 'repair' &&
-                            item['part'] != null)
-                          Text("Keluhan: ${item['part']}",
-                              style: const TextStyle(fontSize: 13)),
-                        const SizedBox(height: 6),
-                        const Text(
-                          "1x   Rp 1",
-                          style: TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12 * scale,
+              color: Colors.black87,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRingkasan() {
+  Widget _buildRingkasan(double scale, double basePadding, double baseTextSize) {
     int subtotal = widget.jumlahBarang * 1;
     int biayaTeknisi = 0;
     int discountAmount = 0;
@@ -218,36 +298,36 @@ class _DetailServiceMidtransPageState
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14 * scale),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Ringkasan Pesanan",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 10),
-          _summaryRow("Biaya Pengecekan", "Rp 1"),
-          _summaryRow("Biaya Teknisi", "Rp 0"),
-          _summaryRow("Diskon", "Rp 0"),
+          Text("Ringkasan Pesanan",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15 * scale)),
+          SizedBox(height: 10 * scale),
+          _summaryRow("Biaya Pengecekan", "Rp 1", scale: scale),
+          _summaryRow("Biaya Teknisi", "Rp 0", scale: scale),
+          _summaryRow("Diskon", "Rp 0", scale: scale),
           const Divider(),
           _summaryRow("Subtotal", "Rp 1",
-              isTotal: true, color: Colors.blue),
+              isTotal: true, color: Colors.blue, scale: scale),
         ],
       ),
     );
   }
 
   Widget _summaryRow(String label, String value,
-      {bool isTotal = false, Color? color}) {
+      {bool isTotal = false, Color? color, double scale = 1.0}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsets.symmetric(vertical: 2 * scale),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(fontSize: 13, color: Colors.black87)),
+              style: TextStyle(fontSize: 13 * scale, color: Colors.black87)),
           Text(value,
               style: TextStyle(
-                fontSize: isTotal ? 15 : 13,
+                fontSize: (isTotal ? 15 : 13) * scale,
                 fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
                 color: color ?? Colors.black,
               )),
@@ -255,117 +335,7 @@ class _DetailServiceMidtransPageState
       ),
     );
   }
-
-  Widget _buildAlamat() {
-    return InkWell(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const DetailAlamatPage()),
-        );
-        if (result != null) {
-          setState(() {
-            selectedAddress = result;
-          });
-        }
-      },
-      child: Container(
-        width: double.infinity,
-        color: Colors.white,
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
-                "Kirim ke Alamat",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-              Text(
-                "Tambahkan Alamat",
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.blueAccent, width: 1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(10),
-            child:
-                selectedAddress != null
-                    ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "${selectedAddress!['nama']} - ${selectedAddress!['hp']}",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          selectedAddress!['detailAlamat'],
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        if (selectedAddress!['catatan'] != null &&
-                            selectedAddress!['catatan'].isNotEmpty)
-                          Text(
-                            "Catatan: ${selectedAddress!['catatan']}",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                            ),
-                          ),
-                      ],
-                    )
-                    : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Atur alamat anda di sini",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.alamat,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          "Tambahkan catatan untuk memudahkan kurir menemukan lokasimu.",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "GPS belum aktif. Aktifkan dulu supaya alamatmu terbaca dengan tepat.",
-                          style: TextStyle(color: Colors.blue, fontSize: 12),
-                        ),
-                      ],
-                    ),
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-
-
+  
   void _startMidtransPayment(BuildContext context) async {
     // Tampilkan loading
     showDialog(

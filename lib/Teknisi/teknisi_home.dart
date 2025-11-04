@@ -55,8 +55,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
 
   final TextEditingController damageDescriptionController =
       TextEditingController();
-  final TextEditingController estimatedPriceController =
-      TextEditingController();
   List<XFile> selectedMedia = [];
 
   @override
@@ -73,7 +71,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     WidgetsBinding.instance.removeObserver(this);
     _stopAutoRefresh();
     damageDescriptionController.dispose();
-    estimatedPriceController.dispose();
     super.dispose();
   }
 
@@ -495,7 +492,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
 
   void _showDamageForm(TechnicianOrder order) {
     damageDescriptionController.clear();
-    estimatedPriceController.clear();
     selectedMedia.clear();
 
     showModalBottomSheet(
@@ -538,63 +534,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        TextField(
-                          controller: estimatedPriceController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          decoration: InputDecoration(
-                            labelText: 'Estimasi Harga (Rp)',
-                            prefixText: 'Rp ',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final picker = ImagePicker();
-                                final pickedFiles =
-                                    await picker.pickMultiImage();
-                                setModalState(
-                                  () => selectedMedia.addAll(pickedFiles),
-                                );
-                              },
-                              icon: const Icon(Icons.photo_camera),
-                              label: const Text('Upload Media'),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '${selectedMedia.length} file dipilih',
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (selectedMedia.isNotEmpty)
-                          Container(
-                            height: 100,
-                            margin: const EdgeInsets.only(top: 8),
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: selectedMedia.length,
-                              itemBuilder:
-                                  (context, index) => Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: Image.file(
-                                      File(selectedMedia[index].path),
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                            ),
-                          ),
-                        const SizedBox(height: 24),
                         Row(
                           children: [
                             Expanded(
@@ -630,16 +569,11 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
 
   Future<void> _saveDamageAndUpdateStatus(TechnicianOrder order) async {
     final desc = damageDescriptionController.text.trim();
-    final estStr = estimatedPriceController.text.trim().replaceAll(
-      RegExp(r'[^0-9]'),
-      '',
-    );
-    final est = num.tryParse(estStr);
 
-    if (desc.isEmpty || est == null) {
+    if (desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Isi deskripsi dan estimasi harga dengan benar'),
+          content: Text('Isi deskripsi kerusakan dengan benar'),
           backgroundColor: Colors.red,
         ),
       );
@@ -648,7 +582,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
 
     final updatedOrderWithDamage = order.copyWith(
       damageDescription: desc,
-      estimatedPrice: (est is num) ? est.toDouble() : null,
       damagePhotos: selectedMedia.map((f) => f.path).toList(),
     );
 
@@ -662,7 +595,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     }
 
     try {
-      await ApiService.updateTransaksiTemuan(order.orderId, desc, est);
+      await ApiService.updateTransaksiTemuan(order.orderId, desc, 0); // trans_total set to 0 since not required
       await _updateOrderStatus(
         updatedOrderWithDamage,
         OrderStatus.waitingApproval,

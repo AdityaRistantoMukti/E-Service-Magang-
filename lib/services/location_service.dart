@@ -11,6 +11,7 @@ class LocationService {
   static final LocationService instance = LocationService._privateConstructor();
 
   StreamSubscription<Position>? _positionStream;
+  Timer? _locationTimer;
   bool _isTracking = false;
 
   // Variabel untuk menyimpan data order yang sedang aktif dilacak
@@ -56,7 +57,7 @@ class LocationService {
     // 2. Konfigurasi seberapa sering lokasi akan di-update
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high, // Akurasi tertinggi untuk pelacakan
-      distanceFilter: 10, // Kirim update setiap driver bergerak sejauh 10 meter
+      distanceFilter: 0, // Tidak ada filter jarak, update berdasarkan waktu
     );
 
     // 3. Mulai mendengarkan perubahan posisi
@@ -75,6 +76,26 @@ class LocationService {
         _isTracking = false;
       },
     );
+
+    // 4. Mulai timer untuk update lokasi setiap 3 detik sebagai fallback
+    _locationTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!_isTracking) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        print(
+          '⏰ [LocationService] Timer update posisi: ${position.latitude}, ${position.longitude}',
+        );
+        _onPositionUpdate(position);
+      } catch (e) {
+        print('❌ [LocationService] Error getting position from timer: $e');
+      }
+    });
 
     _isTracking = true;
     print('✅ [LocationService] Pelacakan berhasil dimulai.');
@@ -105,6 +126,12 @@ class LocationService {
     print('🛑 [LocationService] Menghentikan pelacakan...');
     await _positionStream?.cancel();
     _positionStream = null;
+
+    if (_locationTimer != null) {
+      _locationTimer!.cancel();
+      _locationTimer = null;
+    }
+
     _isTracking = false;
     _currentTransKode = null;
     _currentKryKode = null;

@@ -6,13 +6,18 @@
   import 'package:e_service/Others/informasi.dart';
   import 'package:e_service/Others/notifikasi.dart';
   import 'package:e_service/Others/notification_service.dart';
-  import 'package:e_service/Others/session_manager.dart';
-  import 'package:e_service/Others/user_point_data.dart';
+import 'package:e_service/Others/session_manager.dart';
+import 'package:e_service/Others/tier_utils.dart';
+import 'package:e_service/Others/user_point_data.dart';
   import 'package:e_service/Profile/profile.dart';
   import 'package:e_service/Promo/promo.dart';
   import 'package:e_service/Service/Service.dart';
   import 'package:e_service/api_services/api_service.dart';
   import 'package:e_service/api_services/payment_service.dart';
+import 'package:e_service/artikel/cek_garansi.dart';
+import 'package:e_service/artikel/kebersihan_alat.dart';
+import 'package:e_service/artikel/poin_info.dart';
+import 'package:e_service/artikel/tips.dart';
   import 'package:e_service/models/notification_model.dart';
   import 'package:flutter/material.dart';
   import 'package:flutter/scheduler.dart';
@@ -23,12 +28,7 @@ import 'package:flutter/services.dart';
   import 'package:midtrans_sdk/midtrans_sdk.dart';
   import 'package:shimmer/shimmer.dart';
 
-  class TierInfo {
-    final String label;
-    final BoxDecoration decoration;
-    final Color textColor;
-    TierInfo(this.label, this.decoration, this.textColor);
-  }
+
 
   class HomePage extends StatefulWidget {
     const HomePage({super.key, this.isFreshLogin = false});
@@ -349,150 +349,126 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
 
 
   Widget _buildBannerSlider() {
-      final List<String> banners = [
-        'https://images.pexels.com/photos/3861972/pexels-photo-3861972.jpeg',
-        'https://images.pexels.com/photos/380769/pexels-photo-380769.jpeg',
-        'https://images.pexels.com/photos/3861973/pexels-photo-3861973.jpeg',
-        'https://www.shutterstock.com/image-photo/panorama-focus-hand-holding-headset-600nw-2296039729.jpg',
-        'https://images.pexels.com/photos/267350/pexels-photo-267350.jpeg',
-      ];
+    final List<String> banners = [
+      'assets/image/banner/garansi.jpg',
+      'assets/image/banner/tips.png',
+      'assets/image/banner/kebersihan.jpg',
+      'assets/image/banner/points.png',
+    ];
 
-      final List<String> titles = [
-        'Diskon Service Komputer 50%',
-        'Upgrade RAM & SSD',
-        'Tips Perawatan Laptop',
-        'Layanan Cepat & Profesional',
-        'Tukar Poin untuk Servis',
-      ];
+    return Column(
+      children: [
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: banners.length * 1000, // efek looping panjang
+            itemBuilder: (context, index) {
+              final int realIndex = index % banners.length;
 
-      return Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: banners.length * 1000, // efek looping panjang
-              itemBuilder: (context, index) {
-                final int realIndex = index % banners.length;
-
-                return AnimatedBuilder(
-                  animation: _pageController,
-                  builder: (context, child) {
-                    double value = 1.0;
-                    if (_pageController.position.haveDimensions) {
-                      value = (_pageController.page! - index).abs();
-                      value = (1 - (value * 0.1)).clamp(0.9, 1.0);
-                    }
-                    return Transform.scale(scale: value, child: child);
-                  },
+              return AnimatedBuilder(
+                animation: _pageController,
+                builder: (context, child) {
+                  double value = 1.0;
+                  if (_pageController.position.haveDimensions) {
+                    value = (_pageController.page! - index).abs();
+                    value = (1 - (value * 0.1)).clamp(0.9, 1.0);
+                  }
+                  return Transform.scale(scale: value, child: child);
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3.0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    image: DecorationImage(
+                      image:
+                          banners[realIndex].startsWith('assets/')
+                              ? AssetImage(banners[realIndex])
+                              : NetworkImage(banners[realIndex]),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                   child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 3.0),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      image: DecorationImage(
-                        image: NetworkImage(banners[realIndex]),
-                        fit: BoxFit.cover,
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.6),
+                          Colors.transparent,
+                        ],
                       ),
                     ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.6),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              titles[realIndex],
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: () {
-                                String bannerText = '';
-                                if (titles[realIndex] ==
-                                    'Tips Perawatan Laptop') {
-                                  bannerText = '''
-  Tips dan Trik Merawat Laptop Ringan Agar Tidak Cepat Rusak
-
-  1. Jangan Membebani Laptop Anda Terlalu Berat
-  Salah satu cara paling sederhana untuk menjaga laptop tetap ringan adalah dengan tidak membebani laptop Anda terlalu berat. Jika Anda menjalankan banyak program berat atau membuka banyak tab browser sekaligus, laptop Anda akan bekerja lebih keras dan lebih panas. Hal ini dapat mengakibatkan kelebihan panas yang berpotensi merusak komponen dalam laptop Anda. Pastikan untuk menutup program yang tidak Anda gunakan dan mengelola aplikasi dengan bijak.
-
-  2. Gunakan Laptop pada Permukaan yang Rata dan Ventilasi yang Baik
-  Laptop yang digunakan pada permukaan yang datar dan keras akan membantu menjaga sirkulasi udara yang baik di sekitar laptop. Hindari meletakkan laptop Anda pada permukaan yang empuk seperti kasur atau bantal yang dapat menghalangi ventilasi udara, karena ini dapat menyebabkan laptop menjadi panas berlebihan. Gunakan alas laptop yang keras atau bantuan pendingin laptop jika diperlukan.
-
-  3. Bersihkan Laptop secara Berkala
-  Debu dan kotoran dapat mengumpul di dalam laptop dan mengganggu kinerja serta menyebabkan panas berlebihan. Bersihkan laptop secara berkala dengan menggunakan kompresor udara atau alat pembersih khusus untuk elektronik. Pastikan laptop dimatikan saat membersihkannya.
-
-  4. Hindari Guncangan dan Benturan
-  Guncangan dan benturan dapat merusak komponen dalam laptop Anda. Selalu pastikan laptop Anda ditempatkan dengan aman dan tidak terpapar risiko fisik yang berlebihan. Gunakan tas laptop yang dirancang khusus untuk melindunginya saat Anda bepergian.
-
-  5. Lakukan Update dan Backup Data Secara Teratur
-  Selalu perbarui sistem operasi dan perangkat lunak Anda secara berkala untuk menjaga keamanan dan kinerja laptop. Selain itu, lakukan backup data Anda secara teratur. Jika terjadi masalah atau kerusakan pada laptop, Anda akan memiliki cadangan data yang aman.
-
-  6. Hindari Paparan Suhu yang Ekstrem
-  Suhu yang ekstrem, baik terlalu panas maupun terlalu dingin, dapat merusak komponen dalam laptop. Hindari menggunakan laptop di tempat yang terlalu panas atau terlalu dingin. Selain itu, jangan biarkan laptop terkena sinar matahari langsung atau suhu ekstrem.
-
-  7. Gunakan Perangkat Lunak Antivirus dan Anti-Malware
-  Instal perangkat lunak antivirus dan anti-malware yang andal untuk melindungi laptop Anda dari serangan virus dan malware yang dapat merusak sistem Anda.
-
-  8. Matikan Laptop dengan Benar
-  Selalu matikan laptop Anda dengan benar daripada hanya mengaturnya ke mode sleep atau hibernate. Ini akan membantu menghindari masalah dengan sistem operasi dan perangkat keras.
-
-  Dengan mengikuti tips dan trik di atas, Anda dapat menjaga laptop Anda agar tetap ringan dan tidak cepat rusak. Merawat laptop dengan baik adalah investasi untuk menjaga kinerja laptop Anda dalam jangka panjang, sehingga Anda dapat terus menggunakannya dengan efisien dan tanpa masalah.
-  ''';
-                                }
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              if (realIndex == 0) {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder:
-                                        (context) => InformasiPage(
-                                          bannerImage: banners[realIndex],
-                                          bannerTitle: titles[realIndex],
-                                          bannerText: bannerText,
-                                        ),
+                                        (context) => const CekGaransiPage(),
                                   ),
                                 );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                              } else if (realIndex == 1) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const TipsPage(),
+                                  ),
+                                );
+                              } else if (realIndex == 2) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => const KebersihanAlatPage(),
+                                  ),
+                                );
+                              } else if (realIndex == 3) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const PoinInfoPage(),
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                              child: Text(
-                                'Lihat Sekarang',
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                          ],
-                        ),
+                            child: Text(
+                              'Lihat Sekarang',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
-        ],
-      );
-    }
+        ),
+      ],
+    );
+  }
 
 
 
@@ -598,123 +574,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
     // 🔹 WIDGET HELPERS
     // =======================
     
-  TierInfo _getTierInfo(int points) {
-    if (points >= 1500) {
-      return TierInfo(
-        'Sultan',
-        BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFFD700), // Gold
-              Color(0xFFFFA500), // Orange gold
-              Color(0xFFFF8C00), // Dark orange
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFFFFE082).withOpacity(0.6),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFFD700).withOpacity(0.15),
-              blurRadius: 15,
-              offset: const Offset(0, 6),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        Colors.white,
-      );
-    } else if (points >= 500) {
-      return TierInfo(
-        'Crazy Rich',
-        BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFF1E3C72).withOpacity(0.9),
-              const Color(0xFF2A5298).withOpacity(0.95),
-              const Color(0xFF7E22CE).withOpacity(0.9),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.2),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7E22CE).withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        Colors.white,
-      );
-    } else if (points >= 1) {
-      return TierInfo(
-        'Cuanners',
-        BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFF42A5F5).withOpacity(0.85),
-              const Color(0xFF64B5F6).withOpacity(0.9),
-              const Color(0xFF90CAF9).withOpacity(0.85),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF42A5F5).withOpacity(0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        Colors.white,
-      );
-    }
-    
-    return TierInfo(
-      '',
-      BoxDecoration(
-        color: Colors.blue,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.blue.shade300,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      Colors.black,
-    );
-  }
+
 
   // Ganti bagian _buildMemberCard di home.dart Anda dengan code ini:
 
@@ -724,7 +584,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
     return ValueListenableBuilder<int>(
       valueListenable: UserPointData.userPoints,
       builder: (context, points, _) {
-        final tierInfo = _getTierInfo(points);
+        final tierInfo = getTierInfo(points);
 
         return Container(
           width: double.infinity,
@@ -741,7 +601,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle, 
-                    color: Colors.blue.withOpacity(0.05),
+                    
                   ),
                 ),
               ),
@@ -753,7 +613,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.blue.withOpacity(0.05),
+                    
                   ),
                 ),
               ),
@@ -773,7 +633,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blue.withOpacity(0.2),
+                          color: Colors.white.withOpacity(0.1),
                           blurRadius: 10,
                           spreadRadius: 2,
                         ),
@@ -787,7 +647,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
-                                  color: Colors.blue.withOpacity(0.1),
+                                  
                                   child: Icon(
                                     Icons.person,
                                     size: 36,
@@ -797,7 +657,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                               },
                             )
                           : Container(
-                              color: Colors.blue.withOpacity(0.1),
+                              
                               child: Icon(
                                 Icons.person,
                                 size: 36,
@@ -855,37 +715,6 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (tierInfo.label.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildTierIcon(tierInfo.label),
-                              const SizedBox(width: 4),
-                              Text(
-                                tierInfo.label,
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -894,10 +723,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.blue.withOpacity(0.3),
-                            width: 1,
-                          ),
+                          
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -930,32 +756,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
     );
   }
 
-  // Ganti bagian _buildTierIcon di home.dart Anda dengan code ini:
 
-  Widget _buildTierIcon(String label) {
-    switch (label) {
-      case 'Cuanners':
-        return const Icon(
-          Icons.stars_rounded,
-          color: Colors.white,
-          size: 14,
-        );
-      case 'Crazy Rich':
-        return const Icon(
-          Icons.diamond_rounded,
-          color: Colors.white,
-          size: 14,
-        );
-      case 'Sultan':
-        return const FaIcon(
-          FontAwesomeIcons.crown,
-          color: Color(0xFFFFEB3B),
-          size: 16,
-        );
-      default:
-        return const SizedBox.shrink();
-    }
-  }
 
     Widget _buildShimmerMemberCard() => Shimmer.fromColors(baseColor: Colors.grey[300]!, highlightColor: Colors.grey[100]!, child: Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(16)), child: Row(children: [Container(width: 60, height: 60, color: Colors.grey[400]), const SizedBox(width: 16), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(width: 100, height: 16, color: Colors.grey[400]), const SizedBox(height: 4), Container(width: 50, height: 14, color: Colors.grey[400])])])));
 

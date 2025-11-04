@@ -365,78 +365,41 @@ Widget _buildProfileCard(BuildContext context, String nama, String id) {
             ),
             const SizedBox(height: 12),
 
-            // 🔹 Tier Label dan Poin berdampingan
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Tier Label dengan Icon
-                if (tierInfo.label.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        buildTierIcon(tierInfo.label),
-                        const SizedBox(width: 6),
-                        Text(
-                          tierInfo.label,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: tierInfo.textColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                
-                // Poin user
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Poin',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                          color: tierInfo.textColor.withOpacity(0.9),
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$points',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
-                          color: tierInfo.textColor,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Image.asset('assets/image/coin.png', width: 18, height: 18),
-                    ],
-                  ),
+            // 🔹 Poin user
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
                 ),
-              ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Poin',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      color: tierInfo.textColor.withOpacity(0.9),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$points',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      color: tierInfo.textColor,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Image.asset('assets/image/coin.png', width: 18, height: 18),
+                ],
+              ),
             ),
           ],
         ),
@@ -448,22 +411,28 @@ Widget _buildProfileCard(BuildContext context, String nama, String id) {
 
 Widget _buildTierIcon(String label) {
   switch (label) {
-    case 'Cuanners':
+    case 'Bronze':
       return const Icon(
-        Icons.stars_rounded,
-        color: Colors.white,
+        Icons.grade,
+        color: Color(0xFFD2B48C), // light brown
         size: 16,
       );
-    case 'Crazy Rich':
+    case 'Silver':
       return const Icon(
-        Icons.diamond_rounded,
-        color: Colors.white,
+        Icons.star,
+        color: Color(0xFFC0C0C0), // silver
         size: 16,
       );
-    case 'Sultan':
-      return const FaIcon(
-        FontAwesomeIcons.crown,
-        color: Color(0xFFFFEB3B),
+    case 'Gold':
+      return const Icon(
+        Icons.workspace_premium,
+        color: Color(0xFFFFD700), // gold
+        size: 16,
+      );
+    case 'Diamond':
+      return const Icon(
+        Icons.diamond,
+        color: Colors.white,
         size: 16,
       );
     default:

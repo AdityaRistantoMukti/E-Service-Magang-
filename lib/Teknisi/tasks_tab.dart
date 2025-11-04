@@ -4,6 +4,7 @@ import 'package:e_service/api_services/api_service.dart';
 import 'package:e_service/models/technician_order_model.dart';
 import 'package:e_service/Others/map_view_page.dart';
 import 'package:e_service/Others/session_manager.dart';
+import 'package:e_service/services/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -35,13 +36,8 @@ class TasksTab extends StatefulWidget {
 }
 
 class _TasksTabState extends State<TasksTab> {
-  Timer? _locationTimer;
-  String? _currentTrackingTransKode;
-  String? _currentTrackingKryKode;
-
   @override
   void dispose() {
-    _locationTimer?.cancel();
     super.dispose();
   }
 
@@ -59,67 +55,15 @@ class _TasksTabState extends State<TasksTab> {
 
     print('✅ [LOCATION] Retrieved kry_kode: $kryKode');
 
-    // Check location permissions
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      print('⚠️ [LOCATION] Location permission denied. Requesting...');
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        print('❌ [LOCATION] Location permission denied by user.');
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      print('❌ [LOCATION] Location permission permanently denied.');
-      return;
-    }
-
-    // Check if location services are enabled
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      print('❌ [LOCATION] Location services are disabled.');
-      return;
-    }
-
-    _stopLocationTracking(); // Stop any existing tracking
-
-    _currentTrackingTransKode = transKode;
-    _currentTrackingKryKode = kryKode;
-
-    print('📡 [LOCATION] Starting periodic location updates every 5 seconds');
-
-    _locationTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
-      try {
-        print('📍 [LOCATION] Getting current position...');
-        final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
-
-        print(
-          '📍 [LOCATION] Position obtained: ${position.latitude}, ${position.longitude}',
-        );
-
-        print('📡 [LOCATION] Sending location to API...');
-        await ApiService.updateDriverLocation(
-          transKode: transKode,
-          kryKode: kryKode,
-          latitude: position.latitude,
-          longitude: position.longitude,
-        );
-
-        print('✅ [LOCATION] Location sent successfully');
-      } catch (e) {
-        print('❌ [LOCATION] Failed to send location: $e');
-      }
-    });
+    // Use the LocationService singleton to start tracking
+    await LocationService.instance.startTracking(
+      transKode: transKode,
+      kryKode: kryKode,
+    );
   }
 
   void _stopLocationTracking() {
-    _locationTimer?.cancel();
-    _locationTimer = null;
-    _currentTrackingTransKode = null;
-    _currentTrackingKryKode = null;
+    LocationService.instance.stopTracking();
   }
 
   @override

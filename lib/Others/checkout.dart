@@ -7,6 +7,7 @@ import '../api_services/payment_service.dart';
 import '../api_services/api_service.dart';
 import '../Others/session_manager.dart';
 import '../Others/user_point_data.dart';
+import '../models/promo_model.dart';
 
 class CheckoutPage extends StatefulWidget {
   final bool? usePointsFromPromo;
@@ -29,6 +30,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   late String namaProduk;
   late String deskripsi;
   String gambarUrl = '';
+  List<Promo> promoList = [];
+  bool isPromoLoaded = false;
+  double? hargaAsli;
 
   @override
   void initState() {
@@ -41,6 +45,49 @@ class _CheckoutPageState extends State<CheckoutPage> {
     deskripsi =
         widget.produk['deskripsi']?.toString() ?? 'Deskripsi tidak tersedia';
     gambarUrl = getFirstImageUrl(widget.produk['gambar']);
+    _fetchPromo();
+    _fetchHargaAsli();
+  }
+
+  Future<void> _fetchHargaAsli() async {
+    String kodeBarang = widget.produk['kode_barang']?.toString() ?? '';
+    if (kodeBarang.isNotEmpty) {
+      try {
+        final produkList = await ApiService.getProduk();
+        final produk = produkList.firstWhere(
+          (p) => p['kode_barang']?.toString() == kodeBarang,
+          orElse: () => null,
+        );
+        if (produk != null) {
+          setState(() {
+            hargaAsli = (double.tryParse(produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
+          });
+        }
+      } catch (e) {
+        debugPrint("Error fetching harga asli: $e");
+      }
+    }
+  }
+
+  Future<void> _fetchPromo() async {
+    try {
+      final response = await ApiService.getPromo();
+      setState(() {
+        promoList = response.map<Promo>((json) => Promo.fromJson(json)).toList();
+        isPromoLoaded = true;
+      });
+    } catch (e) {
+      setState(() {
+        isPromoLoaded = true;
+      });
+      debugPrint("Error loading promo: $e");
+    }
+  }
+
+  bool _isProductInPromo() {
+    if (!isPromoLoaded || promoList.isEmpty) return false;
+    String kodeBarang = widget.produk['kode_barang']?.toString() ?? '';
+    return promoList.any((promo) => promo.kodeBarang == kodeBarang);
   }
 
   String getFirstImageUrl(dynamic gambarField) {
@@ -77,6 +124,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget build(BuildContext context) {
     double harga =
         (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
+    double effectivePrice = usePoints ? 0.0 : (hargaAsli ?? harga);
     int poin = int.tryParse(widget.produk['poin']?.toString() ?? '0') ?? 0;
     String gambar = widget.produk['gambar']?.toString() ?? '';
     String namaProduk =
@@ -252,7 +300,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 ],
                               )
                             : Text(
-                                "1x   ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(harga)}",
+                                "1x   ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(effectivePrice)}",
                                 style: const TextStyle(
                                   color: Colors.blue,
                                   fontWeight: FontWeight.bold,
@@ -284,12 +332,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   _summaryRow(
                     "Subtotal",
                     usePoints
-                        ? "Rp 0"
-                        : NumberFormat.currency(
+                        ? NumberFormat.currency(
                             locale: 'id_ID',
                             symbol: 'Rp ',
                             decimalDigits: 0,
-                          ).format(harga),
+                          ).format(harga)
+                        : (hargaAsli != null ? NumberFormat.currency(
+                            locale: 'id_ID',
+                            symbol: 'Rp ',
+                            decimalDigits: 0,
+                          ).format(hargaAsli!) : "Rp 0"),
                   ),
                   _summaryRow("Diskon", "Rp 0"),
                   _summaryRow("Voucher", "Rp 0"),
@@ -335,7 +387,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             locale: 'id_ID',
                             symbol: 'Rp ',
                             decimalDigits: 0,
-                          ).format(harga),
+                          ).format(effectivePrice),
                           isTotal: true,
                           color: Colors.blue,
                         ),
@@ -346,40 +398,42 @@ class _CheckoutPageState extends State<CheckoutPage> {
             const SizedBox(height: 8),
 
             // --- Toggle Metode Pembayaran ---
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        "Gunakan Poin",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+            if (_isProductInPromo()) ...[
+              Container(
+                width: double.infinity,
+                color: Colors.white,
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          "Gunakan Poin",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  Switch(
-                    value: usePoints,
-                    activeThumbColor: Colors.blue,
-                    onChanged: (value) {
-                      setState(() {
-                        usePoints = value;
-                        if (usePoints) {
-                          selectedPaymentMethod = null;
-                        }
-                      });
-                    },
-                  ),
-                ],
+                      ],
+                    ),
+                    Switch(
+                      value: usePoints,
+                      activeThumbColor: Colors.blue,
+                      onChanged: (value) {
+                        setState(() {
+                          usePoints = value;
+                          if (usePoints) {
+                            selectedPaymentMethod = null;
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
 
             const SizedBox(height: 8),
 
@@ -642,7 +696,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // --- Tombol Pembayaran ---
       bottomNavigationBar: Container(
         color: Colors.white,
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.of(context).padding.bottom),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: usePoints

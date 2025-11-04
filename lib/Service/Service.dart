@@ -1,6 +1,7 @@
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/cleaning_service.dart';
@@ -75,31 +76,59 @@ class _ServicePageState extends State<ServicePage> {
     }
 
     try {
-      // First, check order_list for trans_kode
-      final orderList = await ApiService.getOrderListByTransKode(kode);
-      if (orderList.isEmpty) {
+      // Get current user ID
+      final userSession = await SessionManager.getUserSession();
+      final currentUserId = userSession['id'] as String?;
+
+      if (currentUserId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Transaksi tidak ditemukan'),
+            content: Text('Sesi login tidak valid'),
           ),
         );
         return;
       }
 
-      // Check trans_status in order_list (assume first item or check if any pending)
-      final orderStatus = orderList.first['trans_status']?.toString().toLowerCase() ?? '';
-      if (orderStatus == 'pending') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WaitingApprovalPage(transKode: kode),
-          ),
-        );
-        return;
+      // Check order_list for trans_kode and pending status
+      final orderList = await ApiService.getOrderListByTransKode(kode);
+      bool hasPendingOrder = false;
+      if (orderList.isNotEmpty) {
+        // Check if any order has pending status
+        hasPendingOrder = orderList.any((order) => order['trans_status']?.toString().toLowerCase() == 'pending');
+        if (hasPendingOrder) {
+          // Check if the order belongs to the current user (assuming cos_kode is in order_list)
+          final orderCosKode = orderList.first['cos_kode']?.toString();
+          if (orderCosKode != currentUserId) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Anda tidak memiliki akses ke transaksi ini'),
+              ),
+            );
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WaitingApprovalPage(transKode: kode),
+            ),
+          );
+          return;
+        }
       }
 
-      // If not pending, check transaksi status for enroute
+      // If no pending order, check transaksi table for non-completed status
       final transaksi = await ApiService.getTransaksiByKode(kode);
+      final transCosKode = transaksi['cos_kode']?.toString();
+
+      if (transCosKode != currentUserId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Anda tidak memiliki akses ke transaksi ini'),
+          ),
+        );
+        return;
+      }
+
       final transStatus = transaksi['trans_status']?.toString().toLowerCase() ?? '';
       if (transStatus != 'completed') {
         Navigator.push(
@@ -149,7 +178,6 @@ class _ServicePageState extends State<ServicePage> {
         ],
       ),
       body: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

@@ -8,14 +8,18 @@ import 'package:e_service/Service/detail_service_midtrans.dart';
 import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:vector_math/vector_math.dart' as vector_math;
+
+const String mapStoreName = 'e_service_map_store';
 
 // Custom Tween for LatLng animation
 class LatLngTween extends Tween<LatLng> {
@@ -44,11 +48,14 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   // Map
   LatLng? _userLocation;
   LatLng? _driverLocation; // Start as null, will be set from database
+  final ValueNotifier<LatLng?> _driverLocationNotifier = ValueNotifier(null); // For real-time marker updates
   LatLng? _previousDriverLocation;
   List<LatLng> _routePoints = [];
   final mapController = MapController();
   String _driverIcon = 'motorcycle'; // Default icon
   bool _isMapReady = false;
+  bool _hasFittedBounds = false;
+  bool _userHasInteracted = false;
 
   // Animation
   AnimationController? _animationController;
@@ -72,7 +79,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   void initState() {
     super.initState();
     _loadOrderAddress();
-    _startLocationPolling();
     _refreshStatus(); // initial fetch
     _startStatusPolling();
   }
@@ -111,15 +117,19 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
               print('📍 [TRACKING] Driver location changed from ${_driverLocation?.latitude ?? "null"},${_driverLocation?.longitude ?? "null"} to ${newLocation.latitude},${newLocation.longitude}');
               _previousDriverLocation = _driverLocation;
               _startDriverAnimation(newLocation);
-              // Center map on new driver location only if map is ready
-              if (_isMapReady) {
+              // Center map on new driver location only if map is ready and user hasn't interacted
+              if (_isMapReady && !_userHasInteracted) {
                 mapController.move(newLocation, 13);
               }
             }
             setState(() {
               _driverIcon = icon;
+              _driverLocation = newLocation;
+              _driverLocationNotifier.value = newLocation;
             });
             if (_userLocation != null) await _getPolylineRoute();
+            // Fit bounds when driver location changes
+            _fitBoundsToRoute();
             _locationPollingRetryCount = 0; // Reset retry count on success
           }
         } else {
@@ -183,31 +193,142 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
         _updatedAt = updatedAt ?? DateTime.now();
         _timeline = _buildTimelineFromCurrentStatus(_currentStatus, _createdAt!, _updatedAt!);
       });
+
+      // Start/stop location polling based on status
+      _updateLocationPollingForStatus(status);
     } catch (e) {
       // ignore
+    }
+  }
+
+  void _updateLocationPollingForStatus(String status) {
+    // Start polling when technician is active (enroute or later)
+    final activeStatuses = ['enroute', 'arrived', 'waitingapproval', 'pickingparts', 'repairing'];
+    final shouldPoll = activeStatuses.contains(status.toLowerCase());
+
+    if (shouldPoll && _locationPollingTimer == null) {
+      print('📍 Starting location polling for active status: $status');
+      _startLocationPolling();
+    } else if (!shouldPoll && _locationPollingTimer != null) {
+      print('📍 Stopping location polling for inactive status: $status');
+      _stopLocationPolling();
+    } else if (shouldPoll && _locationPollingTimer != null) {
+      // If already polling for active status, ensure it's the correct transaction
+      print('📍 Location polling already active for status: $status');
     }
   }
 
   // ========================= Lokasi user & rute =========================
 
   Future<void> _loadOrderAddress() async {
-    if (widget.queueCode == null || widget.queueCode!.isEmpty) return;
+    if (widget.queueCode == null || widget.queueCode!.isEmpty) {
+      // If no queueCode, don't set any location
+      return;
+    }
     try {
       final detail = await ApiService.getOrderDetail(widget.queueCode!);
-      if (detail != null && detail['latitude'] != null && detail['longitude'] != null) {
-        final lat = double.tryParse(detail['latitude'].toString());
-        final lng = double.tryParse(detail['longitude'].toString());
-        if (lat != null && lng != null) {
-          setState(() {
-            _userLocation = LatLng(lat, lng);
-          });
-          await _getPolylineRoute();
+      if (detail != null) {
+        print('📍 [LOAD_ADDRESS] Order detail received: $detail');
+
+        // Try different field names for latitude/longitude first
+        final latValue = detail['latitude'] ?? detail['lat'];
+        final lngValue = detail['longitude'] ?? detail['lng'];
+        print('📍 [LOAD_ADDRESS] Lat/Lng values: lat=$latValue, lng=$lngValue');
+
+        if (latValue != null && lngValue != null) {
+          final lat = double.tryParse(latValue.toString());
+          final lng = double.tryParse(lngValue.toString());
+          if (lat != null && lng != null) {
+            setState(() {
+              _userLocation = LatLng(lat, lng);
+            });
+            print('📍 [LOAD_ADDRESS] Set user location from coordinates: $lat, $lng');
+            await _getPolylineRoute();
+            return;
+          } else {
+            print('📍 [LOAD_ADDRESS] Failed to parse coordinates: lat=$lat, lng=$lng');
+          }
         }
+
+        // If no coordinates, try to geocode the address
+        final address = detail['alamat'] ?? detail['address'] ?? detail['location'];
+        final trimmedAddress = address?.toString().trim();
+        print('📍 [LOAD_ADDRESS] Address for geocoding: "$trimmedAddress"');
+        print('📍 [LOAD_ADDRESS] Address is null: ${trimmedAddress == null}, isEmpty: ${trimmedAddress?.isEmpty}');
+        if (trimmedAddress != null && trimmedAddress.isNotEmpty) {
+          print('📍 [LOAD_ADDRESS] Calling geocode function...');
+          await _geocodeAddress(trimmedAddress);
+        } else {
+          print('📍 [LOAD_ADDRESS] No address available for geocoding');
+        }
+      } else {
+        print('📍 [LOAD_ADDRESS] No order detail received');
       }
     } catch (e) {
-      // Fallback to current location if order address fails
-      await _getUserLocation();
+      print('❌ [LOAD_ADDRESS] Error loading order address: $e');
     }
+  }
+
+  Future<void> _geocodeAddress(String address) async {
+    print('🔍 [GEOCODING] Starting geocoding for address: "$address"');
+    try {
+      // First try full address
+      List<geocoding.Location> locations = await geocoding.locationFromAddress(address);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        final latLng = LatLng(loc.latitude, loc.longitude);
+        setState(() {
+          _userLocation = latLng;
+        });
+        await _getPolylineRoute();
+        print('✅ [GEOCODING] Successfully geocoded full address "$address" to coordinates: ${loc.latitude}, ${loc.longitude}');
+        return;
+      }
+    } catch (e) {
+      print('⚠️ [GEOCODING] Full address geocoding failed: $e');
+    }
+
+    // Fallback: try simplified address (remove house number and specific details)
+    try {
+      final simplifiedAddress = _simplifyAddress(address);
+      print('🔄 [GEOCODING] Trying simplified address: "$simplifiedAddress"');
+      List<geocoding.Location> locations = await geocoding.locationFromAddress(simplifiedAddress);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        final latLng = LatLng(loc.latitude, loc.longitude);
+        setState(() {
+          _userLocation = latLng;
+        });
+        await _getPolylineRoute();
+        print('✅ [GEOCODING] Successfully geocoded simplified address "$simplifiedAddress" to coordinates: ${loc.latitude}, ${loc.longitude}');
+        return;
+      }
+    } catch (e) {
+      print('⚠️ [GEOCODING] Simplified address geocoding failed: $e');
+    }
+
+    // Final fallback: use Jakarta coordinates as default
+    print('❌ [GEOCODING] All geocoding attempts failed, using Jakarta as fallback');
+    const fallbackLatLng = LatLng(-6.2088, 106.8456); // Jakarta coordinates
+    setState(() {
+      _userLocation = fallbackLatLng;
+    });
+    await _getPolylineRoute();
+    print('🗺️ [GEOCODING] Set fallback location: $fallbackLatLng');
+  }
+
+  String _simplifyAddress(String address) {
+    // Remove house numbers, specific building names, etc.
+    // Keep main street, district, city, province
+    final parts = address.split(',').map((s) => s.trim()).toList();
+    if (parts.length >= 2) {
+      // Remove first part if it looks like a house number/street number
+      if (parts[0].contains('No.') || parts[0].contains('Jl.') && parts[0].split(' ').length <= 3) {
+        parts.removeAt(0);
+      }
+      return parts.join(', ');
+    }
+    return address;
   }
 
   Future<void> _getUserLocation() async {
@@ -243,9 +364,41 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
             .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
             .toList();
       });
+      // Fit bounds after route is fetched
+      _fitBoundsToRoute();
     } catch (e) {
       debugPrint("Gagal ambil rute: $e");
     }
+  }
+
+  void _fitBoundsToRoute() {
+    // Don't fit bounds if user has interacted with the map
+    if (_userHasInteracted) return;
+
+    if (_routePoints.isEmpty && _userLocation == null && _driverLocation == null) return;
+
+    List<LatLng> points = [];
+    if (_routePoints.isNotEmpty) {
+      points.addAll(_routePoints);
+    }
+    if (_userLocation != null) {
+      points.add(_userLocation!);
+    }
+    if (_driverLocation != null) {
+      points.add(_driverLocation!);
+    }
+
+    if (points.isEmpty) return;
+
+    double minLat = points.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+    double maxLat = points.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+    double minLng = points.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+    double maxLng = points.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
+
+    LatLngBounds bounds = LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng));
+
+    // Fit bounds with padding
+    mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: EdgeInsets.all(50)));
   }
 
   void _startDriverAnimation(LatLng newLocation) {
@@ -536,7 +689,37 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   }
 
   Widget _buildMap() {
-    if (_userLocation == null) return const Center(child: CircularProgressIndicator());
+    // Show map only if status is enroute or later
+    final activeStatuses = ['enroute', 'arrived', 'waitingapproval', 'pickingparts', 'repairing'];
+    final shouldShowMap = activeStatuses.contains(_currentStatus.toLowerCase());
+
+    if (!shouldShowMap) {
+      return Container(
+        color: Colors.grey[200],
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+              SizedBox(height: 8),
+              Text(
+                'Map akan muncul saat teknisi dalam perjalanan',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // If we have driver location but no user location, use driver location as center
+    final mapCenter = _userLocation ?? _driverLocation ?? const LatLng(-6.2, 106.816666); // Default to Jakarta if nothing
+
+    // Show loading only if we have no locations at all and are actively polling
+    if (_driverLocation == null && _locationPollingTimer != null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     // Mark map as ready when building
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -549,11 +732,28 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
     return FlutterMap(
       mapController: mapController,
-      options: MapOptions(initialCenter: _userLocation!, initialZoom: 13),
+      options: MapOptions(
+        initialCenter: mapCenter,
+        initialZoom: 13,
+        minZoom: 3.0,
+        maxZoom: 19.0,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate, // Disable rotation
+        ),
+        onPositionChanged: (position, hasGesture) {
+          if (hasGesture) {
+            _userHasInteracted = true;
+          }
+        },
+      ),
       children: [
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          subdomains: ['a', 'b', 'c'],
           userAgentPackageName: 'com.azzahra.e_service',
+          maxZoom: 19,
+          minZoom: 3,
+          keepBuffer: 2,
         ),
         if (_routePoints.isNotEmpty)
           PolylineLayer(
@@ -563,17 +763,18 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
           ),
         MarkerLayer(
           markers: [
-            // Lokasi User
-            Marker(
-              point: _userLocation!,
-              width: 16,
-              height: 16,
-              child: Container(decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
-            ),
-            // Lokasi Driver
+            // Lokasi User (only show if available) - place at end of route if route exists
+            if (_userLocation != null)
+              Marker(
+                point: _routePoints.isNotEmpty ? _routePoints.last : _userLocation!,
+                width: 16,
+                height: 16,
+                child: Container(decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+              ),
+            // Lokasi Driver - place at start of route if route exists
             if (_driverLocation != null)
               Marker(
-                point: _driverLocation!,
+                point: _routePoints.isNotEmpty ? _routePoints.first : _driverLocation!,
                 width: 40,
                 height: 40,
                 child: Icon(_getDriverIcon(_driverIcon), color: Colors.blue, size: 28),

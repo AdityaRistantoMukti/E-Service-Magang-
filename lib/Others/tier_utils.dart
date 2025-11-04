@@ -9,20 +9,47 @@ class TierInfo {
 }
 
 TierInfo getTierInfo(int points) {
-  if (points >= 1500) {
+  if (points >= 2000) {
     return TierInfo(
-      'Sultan',
+      'Diamond',
       BoxDecoration(
         image: const DecorationImage(
-          image: AssetImage('assets/image/sultan_bg.png'),
+          image: AssetImage('assets/image/diamond.jpeg'),
           fit: BoxFit.cover,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      Colors.white,
+    );
+  } else if (points >= 1000) {
+    return TierInfo(
+      'Gold',
+      BoxDecoration(
+        image: const DecorationImage(
+          image: AssetImage('assets/image/gold.jpeg'),
+          fit: BoxFit.cover,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -30,58 +57,43 @@ TierInfo getTierInfo(int points) {
     );
   } else if (points >= 500) {
     return TierInfo(
-      'Crazy Rich',
+      'Silver',
       BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF1E3C72).withOpacity(0.9),
-            const Color(0xFF2A5298).withOpacity(0.95),
-            const Color(0xFF7E22CE).withOpacity(0.9),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        image: const DecorationImage(
+          image: AssetImage('assets/image/silver.jpeg'),
+          fit: BoxFit.cover,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1.5,
+          color: Colors.white.withOpacity(0.3),
+          width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF7E22CE).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       Colors.white,
     );
-  } else if (points >= 1) {
+  } else if (points >= 100) {
     return TierInfo(
-      'Cuanners',
+      'Bronze',
       BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF42A5F5).withOpacity(0.85),
-            const Color(0xFF64B5F6).withOpacity(0.9),
-            const Color(0xFF90CAF9).withOpacity(0.85),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        image: const DecorationImage(
+          image: AssetImage('assets/image/bronze.jpeg'),
+          fit: BoxFit.cover,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: Colors.white.withOpacity(0.3),
-          width: 1.5,
+          width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF42A5F5).withOpacity(0.2),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
@@ -93,43 +105,49 @@ TierInfo getTierInfo(int points) {
     return TierInfo(
       '',
       BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.blue,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.grey.shade300,
-          width: 1,
+          color: Colors.white.withOpacity(0.3),
+          width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      Colors.black,
+      Colors.white,
     );
   }
 }
 
 Widget buildTierIcon(String label) {
   switch (label) {
-    case 'Cuanners':
+    case 'Bronze':
       return const Icon(
-        Icons.stars_rounded,
+        Icons.brightness_5,
         color: Colors.white,
         size: 16,
       );
-    case 'Crazy Rich':
+    case 'Silver':
       return const Icon(
-        Icons.diamond_rounded,
+        Icons.brightness_6,
         color: Colors.white,
         size: 16,
       );
-    case 'Sultan':
-      return const FaIcon(
-        FontAwesomeIcons.crown,
-        color: Color(0xFFFFEB3B),
+    case 'Gold':
+      return const Icon(
+        Icons.star,
+        color: Colors.white,
+        size: 16,
+      );
+    case 'Diamond':
+      return const Icon(
+        Icons.diamond,
+        color: Colors.white,
         size: 16,
       );
     default:

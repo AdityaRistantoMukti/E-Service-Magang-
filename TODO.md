@@ -1,10 +1,14 @@
-# TODO: Fix Marker Positioning and Icons in Tracking Driver
+# TODO: Integrate Promo in Checkout Page
 
-## Tasks
-- [ ] Update perbaikan_service.dart to include latitude and longitude in order data
-- [ ] Update tracking_driver.dart to use selected address lat/lng for user marker
-- [ ] Change user marker to green location pin icon
-- [ ] Change driver marker to bicycle icon
+- [x] Add promo fetching in initState
+- [x] Create _isProductInPromo method to check if product is in promo
+- [x] Conditionally show "Gunakan Poin" toggle only for promo products
 
-## Followup Steps
-- Test map display with correct user location and markers
+# TODO: Make detail_service_midtrans.dart Responsive
+
+- [ ] Add LayoutBuilder and MediaQuery for screen size detection
+- [ ] Scale paddings proportionally (e.g., EdgeInsets.all(12) -> EdgeInsets.all(12 * scale))
+- [ ] Scale icon sizes (e.g., size: 40 -> size: 40 * scale)
+- [ ] Scale text sizes (e.g., fontSize: 16 -> fontSize: 16 * scale)
+- [ ] Adjust dialog sizes to fit smaller screens
+- [ ] Test on different screen sizes (small, medium, large)
