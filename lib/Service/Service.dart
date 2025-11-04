@@ -101,7 +101,7 @@ class _ServicePageState extends State<ServicePage> {
       // If not pending, check transaksi status for enroute
       final transaksi = await ApiService.getTransaksiByKode(kode);
       final transStatus = transaksi['trans_status']?.toString().toLowerCase() ?? '';
-      if (transStatus == 'enroute') {
+      if (transStatus != 'completed') {
         Navigator.push(
           context,
           MaterialPageRoute(

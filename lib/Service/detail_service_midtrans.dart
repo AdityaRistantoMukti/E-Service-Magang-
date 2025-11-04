@@ -33,9 +33,9 @@ class DetailServiceMidtransPage extends StatefulWidget {
 
 class _DetailServiceMidtransPageState
     extends State<DetailServiceMidtransPage> {
-  String? selectedPaymentMethod;
   Map<String, dynamic>? selectedAddress;
   int selectedDiscount = 0; // 0, 10, or 50
+  String? selectedPaymentMethod;
 
   static int _lastQueueNumber = 0;
   late String currentQueueCode;
@@ -67,10 +67,6 @@ class _DetailServiceMidtransPageState
             _buildRingkasan(),
             const SizedBox(height: 8),
             _buildAlamat(),
-            if (selectedPaymentMethod != null) ...[
-              const SizedBox(height: 8),
-              _buildMetodePembayaran(),
-            ],
             const SizedBox(height: 80),
           ],
         ),
@@ -85,14 +81,10 @@ class _DetailServiceMidtransPageState
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
-          onPressed: selectedPaymentMethod != null
-              ? () => _completeOrder(context)
-              : () => _showPaymentOptions(context),
-          child: Text(
-            selectedPaymentMethod != null
-                ? "Selesaikan Pesanan"
-                : "Pilih Metode Pembayaran",
-            style: const TextStyle(
+          onPressed: () => _startMidtransPayment(context),
+          child: const Text(
+            "Selesaikan Pesanan",
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -373,44 +365,83 @@ class _DetailServiceMidtransPageState
     );
   }
 
-  Widget _buildMetodePembayaran() {
-    return Container(
-      width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Metode Pembayaran",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(_getPaymentIcon(selectedPaymentMethod!), color: Colors.blue),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      selectedPaymentMethod!,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    const Text(
-                      "Nomor Rekening: 1234567890",
-                      style: TextStyle(color: Colors.black54, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+
+  void _startMidtransPayment(BuildContext context) async {
+    // Tampilkan loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
       ),
     );
+
+    try {
+      // 🔹 Dapatkan customerId dari session
+      String? customerId = await SessionManager.getCustomerId();
+      if (customerId == null) {
+        // Close loading
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Customer ID tidak ditemukan. Silakan login ulang.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      await PaymentService.startMidtransPayment(
+        context: context,
+        orderId: 'order_${DateTime.now().millisecondsSinceEpoch}',
+        amount: widget.jumlahBarang * 1,
+        customerId: customerId, // 🔹 Tambahkan customerId
+        customerName: widget.nama,
+        customerEmail: '${widget.nama.replaceAll(' ', '').toLowerCase()}@example.com',
+        customerPhone: selectedAddress != null ? selectedAddress!['hp'] ?? '08123456789' : '08123456789',
+        itemDetails: widget.items.map((item) => {
+          'id': '34GM',
+          'price': 1,
+          'quantity': 1,
+          'name': 'Service ${item['merek']} ${item['device']}',
+        }).toList(),
+        onTransactionFinished: (result) {
+          // Close loading
+          Navigator.of(context, rootNavigator: true).pop();
+
+          // 🔹 Debug: print result details (HANYA status!)
+          print('Payment Result - Status: $result');
+
+          // 🔹 Cek apakah transaksi sukses menggunakan helper method
+          if (PaymentService.isTransactionSuccess(result)) {
+            _onPaymentSuccess();
+          } else {
+            // Tampilkan pesan error
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(PaymentService.getStatusMessage(result)),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      // Close loading jika masih ada
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
+
   Widget _discountButton(int discount, String label) {
     return Expanded(
       child: ElevatedButton(

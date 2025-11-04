@@ -4,6 +4,7 @@ import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
+import 'package:e_service/Service/detail_service_midtrans.dart';
 import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -14,6 +15,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:vector_math/vector_math.dart' as vector_math;
+
+// Custom Tween for LatLng animation
+class LatLngTween extends Tween<LatLng> {
+  LatLngTween({required LatLng begin, required LatLng end}) : super(begin: begin, end: end);
+
+  @override
+  LatLng lerp(double t) {
+    final lat = begin!.latitude + (end!.latitude - begin!.latitude) * t;
+    final lng = begin!.longitude + (end!.longitude - begin!.longitude) * t;
+    return LatLng(lat, lng);
+  }
+}
 
 class TrackingPage extends StatefulWidget {
   final String? queueCode; // trans_kode
@@ -24,14 +38,21 @@ class TrackingPage extends StatefulWidget {
   State<TrackingPage> createState() => _TrackingPageState();
 }
 
-class _TrackingPageState extends State<TrackingPage> {
+class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMixin {
   int currentIndex = 0;
 
   // Map
   LatLng? _userLocation;
-  LatLng _driverLocation = const LatLng(-6.256606, 107.075187);
+  LatLng? _driverLocation; // Start as null, will be set from database
+  LatLng? _previousDriverLocation;
   List<LatLng> _routePoints = [];
   final mapController = MapController();
+  String _driverIcon = 'motorcycle'; // Default icon
+  bool _isMapReady = false;
+
+  // Animation
+  AnimationController? _animationController;
+  Animation<LatLng>? _driverAnimation;
 
   Timer? _locationPollingTimer;
   Timer? _statusPollingTimer;
@@ -50,7 +71,7 @@ class _TrackingPageState extends State<TrackingPage> {
   @override
   void initState() {
     super.initState();
-    _getUserLocation();
+    _loadOrderAddress();
     _startLocationPolling();
     _refreshStatus(); // initial fetch
     _startStatusPolling();
@@ -60,6 +81,7 @@ class _TrackingPageState extends State<TrackingPage> {
   void dispose() {
     _stopLocationPolling(); // Ensure polling stops when page is closed
     _statusPollingTimer?.cancel();
+    _animationController?.dispose();
     super.dispose();
   }
 
@@ -78,18 +100,30 @@ class _TrackingPageState extends State<TrackingPage> {
       try {
         final locationData = await ApiService.getDriverLocation(widget.queueCode!);
         if (locationData != null &&
-            locationData['success'] == true &&
             locationData['latitude'] != null &&
             locationData['longitude'] != null) {
           final newLat = double.tryParse(locationData['latitude'].toString());
           final newLng = double.tryParse(locationData['longitude'].toString());
+          final icon = locationData['icon'] ?? 'motorcycle'; // Get icon from API, default to 'motorcycle'
           if (newLat != null && newLng != null) {
-            setState(() => _driverLocation = LatLng(newLat, newLng));
+            final newLocation = LatLng(newLat, newLng);
+            if (_driverLocation != newLocation) {
+              print('📍 [TRACKING] Driver location changed from ${_driverLocation?.latitude ?? "null"},${_driverLocation?.longitude ?? "null"} to ${newLocation.latitude},${newLocation.longitude}');
+              _previousDriverLocation = _driverLocation;
+              _startDriverAnimation(newLocation);
+              // Center map on new driver location only if map is ready
+              if (_isMapReady) {
+                mapController.move(newLocation, 13);
+              }
+            }
+            setState(() {
+              _driverIcon = icon;
+            });
             if (_userLocation != null) await _getPolylineRoute();
             _locationPollingRetryCount = 0; // Reset retry count on success
           }
         } else {
-          _handleLocationPollingError('Invalid location data received');
+          _handleLocationPollingError('Invalid location data received: $locationData');
         }
       } catch (e) {
         _handleLocationPollingError('API Error: $e');
@@ -156,6 +190,26 @@ class _TrackingPageState extends State<TrackingPage> {
 
   // ========================= Lokasi user & rute =========================
 
+  Future<void> _loadOrderAddress() async {
+    if (widget.queueCode == null || widget.queueCode!.isEmpty) return;
+    try {
+      final detail = await ApiService.getOrderDetail(widget.queueCode!);
+      if (detail != null && detail['latitude'] != null && detail['longitude'] != null) {
+        final lat = double.tryParse(detail['latitude'].toString());
+        final lng = double.tryParse(detail['longitude'].toString());
+        if (lat != null && lng != null) {
+          setState(() {
+            _userLocation = LatLng(lat, lng);
+          });
+          await _getPolylineRoute();
+        }
+      }
+    } catch (e) {
+      // Fallback to current location if order address fails
+      await _getUserLocation();
+    }
+  }
+
   Future<void> _getUserLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -176,9 +230,9 @@ class _TrackingPageState extends State<TrackingPage> {
   }
 
   Future<void> _getPolylineRoute() async {
-    if (_userLocation == null) return;
+    if (_userLocation == null || _driverLocation == null) return;
     final url =
-        'https://router.project-osrm.org/route/v1/driving/${_driverLocation.longitude},${_driverLocation.latitude};${_userLocation!.longitude},${_userLocation!.latitude}?geometries=geojson';
+        'https://router.project-osrm.org/route/v1/driving/${_driverLocation!.longitude},${_driverLocation!.latitude};${_userLocation!.longitude},${_userLocation!.latitude}?geometries=geojson';
 
     try {
       final response = await http.get(Uri.parse(url));
@@ -192,6 +246,30 @@ class _TrackingPageState extends State<TrackingPage> {
     } catch (e) {
       debugPrint("Gagal ambil rute: $e");
     }
+  }
+
+  void _startDriverAnimation(LatLng newLocation) {
+    _animationController?.dispose();
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+
+    _driverAnimation = LatLngTween(
+      begin: _previousDriverLocation ?? _driverLocation ?? newLocation,
+      end: newLocation,
+    ).animate(CurvedAnimation(
+      parent: _animationController!,
+      curve: Curves.easeInOut,
+    ));
+
+    _driverAnimation!.addListener(() {
+      setState(() {
+        _driverLocation = _driverAnimation!.value;
+      });
+    });
+
+    _animationController!.forward();
   }
 
   // ========================= Timeline builder =========================
@@ -291,32 +369,55 @@ class _TrackingPageState extends State<TrackingPage> {
     );
 
     final List<_TimelineItem> items = [];
-    for (int i = 0; i < total; i++) {
-      final s = _orderedStatuses[i];
-      final meta = _statusMeta(s);
-      final state = i < validActiveIndex
-          ? StepState.done
-          : (i == validActiveIndex ? StepState.progress : StepState.pending);
+    if (currentStatus == 'completed') {
+      // All statuses are done (green) when completed
+      for (int i = 0; i < total; i++) {
+        final s = _orderedStatuses[i];
+        final meta = _statusMeta(s);
+        items.add(_TimelineItem(
+          time: times[i],
+          title: meta.title,
+          description: meta.description,
+          state: StepState.done,
+        ));
+      }
+    } else {
+      // Normal logic: done up to activeIndex, progress at activeIndex, pending after
+      for (int i = 0; i < total; i++) {
+        final s = _orderedStatuses[i];
+        final meta = _statusMeta(s);
+        final state = i < validActiveIndex
+            ? StepState.done
+            : (i == validActiveIndex ? StepState.progress : StepState.pending);
 
-      items.add(_TimelineItem(
-        time: times[i],
-        title: meta.title,
-        description: meta.description,
-        state: state,
-      ));
+        items.add(_TimelineItem(
+          time: times[i],
+          title: meta.title,
+          description: meta.description,
+          state: state,
+        ));
+      }
     }
 
-    // Urut terbaru di atas
-    items.sort((a, b) {
-      final at = a.time?.millisecondsSinceEpoch ?? 0;
-      final bt = b.time?.millisecondsSinceEpoch ?? 0;
-      return bt.compareTo(at);
-    });
-
+    // Keep order as per _orderedStatuses (vertical order)
     return items;
   }
 
   String _fmt(DateTime? dt) => dt == null ? '—' : DateFormat('dd-MM-yyyy HH:mm').format(dt);
+
+  IconData _getDriverIcon(String iconName) {
+    switch (iconName.toLowerCase()) {
+      case 'car':
+        return Icons.directions_car;
+      case 'truck':
+        return Icons.local_shipping;
+      case 'van':
+        return Icons.airport_shuttle;
+      case 'motorcycle':
+      default:
+        return Icons.motorcycle;
+    }
+  }
 
   // ========================= UI =========================
 
@@ -391,6 +492,40 @@ class _TrackingPageState extends State<TrackingPage> {
                   Text('Riwayat Status', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   _buildTimelineSection(),
+                  if (_currentStatus == 'completed') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DetailServiceMidtransPage(
+                                serviceType: 'repair', // Placeholder, adjust as needed
+                                nama: 'Customer', // Placeholder, adjust as needed
+                                status: _currentStatus,
+                                jumlahBarang: 1,
+                                items: const [], // Placeholder, adjust as needed
+                                alamat: 'Alamat Customer', // Placeholder, adjust as needed
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Lanjutkan Pembayaran',
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -403,9 +538,18 @@ class _TrackingPageState extends State<TrackingPage> {
   Widget _buildMap() {
     if (_userLocation == null) return const Center(child: CircularProgressIndicator());
 
+    // Mark map as ready when building
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isMapReady) {
+        setState(() {
+          _isMapReady = true;
+        });
+      }
+    });
+
     return FlutterMap(
       mapController: mapController,
-      options: MapOptions(initialCenter: _driverLocation, initialZoom: 13),
+      options: MapOptions(initialCenter: _userLocation!, initialZoom: 13),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -427,12 +571,13 @@ class _TrackingPageState extends State<TrackingPage> {
               child: Container(decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
             ),
             // Lokasi Driver
-            Marker(
-              point: _driverLocation,
-              width: 40,
-              height: 40,
-              child: const Icon(Icons.motorcycle, color: Colors.blue, size: 28),
-            ),
+            if (_driverLocation != null)
+              Marker(
+                point: _driverLocation!,
+                width: 40,
+                height: 40,
+                child: Icon(_getDriverIcon(_driverIcon), color: Colors.blue, size: 28),
+              ),
           ],
         ),
       ],
@@ -455,35 +600,45 @@ class _TrackingPageState extends State<TrackingPage> {
         : (items.length < _collapsedCount ? items.length : _collapsedCount);
     final visibleItems = items.take(visibleCount).toList();
 
-    return Column(
-      children: [
-        ...List.generate(visibleItems.length, (i) {
-          final e = visibleItems[i];
-          final isFirst = i == 0; // terbaru
-          final isLast = i == visibleItems.length - 1 && visibleItems.length == items.length;
+    List<Widget> children = [];
+    for (int i = 0; i < visibleItems.length; i++) {
+      final e = visibleItems[i];
+      final isFirst = i == 0;
+      final isLast = i == visibleItems.length - 1 && visibleItems.length == items.length;
 
-          return _timelineRow(
-            dateText: _fmt(e.time),
-            title: e.title,
-            description: e.description,
-            state: e.state,
-            showTopLine: !isFirst,
-            showBottomLine: !isLast,
-          );
-        }),
-        if (items.length > _collapsedCount)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () => setState(() => _isTimelineExpanded = !_isTimelineExpanded),
-              child: Text(
-                _isTimelineExpanded ? 'Tampilkan Lebih Sedikit' : 'Tampilkan Lebih Banyak',
-                style: GoogleFonts.poppins(color: const Color(0xFF1976D2), fontWeight: FontWeight.w600),
-              ),
-            ),
+      // Add separator if transitioning from done to progress
+      if (i > 0 && e.state == StepState.progress && visibleItems[i - 1].state == StepState.done) {
+        children.add(Container(
+          height: 1,
+          color: Colors.grey.shade300,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+        ));
+      }
+
+      children.add(_timelineRow(
+        dateText: _fmt(e.time),
+        title: e.title,
+        description: e.description,
+        state: e.state,
+        showTopLine: !isFirst,
+        showBottomLine: !isLast,
+      ));
+    }
+
+    if (items.length > _collapsedCount) {
+      children.add(Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () => setState(() => _isTimelineExpanded = !_isTimelineExpanded),
+          child: Text(
+            _isTimelineExpanded ? 'Tampilkan Lebih Sedikit' : 'Tampilkan Lebih Banyak',
+            style: GoogleFonts.poppins(color: const Color(0xFF1976D2), fontWeight: FontWeight.w600),
           ),
-      ],
-    );
+        ),
+      ));
+    }
+
+    return Column(children: children);
   }
 
   Widget _timelineRow({

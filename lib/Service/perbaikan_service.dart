@@ -325,6 +325,8 @@ import 'waiting_approval.dart';
                                     'ket_keluhan': item['ket_keluhan'],
                                     'email': item['email'] ?? 'example@gmail.com',
                                     'alamat': selectedAddress!['alamat'],
+                                    'latitude': selectedAddress!['latitude'],
+                                    'longitude': selectedAddress!['longitude'],
                                   };
                                   print('Order data: $orderData'); // Debug: check order data
                                   try {

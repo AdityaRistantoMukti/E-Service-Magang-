@@ -462,9 +462,18 @@ class ApiService {
 
       print('📡 [API] Response status: ${response.statusCode}');
       print('📄 [API] Response body: ${response.body}');
-      
+
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final responseData = json.decode(response.body);
+        if (responseData is Map<String, dynamic> && responseData['success'] == true) {
+          final locationData = responseData['data'] as Map<String, dynamic>;
+          // Merge icon from response if present, default to 'motorcycle'
+          locationData['icon'] = responseData['icon'] ?? 'motorcycle';
+          return locationData;
+        } else {
+          print('❌ [API] Invalid response format: $responseData');
+          return null;
+        }
       } else {
         print('❌ [API] Gagal mengambil lokasi driver: ${response.statusCode}');
         return null;
