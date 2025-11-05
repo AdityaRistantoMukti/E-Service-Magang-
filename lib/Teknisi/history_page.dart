@@ -1,4 +1,5 @@
 import 'package:e_service/api_services/api_service.dart';
+import 'package:e_service/Others/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'history_tab.dart';
@@ -23,9 +24,15 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> _refreshData() async {
     setState(() => isLoading = true);
     try {
-      final fetchedTransaksi = await ApiService.getTransaksi();
-      if (mounted) setState(() => transaksiList = fetchedTransaksi);
+      final kryKode = await SessionManager.getkry_kode();
+      if (kryKode != null) {
+        final fetchedTransaksi = await ApiService.getOrderListByKryKode(kryKode);
+        if (mounted) setState(() => transaksiList = fetchedTransaksi);
+      } else {
+        if (mounted) setState(() => transaksiList = []);
+      }
     } catch (e) {
+      print("Error fetching transaksi: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -48,11 +55,11 @@ class _HistoryPageState extends State<HistoryPage> {
     );
     if (index == -1) return;
 
-    final oldStatus = transaksiList[index]['trans_status'];
-    setState(() => transaksiList[index]['trans_status'] = newStatus);
+    final oldStatus = transaksiList[index]['status'];
+    setState(() => transaksiList[index]['status'] = newStatus);
 
     try {
-      await ApiService.updateTransaksiStatus(transKode, newStatus);
+      await ApiService.updateOrderListStatus(transKode, newStatus);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Status transaksi diperbarui ke $newStatus')),
@@ -64,7 +71,7 @@ class _HistoryPageState extends State<HistoryPage> {
           SnackBar(content: Text('Gagal update status transaksi: $e')),
         );
       }
-      setState(() => transaksiList[index]['trans_status'] = oldStatus);
+      setState(() => transaksiList[index]['status'] = oldStatus);
     }
   }
 

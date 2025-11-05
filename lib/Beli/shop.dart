@@ -152,7 +152,8 @@ class _MarketplacePageState extends State<MarketplacePage> {
     }
 
   
-    const String baseUrl = 'http://192.168.1.6:8000/storage/';
+    // const String baseUrl = 'http://192.168.1.6:8000/storage/';
+    const String baseUrl = 'http://192.168.0.4:8000/storage/';
     String imageUrl = '$baseUrl${paths[currentIndex]}';
 
     return Container(

@@ -17,11 +17,13 @@ class HistoryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Filter transaksi that are completed
+    // Filter transaksi that are jobDone
     final filteredTransaksi = transaksiList.where((transaksi) {
       final status = transaksi['trans_status']?.toString().toLowerCase() ?? '';
-      return status == 'completed' || status == 'selesai' || status == 'finished';
+      return status == 'jobdone' || status == 'job_done' || status == 'pekerjaan selesai';
     }).toList();
+
+
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -72,7 +74,7 @@ class HistoryTab extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  transaksi['trans_kode'] ?? 'N/A',
+                  transaksi['trans_kode'] ?? transaksi['order_id'] ?? transaksi['id'] ?? 'N/A',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -87,13 +89,23 @@ class HistoryTab extends StatelessWidget {
                     color: _getStatusColor(transaksi['trans_status'] ?? '').withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    transaksi['trans_status'] ?? 'N/A',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: _getStatusColor(transaksi['trans_status'] ?? ''),
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _getStatusIcon(transaksi['trans_status'] ?? ''),
+                        size: 16,
+                        color: _getStatusColor(transaksi['trans_status'] ?? ''),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _getStatusDisplayName(transaksi['trans_status'] ?? 'N/A'),
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: _getStatusColor(transaksi['trans_status'] ?? ''),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -101,11 +113,17 @@ class HistoryTab extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Transaction Details
-            _infoRow('Tanggal', transaksi['trans_tanggal'] ?? 'N/A'),
+            _infoRow('Tanggal', transaksi['created_at'] ?? transaksi['trans_tanggal'] ?? 'N/A'),
             const SizedBox(height: 8),
-            _infoRow('Total', 'Rp ${transaksi['trans_total']?.toString() ?? '0'}'),
+            _infoRow('Total', 'Rp ${transaksi['total'] ?? transaksi['trans_total']?.toString() ?? '0'}'),
             const SizedBox(height: 8),
-            _infoRow('Metode Pembayaran', transaksi['trans_metode'] ?? 'N/A'),
+            _infoRow('Metode Pembayaran', transaksi['payment_method'] ?? transaksi['trans_metode'] ?? 'N/A'),
+            const SizedBox(height: 8),
+            _infoRow('Merek', transaksi['merek'] ?? 'N/A'),
+            const SizedBox(height: 8),
+            _infoRow('Device', transaksi['device'] ?? 'N/A'),
+            const SizedBox(height: 8),
+            _infoRow('Keluhan', transaksi['ket_keluhan'] ?? 'N/A'),
 
             // Customer Info if available
             if (transaksi['cos_nama'] != null) ...[
@@ -146,6 +164,20 @@ class HistoryTab extends StatelessWidget {
     );
   }
 
+  String _getStatusDisplayName(String status) {
+    if (status.toLowerCase() == 'jobdone' || status.toLowerCase() == 'job_done') {
+      return 'Pekerjaan Selesai';
+    }
+    return status;
+  }
+
+  IconData _getStatusIcon(String status) {
+    if (status.toLowerCase() == 'jobdone' || status.toLowerCase() == 'job_done') {
+      return Icons.check_circle;
+    }
+    return Icons.info;
+  }
+
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -156,6 +188,9 @@ class HistoryTab extends StatelessWidget {
       case 'cancelled':
       case 'failed':
         return Colors.red;
+      case 'jobdone':
+      case 'job_done':
+        return Colors.green;
       default:
         return Colors.grey;
     }

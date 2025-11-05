@@ -142,7 +142,8 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     try {
       final technicianId = await SessionManager.getkry_kode();
       if (technicianId != null) {
-        final fetchedOrders = await ApiService.getkry_kode(technicianId);
+        final fetchedOrdersRaw = await ApiService.getOrderListByKryKode(technicianId);
+        final fetchedOrders = fetchedOrdersRaw.map((item) => TechnicianOrder.fromMap(item)).toList();
 
         if (mounted) {
           // Deteksi pesanan baru
@@ -184,8 +185,13 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     }
 
     try {
-      final fetchedTransaksi = await ApiService.getTransaksi();
-      if (mounted) setState(() => transaksiList = fetchedTransaksi);
+      final kryKode = await SessionManager.getkry_kode();
+      if (kryKode != null) {
+        final fetchedTransaksi = await ApiService.getOrderListByKryKode(kryKode);
+        if (mounted) setState(() => transaksiList = fetchedTransaksi);
+      } else {
+        if (mounted) setState(() => transaksiList = []);
+      }
     } catch (e) {
       print("Error fetching transaksi in auto-refresh: $e");
     }
@@ -313,8 +319,9 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     try {
       final technicianId = await SessionManager.getkry_kode();
       if (technicianId != null) {
-        // 1. Ambil data order terbaru dari API
-        final fetchedOrders = await ApiService.getkry_kode(technicianId);
+        // 1. Ambil data order terbaru dari API (order-list endpoint)
+        final fetchedOrdersRaw = await ApiService.getOrderListByKryKode(technicianId);
+        final fetchedOrders = fetchedOrdersRaw.map((item) => TechnicianOrder.fromMap(item)).toList();
 
         if (mounted) {
           // 2. Langsung cek data TERBARU (fetchedOrders) untuk status 'enRoute'
@@ -359,8 +366,13 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
 
     // Bagian untuk getTransaksi tetap sama
     try {
-      final fetchedTransaksi = await ApiService.getTransaksi();
-      if (mounted) setState(() => transaksiList = fetchedTransaksi);
+      final kryKode = await SessionManager.getkry_kode();
+      if (kryKode != null) {
+        final fetchedTransaksi = await ApiService.getOrderListByKryKode(kryKode);
+        if (mounted) setState(() => transaksiList = fetchedTransaksi);
+      } else {
+        if (mounted) setState(() => transaksiList = []);
+      }
     } catch (e) {
       print("Error fetching transaksi: $e");
       if (mounted) setState(() => transaksiList = []);
@@ -408,7 +420,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     });
 
     try {
-      await ApiService.updateTransaksiStatus(order.orderId, newStatus.name);
+      await ApiService.updateOrderListStatus(order.orderId, newStatus.name);
       print(
         '>>> API call berhasil. Status [${newStatus.name}] tersimpan di server.',
       );
@@ -424,11 +436,11 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
           );
           print('📍 Location tracking started for order ${order.orderId}');
         }
-      } else if (newStatus == OrderStatus.completed) {
-        // Stop tracking when order is completed
+      } else if (newStatus == OrderStatus.completed || newStatus == OrderStatus.jobDone) {
+        // Stop tracking when order is completed or job is done
         await LocationService.instance.stopTracking();
         print(
-          '📍 Location tracking stopped for completed order ${order.orderId}',
+          '📍 Location tracking stopped for ${newStatus == OrderStatus.completed ? 'completed' : 'job done'} order ${order.orderId}',
         );
       }
 
@@ -470,7 +482,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
       case OrderStatus.waitingApproval:
         return next == OrderStatus.pickingParts;
       case OrderStatus.pickingParts:
-        return next == OrderStatus.repairing;
+        return next == OrderStatus.jobDone;
       case OrderStatus.repairing:
         return next == OrderStatus.completed;
       default:
@@ -490,9 +502,21 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     }
   }
 
-  void _showDamageForm(TechnicianOrder order) {
-    damageDescriptionController.clear();
-    selectedMedia.clear();
+  void _showTindakanForm(TechnicianOrder order) {
+    final TextEditingController actionNameController = TextEditingController();
+    final TextEditingController quantityController = TextEditingController(text: '1');
+    final TextEditingController actionDetailController = TextEditingController();
+    String? selectedAction;
+    bool isManual = false;
+
+    final List<String> standardActions = [
+      'Pembersihan',
+      'Penggantian Sparepart',
+      'Kalibrasi',
+      'Diagnosa',
+      'Perbaikan Hardware',
+      'Update Software',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -516,18 +540,81 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Temuan Kerusakan - ${order.orderId}',
+                          'Tindakan - ${order.orderId}',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: selectedAction,
+                          decoration: InputDecoration(
+                            labelText: 'Nama Tindakan',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: [
+                            ...standardActions.map((action) => DropdownMenuItem(
+                              value: action,
+                              child: Text(action),
+                            )),
+                            const DropdownMenuItem(
+                              value: 'manual',
+                              child: Text('Manual (Input Sendiri)'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setModalState(() {
+                              selectedAction = value;
+                              isManual = value == 'manual';
+                              if (!isManual) {
+                                actionNameController.text = value ?? '';
+                              } else {
+                                actionNameController.clear();
+                              }
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        if (isManual)
+                          TextField(
+                            controller: actionNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Nama Tindakan Manual',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
                         TextField(
-                          controller: damageDescriptionController,
+                          controller: quantityController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            labelText: 'Quantity',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onChanged: (value) {
+                            final num = int.tryParse(value);
+                            if (num != null && num <= 0) {
+                              quantityController.text = '1';
+                              quantityController.selection = TextSelection.fromPosition(
+                                TextPosition(offset: quantityController.text.length),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: actionDetailController,
                           maxLines: 3,
                           decoration: InputDecoration(
-                            labelText: 'Deskripsi Kerusakan',
+                            labelText: 'Detail Tindakan',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -546,8 +633,32 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () async {
+                                  final actionName = isManual ? actionNameController.text.trim() : selectedAction;
+                                  final quantity = int.tryParse(quantityController.text.trim()) ?? 1;
+                                  final actionDetail = actionDetailController.text.trim();
+
+                                  if (actionName == null || actionName.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Pilih atau isi nama tindakan'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  if (actionDetail.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Isi detail tindakan'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
                                   Navigator.pop(context);
-                                  await _saveDamageAndUpdateStatus(order);
+                                  await _saveTindakanAndUpdateStatus(order, actionName, quantity, actionDetail);
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.orange,
@@ -567,43 +678,41 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     );
   }
 
-  Future<void> _saveDamageAndUpdateStatus(TechnicianOrder order) async {
-    final desc = damageDescriptionController.text.trim();
+  Future<void> _saveTindakanAndUpdateStatus(
+    TechnicianOrder order,
+    String actionName,
+    int quantity,
+    String actionDetail,
+  ) async {
+    final now = DateTime.now();
+    final tanggal = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final jam = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    if (desc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Isi deskripsi kerusakan dengan benar'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    final updatedOrderWithDamage = order.copyWith(
-      damageDescription: desc,
-      damagePhotos: selectedMedia.map((f) => f.path).toList(),
-    );
-
-    final int orderIndex = assignedOrders.indexWhere(
-      (o) => o.orderId == order.orderId,
-    );
-    if (orderIndex != -1) {
-      setState(() {
-        assignedOrders[orderIndex] = updatedOrderWithDamage;
-      });
-    }
+    final tindakanData = {
+      'trans_kode': order.orderId,
+      'tdkn_nama': actionName,
+      'tdkn_ket': actionDetail,
+      'tdkn_qty': quantity,
+      'tdkn_subtot': 0,
+      'tdkn_tanggal': tanggal,
+      'tdkn_jam': jam,
+    };
 
     try {
-      await ApiService.updateTransaksiTemuan(order.orderId, desc, 0); // trans_total set to 0 since not required
-      await _updateOrderStatus(
-        updatedOrderWithDamage,
-        OrderStatus.waitingApproval,
+      await ApiService.createTindakan(tindakanData);
+      await _updateOrderStatus(order, OrderStatus.waitingApproval);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tindakan berhasil disimpan'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
+      print('Error saving tindakan: $e');
+      print('Tindakan data: $tindakanData');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal simpan temuan: $e'),
+          content: Text('Gagal simpan tindakan: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -620,11 +729,11 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     );
     if (index == -1) return;
 
-    final oldStatus = transaksiList[index]['trans_status'];
-    setState(() => transaksiList[index]['trans_status'] = newStatus);
+    final oldStatus = transaksiList[index]['status'];
+    setState(() => transaksiList[index]['status'] = newStatus);
 
     try {
-      await ApiService.updateTransaksiStatus(transKode, newStatus);
+      await ApiService.updateOrderListStatus(transKode, newStatus);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Status transaksi diperbarui ke $newStatus'),
@@ -638,7 +747,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
           backgroundColor: Colors.red,
         ),
       );
-      setState(() => transaksiList[index]['trans_status'] = oldStatus);
+      setState(() => transaksiList[index]['status'] = oldStatus);
     }
   }
 
@@ -646,7 +755,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
   Widget build(BuildContext context) {
     final activeOrders =
         assignedOrders
-            .where((order) => order.status != OrderStatus.completed)
+            .where((order) => order.status != OrderStatus.completed && order.status != OrderStatus.jobDone)
             .toList();
 
     return Scaffold(
@@ -762,7 +871,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
             isLoading: isLoading,
             onRefresh: _refreshData,
             onUpdateStatus: _updateOrderStatus,
-            onShowDamageForm: _showDamageForm,
+            onShowDamageForm: _showTindakanForm,
             onOpenMaps: _openMaps,
             isAutoRefreshEnabled: _isAutoRefreshEnabled,
           ),

@@ -8,6 +8,7 @@ class NewOrderNotificationService {
       FlutterLocalNotificationsPlugin();
 
   static const String _newOrderNotificationKey = 'new_order_notifications_sent';
+  // static const String baseUrl = 'http://192.168.1.6:8000/api';
   static const String baseUrl = 'http://192.168.1.6:8000/api';
 
   static Future<void> initialize() async {

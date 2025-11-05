@@ -32,6 +32,9 @@ OrderStatus _parseStatus(String? statusString) {
     'completed': OrderStatus.completed,
     'selesai': OrderStatus.completed,
     'done': OrderStatus.completed,
+    'jobdone': OrderStatus.jobDone,
+    'job_done': OrderStatus.jobDone,
+    'pekerjaan selesai': OrderStatus.jobDone,
     'delivering': OrderStatus.delivering,
   };
 
@@ -66,6 +69,7 @@ enum OrderStatus {
   pickingParts('Mengambil Suku Cadang', Icons.build, Colors.purple),
   repairing('Memperbaiki', Icons.settings, Colors.red),
   completed('Selesai', Icons.check_circle, Colors.green),
+  jobDone('Pekerjaan Selesai', Icons.check_circle, Colors.green),
   delivering('Mengantar', Icons.local_shipping, Colors.teal);
 
   const OrderStatus(this.displayName, this.icon, this.color);

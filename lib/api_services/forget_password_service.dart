@@ -6,6 +6,7 @@ import 'sms_service.dart';
 Map<String, String> _verificationCodes = {};
 
 class ForgetPasswordService {
+  // static const String baseUrl = 'http://192.168.1.6:8000/api'; // Same as ApiService
   static const String baseUrl = 'http://192.168.1.6:8000/api'; // Same as ApiService
 
   // Send verification code via SMS after validating username

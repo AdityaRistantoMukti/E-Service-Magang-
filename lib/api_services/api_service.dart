@@ -5,7 +5,8 @@ import 'package:e_service/models/technician_order_model.dart';
 
 class ApiService {
   // Ganti dengan alamat server Laravel kamu
-  static const String baseUrl = 'http://192.168.1.6:8000/api'; 
+  // static const String baseUrl = 'http://192.168.1.6:8000/api';
+  static const String baseUrl = 'http://192.168.1.6:8000/api';
 
 //Customer
   //  GET semua costomer
@@ -367,7 +368,7 @@ class ApiService {
     }
   }
   
-  // UPDATE ket_keluhan + trans_total (Temuan Kerusakan)
+  // UPDATE ket_keluhan + trans_total (Tindakan)
   static Future<Map<String, dynamic>> updateTransaksiTemuan(
     String transKode,
     String ketKeluhan,
@@ -533,13 +534,54 @@ class ApiService {
     }
   }
 
-  // Ambil DETAIL transaksi:
-  // 1) Coba GET /transaksi/{transKode}
-  // 2) Jika belum ada endpointnya, fallback: ambil semua /transaksi dan filter by trans_kode
-  static Future<Map<String, dynamic>?> getOrderDetail(String transKode) async {
+  // GET order_list by kry_kode (for technicians)
+  static Future<List<dynamic>> getOrderListByKryKode(String kryKode) async {
+    final response = await http.get(Uri.parse('$baseUrl/order-list/kry/$kryKode'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['message'] ?? 'Order list tidak ditemukan untuk kry_kode tersebut');
+      }
+    } else {
+      throw Exception('Gagal memuat order list by kry_kode');
+    }
+  }
+
+  // POST - Update order_list status
+  static Future<Map<String, dynamic>> updateOrderListStatus(String orderId, String newStatus) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/order-list/update-status'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'trans_kode': orderId,
+        'trans_status': newStatus,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Gagal update status order_list');
+      }
+    } else {
+      throw Exception('Gagal update status order_list: ${response.body}');
+    }
+  }
+
+
+
+  // Ambil DETAIL order_list:
+  // 1) Coba GET /order-list/{orderId}
+  // 2) Jika belum ada endpointnya, fallback: ambil semua /order-list dan filter by order_id
+  static Future<Map<String, dynamic>?> getOrderDetail(String orderId) async {
     // Coba endpoint langsung
     try {
-      final url = Uri.parse('$baseUrl/transaksi/$transKode');
+      final url = Uri.parse('$baseUrl/order-list/$orderId');
       final res = await http.get(url);
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
@@ -556,11 +598,11 @@ class ApiService {
 
     // Fallback: ambil dari list
     try {
-      final list = await getTransaksi();
+      final list = await getOrderList();
       for (final it in list) {
         if (it is Map<String, dynamic>) {
-          final code = it['trans_kode']?.toString();
-          if (code == transKode) return it;
+          final code = it['order_id']?.toString();
+          if (code == orderId) return it;
         }
       }
     } catch (e) {
@@ -568,5 +610,20 @@ class ApiService {
     }
     return null;
   }
-  
+
+  // POST - Tambah tindakan baru
+  static Future<Map<String, dynamic>> createTindakan(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/tindakan'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(data),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Gagal membuat tindakan: ${response.body}');
+    }
+  }
+
 }

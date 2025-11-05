@@ -36,21 +36,21 @@ class _ServicePageState extends State<ServicePage> {
 
   Future<void> _loadOngoingTransactions() async {
     try {
-      final allTransactions = await ApiService.getTransaksi();
-      final ongoingTransactions = <dynamic>[];
+      final allOrders = await ApiService.getOrderList();
+      final ongoingOrders = <dynamic>[];
 
-      for (final transaksi in allTransactions) {
-        final status = transaksi['trans_status']?.toString().toLowerCase() ?? '';
+      for (final order in allOrders) {
+        final status = order['status']?.toString().toLowerCase() ?? '';
         if (status == 'pending' || status == 'approved' || status == 'in_progress' || status == 'on_the_way') {
-          ongoingTransactions.add(transaksi);
+          ongoingOrders.add(order);
         }
       }
 
       setState(() {
-        ongoingTransKodes = ongoingTransactions.map((t) => t['trans_kode'] as String).toList();
+        ongoingTransKodes = ongoingOrders.map((o) => (o['order_id'] ?? o['id']) as String).toList();
       });
     } catch (e) {
-      print('Error loading ongoing transactions: $e');
+      print('Error loading ongoing orders: $e');
     }
   }
 
@@ -89,38 +89,20 @@ class _ServicePageState extends State<ServicePage> {
         return;
       }
 
-      // Check order_list for trans_kode and pending status
+      // Check order_list for trans_kode
       final orderList = await ApiService.getOrderListByTransKode(kode);
-      bool hasPendingOrder = false;
-      if (orderList.isNotEmpty) {
-        // Check if any order has pending status
-        hasPendingOrder = orderList.any((order) => order['trans_status']?.toString().toLowerCase() == 'pending');
-        if (hasPendingOrder) {
-          // Check if the order belongs to the current user (assuming cos_kode is in order_list)
-          final orderCosKode = orderList.first['cos_kode']?.toString();
-          if (orderCosKode != currentUserId) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Anda tidak memiliki akses ke transaksi ini'),
-              ),
-            );
-            return;
-          }
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => WaitingApprovalPage(transKode: kode),
-            ),
-          );
-          return;
-        }
+      if (orderList.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transaksi tidak ditemukan'),
+          ),
+        );
+        return;
       }
-
-      // If no pending order, check transaksi table for non-completed status
-      final transaksi = await ApiService.getTransaksiByKode(kode);
-      final transCosKode = transaksi['cos_kode']?.toString();
-
-      if (transCosKode != currentUserId) {
+      final order = orderList.first;
+      final status = order['status']?.toString().toLowerCase() ?? '';
+      final orderCosKode = order['cos_kode']?.toString();
+      if (orderCosKode != currentUserId) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Anda tidak memiliki akses ke transaksi ini'),
@@ -128,9 +110,14 @@ class _ServicePageState extends State<ServicePage> {
         );
         return;
       }
-
-      final transStatus = transaksi['trans_status']?.toString().toLowerCase() ?? '';
-      if (transStatus != 'completed') {
+      if (status == 'pending') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WaitingApprovalPage(transKode: kode),
+          ),
+        );
+      } else if (status != 'completed') {
         Navigator.push(
           context,
           MaterialPageRoute(

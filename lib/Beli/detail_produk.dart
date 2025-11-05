@@ -40,21 +40,21 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
     final gambarField = widget.produk['gambar'];
     if (gambarField != null) {
       if (gambarField is List && gambarField.isNotEmpty) {
-        imageUrls = gambarField.map<String>((img) => 'http://192.168.1.6:8000/storage/$img').toList();
+        imageUrls = gambarField.map<String>((img) => 'http://192.168.0.4:8000/storage/$img').toList();
       } else if (gambarField is String && gambarField.isNotEmpty) {
         try {
           if (gambarField.contains('[')) {
             // JSON array
             final List list = List<String>.from(jsonDecode(gambarField));
-            imageUrls = list.map<String>((img) => 'http://192.168.1.6:8000/storage/$img').toList();
+            imageUrls = list.map<String>((img) => 'http://192.168.0.4:8000/storage/$img').toList();
           } else {
             // Split by comma (untuk string dengan koma sebagai pemisah)
             final List<String> list = gambarField.split(',').map((s) => s.trim()).toList();
-            imageUrls = list.map<String>((img) => 'http://192.168.1.6:8000/storage/$img').toList();
+            imageUrls = list.map<String>((img) => 'http://192.168.0.4:8000/storage/$img').toList();
           }
         } catch (_) {
           // Fallback jika parsing gagal
-          imageUrls = ['http://192.168.1.6:8000/storage/$gambarField'];
+          imageUrls = ['http://192.168.0.4:8000/storage/$gambarField'];
         }
       }
     }

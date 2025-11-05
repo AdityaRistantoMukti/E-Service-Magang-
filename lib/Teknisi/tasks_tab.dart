@@ -41,8 +41,8 @@ class _TasksTabState extends State<TasksTab> {
     super.dispose();
   }
 
-  Future<void> _startLocationTracking(String transKode) async {
-    print('🚀 [LOCATION] Starting location tracking for transKode: $transKode');
+  Future<void> _startLocationTracking(String orderId) async {
+    print('🚀 [LOCATION] Starting location tracking for orderId: $orderId');
 
     // Get actual kry_kode from session
     final kryKode = await SessionManager.getkry_kode();
@@ -57,7 +57,7 @@ class _TasksTabState extends State<TasksTab> {
 
     // Use the LocationService singleton to start tracking
     await LocationService.instance.startTracking(
-      transKode: transKode,
+      transKode: orderId,
       kryKode: kryKode,
     );
   }
@@ -417,18 +417,33 @@ class _TasksTabState extends State<TasksTab> {
             ),
 
             // Action Buttons
-            if (order.status != OrderStatus.completed) ...[
+            if (order.status != OrderStatus.completed && order.status != OrderStatus.jobDone) ...[
               const SizedBox(height: 16),
               if (order.status == OrderStatus.arrived) ...[
+                // Only show "Tindakan" button for arrived status
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => widget.onShowDamageForm(order),
+                    icon: const Icon(Icons.report_problem, size: 16),
+                    label: const Text('Tindakan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ] else if (order.status == OrderStatus.waitingApproval) ...[
+                // Show "Selesai" and "Ambil Suku Cadang" buttons for waitingApproval status
                 Row(
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed:
-                            () => widget.onUpdateStatus(
-                              order,
-                              OrderStatus.completed,
-                            ),
+                        onPressed: () => _showJobDoneDialog(context, order),
                         icon: const Icon(Icons.check_circle, size: 16),
                         label: const Text('Selesai'),
                         style: ElevatedButton.styleFrom(
@@ -444,11 +459,19 @@ class _TasksTabState extends State<TasksTab> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => widget.onShowDamageForm(order),
-                        icon: const Icon(Icons.report_problem, size: 16),
-                        label: const Text('Temuan Kerusakan'),
+                        onPressed: () async {
+                          // Start location tracking for spare parts pickup
+                          await _startLocationTracking(order.orderId);
+                          // Update status to pickingParts
+                          widget.onUpdateStatus(order, OrderStatus.pickingParts);
+                        },
+                        icon: const Icon(Icons.build, size: 16),
+                        label: const Text(
+                          'Ambil Suku Cadang',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
+                          backgroundColor: Colors.purple,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -458,6 +481,24 @@ class _TasksTabState extends State<TasksTab> {
                       ),
                     ),
                   ],
+                ),
+              ] else if (order.status == OrderStatus.pickingParts) ...[
+                // Show only "Selesai" button for pickingParts status
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showJobDoneDialog(context, order),
+                    icon: const Icon(Icons.check_circle, size: 16),
+                    label: const Text('Selesai'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
               ] else ...[
                 SizedBox(
@@ -534,7 +575,7 @@ class _TasksTabState extends State<TasksTab> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Temuan Kerusakan - ${transaksi['trans_kode'] ?? ''}',
+                          'Tindakan - ${transaksi['order_id'] ?? transaksi['id'] ?? ''}',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -620,7 +661,7 @@ class _TasksTabState extends State<TasksTab> {
                                         ? null
                                         : () async {
                                           final kode =
-                                              (transaksi['trans_kode'] ?? '')
+                                              (transaksi['order_id'] ?? transaksi['id'] ?? '')
                                                   .toString();
                                           final ket = descCtrl.text.trim();
                                           final totalStr = estCtrl.text
@@ -669,8 +710,8 @@ class _TasksTabState extends State<TasksTab> {
 
                                             // Mutasi lokal agar kartu langsung update
                                             transaksi['ket_keluhan'] = ket;
-                                            transaksi['trans_total'] = total;
-                                            transaksi['trans_status'] =
+                                            transaksi['total'] = total;
+                                            transaksi['status'] =
                                                 'waitingapproval';
 
                                             if (context.mounted) {
@@ -746,11 +787,11 @@ class _TasksTabState extends State<TasksTab> {
       case OrderStatus.enRoute:
         return OrderStatus.arrived;
       case OrderStatus.arrived:
-        return null;
+        return null; // Handled by button logic
       case OrderStatus.waitingApproval:
-        return OrderStatus.pickingParts;
+        return null; // Handled by button logic
       case OrderStatus.pickingParts:
-        return OrderStatus.repairing;
+        return null; // Handled by button logic
       case OrderStatus.repairing:
         return OrderStatus.completed;
       default:
@@ -767,11 +808,11 @@ class _TasksTabState extends State<TasksTab> {
       case OrderStatus.enRoute:
         return 'Tiba';
       case OrderStatus.arrived:
-        return 'Pilih Aksi';
+        return 'Tindakan'; // Changed from 'Pilih Aksi'
       case OrderStatus.waitingApproval:
-        return 'Ambil Suku Cadang';
+        return 'Ambil Suku Cadang'; // Changed from 'Ambil Suku Cadang'
       case OrderStatus.pickingParts:
-        return 'Memperbaiki';
+        return 'Selesai'; // Changed from 'Memperbaiki'
       case OrderStatus.repairing:
         return 'Selesai';
       default:
@@ -965,5 +1006,76 @@ class _TasksTabState extends State<TasksTab> {
       default:
         return Colors.grey;
     }
+  }
+
+  void _showJobDoneDialog(BuildContext context, TechnicianOrder order) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle,
+                size: 64,
+                color: Colors.green,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Kerja Bagus!',
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Pekerjaan Telah Diselesaikan',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close dialog
+                  // Stop location tracking if it was active
+                  _stopLocationTracking();
+                  // Update status to jobDone
+                  widget.onUpdateStatus(order, OrderStatus.jobDone);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'OK',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
