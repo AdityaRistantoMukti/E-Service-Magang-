@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'sms_service.dart';
+import 'package:e_service/config/api_config.dart';
 
 // Temporary storage for verification codes (in production, use database/redis)
 Map<String, String> _verificationCodes = {};
 
 class ForgetPasswordService {
-  // static const String baseUrl = 'http://192.168.1.6:8000/api'; // Same as ApiService
-  static const String baseUrl = 'http://192.168.1.6:8000/api'; // Same as ApiService
+  // Base URL is now configurable in ApiConfig
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   // Send verification code via SMS after validating username
   static Future<Map<String, dynamic>> sendVerificationCode(String username) async {

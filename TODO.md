@@ -1,36 +1,31 @@
-# TODO: Migrate from transaksi to order_list table
-
-## Information Gathered
-- Table `transaksi` is used in various places for fetch data, update `trans_status`, and create data.
-- Table `order_list` has basic APIs (create, get all, get by trans_kode), but now has new backend endpoint: GET /api/order-list/kry/{kry_kode} for fetching by kry_kode.
-- Service.dart already uses order_list for checking pending status.
-- Affected files: api_service.dart, teknisi_home.dart, history_page.dart, history_tab.dart, tasks_tab.dart, Service.dart, riwayat.dart.
-
-## Plan
-- Add new API methods in api_service.dart: getOrderListByKryKode (using new backend endpoint), and updateOrderListStatus for update status.
-- Change all fetch data from getTransaksi to getOrderList or new API methods where appropriate.
-- Change update status from updateTransaksiStatus to updateOrderListStatus.
-- Change create data from createTransaksi to createOrderList (already exists).
-- Ensure logic remains the same, only table is changed.
-
-## Dependent Files to be edited
-- lib/api_services/api_service.dart
-- lib/Teknisi/teknisi_home.dart
-- lib/Teknisi/history_page.dart
-- lib/Teknisi/history_tab.dart
-- lib/Teknisi/tasks_tab.dart
-- lib/Service/Service.dart
-- lib/Others/riwayat.dart
+# TODO: Replace Splash Screen with Video
 
 ## Tasks
-- [ ] Add getOrderListByKryKode and updateOrderListStatus methods to api_service.dart
-- [ ] Update teknisi_home.dart to use order_list APIs instead of transaksi
-- [ ] Update history_page.dart to use order_list APIs
-- [ ] Update history_tab.dart to use order_list APIs
-- [ ] Update tasks_tab.dart to use order_list APIs
-- [ ] Update Service.dart to use order_list APIs
-- [ ] Update riwayat.dart to use order_list APIs
+- [x] Add video_player dependency to pubspec.yaml
+- [x] Add splash_screen.mp4 asset to pubspec.yaml
+- [x] Modify main.dart to use VideoPlayer instead of animation for splash screen
+- [x] Ensure navigation logic remains unchanged after video playback
+- [x] Test the changes to verify video plays and navigation works
 
-## Followup steps
-- Test the app after changes to ensure functionality still works.
-- Ensure backend APIs support operations on order_list table.
+# TODO: Test Birthday Notification Service
+
+## Tasks
+- [x] Create unit tests for BirthdayNotificationService
+- [x] Test resetDailyNotifications functionality
+- [x] Test scheduleDailyBirthdayCheck method
+- [x] Verify dummy data structure for testing
+- [x] Run tests and ensure they pass
+
+# TODO: Integrate Midtrans Payment with WebView
+
+## Tasks
+- [x] Create MidtransWebView widget for in-app payment processing
+- [x] Update PaymentService to use WebView instead of external browser
+- [x] Remove url_launcher dependency from PaymentService
+- [x] Run flutter analyze to check for code issues
+- [x] Prepare production-ready configuration
+  - [x] Add environment-based configuration (dev/prod URLs and keys)
+  - [x] Include webhook URL for production real-time notifications
+  - [x] Create WebhookService for handling Midtrans callbacks
+  - [x] Optimize polling frequency for production (5s vs 3s in dev)
+- [x] Fix Navigator lock error when pressing "Leave this page" button in MidtransWebView

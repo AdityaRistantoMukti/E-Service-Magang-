@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:e_service/api_services/forget_password_service.dart';
+import 'package:e_service/utils/password_utils.dart';
 import 'login.dart'; // pastikan arah import sesuai lokasi file kamu
 
 class ResetPasswordScreen extends StatefulWidget {
@@ -38,7 +39,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     height: screenSize.height * 0.12,
                   ),
                   Text(
-                    'Atur Ulang Kata Sandi',
+                    'Atur Ulang Kata Sandi',  
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: screenSize.width * 0.06,
@@ -122,6 +123,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final hashedPassword = hashPassword(newPassword);
       final result = await ForgetPasswordService.resetPassword(widget.customerId, newPassword);
       if (result['success'] ?? false) {
         ScaffoldMessenger.of(context).showSnackBar(

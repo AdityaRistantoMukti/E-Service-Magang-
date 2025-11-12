@@ -12,9 +12,11 @@ import 'package:e_service/Service/Service.dart';
 import 'package:e_service/Service/cleaning_service.dart';
 import 'package:e_service/Service/perbaikan_service.dart';
 import 'package:e_service/api_services/api_service.dart';
+import 'package:e_service/config/api_config.dart';
 import 'package:e_service/models/promo_model.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class TukarPoinPage extends StatefulWidget {
   const TukarPoinPage({super.key});
@@ -401,7 +403,7 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
                             ),
                   ),
 
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -487,122 +489,210 @@ class _TukarPoinPageState extends State<TukarPoinPage> {
   }
 }
 
-// ==== PRODUK CARD ====
+// Enhanced Product Card - Similar to Home.dart style but adapted for promo
 Widget _productCard(
   BuildContext context,
   Promo promo,
 ) {
-  String name = promo.tipeProduk;
-  String poin = promo.koin.toString();
-  String img = promo.gambar.startsWith('http')
+  final name = promo.tipeProduk;
+  final poin = promo.koin.toString();
+  final img = promo.gambar.startsWith('http')
       ? promo.gambar
-      : 'http://192.168.1.6:8000/storage/${promo.gambar}';
-  int diskon = promo.diskon;
-  return Container(
-    width: 160,
-    margin: const EdgeInsets.only(right: 12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.1),
-          blurRadius: 6,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min, // 🔹 biar tinggi fleksibel
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ==== GAMBAR PRODUK ====
-        Stack(
-          children: [
-            Container(
-              height: 90, // 🔹 dikurangi biar aman di layar kecil
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
-              child: Center(
-                child:
-                    img.startsWith('http')
-                        ? Image.network(img, height: 70, fit: BoxFit.contain)
-                        : Image.asset(img, height: 70, fit: BoxFit.contain),
-              ),
-            ),
-            Positioned(
-              top: 6,
-              left: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  "-$diskon%",
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
-              ),
-            ),
-          ],
-        ),
+      : '${ApiConfig.imageBaseUrl}${promo.gambar}';
+  final diskon = promo.diskon;
 
-        // ==== INFORMASI PRODUK ====
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // 🔹 biar fleksibel
-            crossAxisAlignment: CrossAxisAlignment.start,
+  // Get screen size for responsive design
+  final screenWidth = MediaQuery.of(context).size.width;
+  final screenHeight = MediaQuery.of(context).size.height;
+
+  // Responsive dimensions - adjusted for promo cards
+  final cardWidth = screenWidth * 0.42; // Slightly smaller: 42% of screen width
+  final imageHeight = cardWidth * 0.7; // Adjusted aspect ratio for image
+  final contentHeight = 100.0; // Fixed content height to prevent overflow
+  final cardHeight = imageHeight + contentHeight; // Total card height
+
+  // Responsive text sizes
+  final titleFontSize = screenWidth < 360 ? 11.0 : 12.0;
+  final pointsFontSize = screenWidth < 360 ? 12.0 : 13.0;
+
+  return GestureDetector(
+    onTap: () {
+      // Optional: Add tap functionality if needed
+    },
+    child: Container(
+      width: cardWidth,
+      height: cardHeight,
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image Container with Discount Badge
+          Stack(
             children: [
-              Text(
-                name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              Container(
+                height: imageHeight,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.grey.shade50, Colors.white],
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-
-              // ==== ROW POIN + KOIN + TOMBOL TUKAR ====
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        "$poin ",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                child: Padding(
+                  padding: const EdgeInsets.all(6.0),
+                  child: CachedNetworkImage(
+                    imageUrl: img,
+                    fit: BoxFit.contain,
+                    height: imageHeight - 12,
+                    width: double.infinity,
+                    placeholder: (context, url) => Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Colors.grey.shade100, Colors.grey.shade200],
                         ),
                       ),
-                      Image.asset(
-                        'assets/image/coin.png',
-                        width: 14,
-                        height: 14,
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Colors.grey.shade200, Colors.grey.shade300],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.image_not_supported_outlined,
+                              color: Colors.grey.shade400, size: 30),
+                          const SizedBox(height: 4),
+                          Text('No Image',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 8, color: Colors.grey.shade500)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Discount Badge - Maintained as required
+              Positioned(
+                top: 6,
+                left: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.redAccent.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
+                  child: Text(
+                    "-$diskon%",
+                    style: GoogleFonts.poppins(
+                      fontSize: screenWidth < 360 ? 8 : 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
-                  // ==== TOMBOL TUKAR ====
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => CheckoutPage(
+          // Content - Flexible height to prevent overflow
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Product Name - Allow more flexible height
+                  Flexible(
+                    flex: 2,
+                    child: Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+
+                  // Points Section and Exchange Button - Fixed height section
+                  SizedBox(
+                    height: 30, // Fixed height for points/button row
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Points Display
+                        Row(
+                          children: [
+                            Text(
+                              poin,
+                              style: GoogleFonts.poppins(
+                                fontSize: pointsFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red[700],
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Image.asset(
+                              'assets/image/coin.png',
+                              width: screenWidth < 360 ? 14 : 16,
+                              height: screenWidth < 360 ? 14 : 16,
+                            ),
+                          ],
+                        ),
+
+                        // Exchange Button
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CheckoutPage(
                                   usePointsFromPromo: true,
                                   produk: {
                                     'nama_produk': promo.tipeProduk,
@@ -613,35 +703,37 @@ Widget _productCard(
                                     'kode_barang': promo.kodeBarang,
                                   },
                                 ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            minimumSize: const Size(50, 24),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                            textStyle: GoogleFonts.poppins(
+                              fontSize: screenWidth < 360 ? 9 : 10,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
+                          child: const Text("Tukar"),
                         ),
-                        minimumSize: const Size(45, 22),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        elevation: 1.5,
-                        textStyle: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      child: const Text("Tukar"),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

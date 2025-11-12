@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:e_service/Beli/shop.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/checkout.dart';
@@ -6,6 +7,7 @@ import 'package:e_service/Profile/profile.dart';
 import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
 import 'package:e_service/api_services/api_service.dart';
+import 'package:e_service/config/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -20,50 +22,165 @@ class DetailProdukPage extends StatefulWidget {
   State<DetailProdukPage> createState() => _DetailProdukPageState();
 }
 
-class _DetailProdukPageState extends State<DetailProdukPage> {
+class _DetailProdukPageState extends State<DetailProdukPage>
+    with TickerProviderStateMixin {
   int currentIndex = 1;
   String? selectedShipping;
-  List<String> imageUrls = []; // List untuk menyimpan semua URL gambar
-  int _currentImageIndex = 0; // Index gambar saat ini untuk indicator
-  List<dynamic> produkList = []; // Untuk rekomendasi produk
+  List<String> imageUrls = [];
+  List<dynamic> produkList = [];
   bool isProductLoading = true;
+
+  int quantity = 1;
+
+  // Variable untuk menyimpan nilai random agar tidak berubah-ubah
+  late double rating;
+  late int sold;
+  late int stock;
+
+  // Animation controllers
+  late AnimationController _fadeController;
+  late AnimationController _scaleController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadImageUrls();
-    _loadProducts(); // Load produk untuk rekomendasi
+    _loadProducts();
+
+    // Initialize nilai random sekali saja di initState
+    rating = _getRandomRating();
+    sold = _getRandomSold();
+    stock = _getRandomStock();
+
+    // Initialize animations
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    );
+
+    _fadeController.forward();
   }
 
-  // Fungsi untuk mendapatkan semua URL gambar dari produk
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  // Enhanced image URL parsing dengan error handling yang lebih baik
   void _loadImageUrls() {
     final gambarField = widget.produk['gambar'];
-    if (gambarField != null) {
-      if (gambarField is List && gambarField.isNotEmpty) {
-        imageUrls = gambarField.map<String>((img) => 'http://192.168.0.4:8000/storage/$img').toList();
-      } else if (gambarField is String && gambarField.isNotEmpty) {
-        try {
-          if (gambarField.contains('[')) {
-            // JSON array
-            final List list = List<String>.from(jsonDecode(gambarField));
-            imageUrls = list.map<String>((img) => 'http://192.168.0.4:8000/storage/$img').toList();
-          } else {
-            // Split by comma (untuk string dengan koma sebagai pemisah)
-            final List<String> list = gambarField.split(',').map((s) => s.trim()).toList();
-            imageUrls = list.map<String>((img) => 'http://192.168.0.4:8000/storage/$img').toList();
-          }
-        } catch (_) {
-          // Fallback jika parsing gagal
-          imageUrls = ['http://192.168.0.4:8000/storage/$gambarField'];
+    debugPrint('Raw gambar field: $gambarField');
+
+    if (gambarField != null && gambarField.toString().isNotEmpty) {
+      String gambarString = gambarField.toString();
+
+      // Clean up the string
+      gambarString = gambarString
+          .replaceAll('[', '')
+          .replaceAll(']', '')
+          .replaceAll('"', '')
+          .replaceAll('\\', '')
+          .trim();
+
+      // Split by comma to get individual paths
+      List<String> paths = gambarString
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      // Process each path
+      for (String path in paths) {
+        String processedPath = _processImagePath(path);
+        if (processedPath.isNotEmpty) {
+          imageUrls.add(processedPath);
+          debugPrint('Added image URL: $processedPath');
         }
       }
     }
+
+    // Add placeholder if no images found
     if (imageUrls.isEmpty) {
-      imageUrls = ['']; // Placeholder jika tidak ada gambar
+      imageUrls = [''];
+      debugPrint('No valid images found, using placeholder');
     }
   }
 
-  // Load produk untuk rekomendasi (mirip HomePage)
+  // Helper function to process image paths - handles both assets and network URLs
+  String _processImagePath(String path) {
+    path = path.trim();
+
+    // If path starts with 'assets/', treat as local asset
+    if (path.startsWith('assets/')) {
+      return path;
+    }
+
+    // For network paths, clean and add base URL
+    path = path
+        .replaceAll('assets/image/', '')
+        .replaceAll('assets/', '')
+        .replaceAll('image/', '')
+        .replaceAll(ApiConfig.storageBaseUrl, '')
+        .trim();
+
+    // Check if the path looks like a truncated filename and try to fix it
+    if (path.isNotEmpty && !path.contains('.')) {
+      // Common image extensions
+      List<String> extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
+      // Check if the path ends with partial extension markers
+      if (path.contains('_UF') ||
+          path.contains('_AC') ||
+          path.contains('_QL')) {
+        // This looks like an Amazon image URL that got truncated
+        // Try to reconstruct it
+        if (!path.endsWith('.jpg')) {
+          path = '$path.jpg';
+        }
+      }
+    }
+
+    // Ensure the path doesn't start with a slash
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+
+    // Return network URL
+    return '${ApiConfig.storageBaseUrl}$path';
+  }
+
+  // Helper function to clean image path for getFirstImageUrl
+  String _cleanImagePath(String path) {
+    path = path.trim();
+
+    // Remove any leading slash
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+
+    // Remove base URL if present
+    path = path.replaceAll(ApiConfig.storageBaseUrl, '');
+
+    return path;
+  }
+
   Future<void> _loadProducts() async {
     try {
       final data = await ApiService.getProduk();
@@ -77,10 +194,10 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
       });
     } catch (e) {
       setState(() => isProductLoading = false);
+      debugPrint('Error loading products: $e');
     }
   }
 
-  // Fungsi untuk format Rupiah (mirip HomePage)
   String formatRupiah(dynamic harga) {
     if (harga == null) return 'Rp 0';
     double number;
@@ -91,7 +208,6 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
     } else {
       number = 0;
     }
-    // Multiply by 10 to correct the price display
     final double correctedNumber = number * 10;
     final formatter = NumberFormat.currency(
       locale: 'id_ID',
@@ -101,448 +217,858 @@ class _DetailProdukPageState extends State<DetailProdukPage> {
     return formatter.format(correctedNumber);
   }
 
-  // Fungsi untuk mendapatkan ImageProvider (mirip HomePage)
-  ImageProvider? getImageProvider(String url) {
-    if (url.isEmpty) return null;
-    return NetworkImage(url);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1976D2),
-        elevation: 0,
-        title: Row(
-          children: [
-            Image.asset('assets/image/logo.png', height: 30),
-            Image.asset('assets/image/asus_logo.png', height: 20),
-            const Spacer(),
-            const Icon(Icons.notifications_none, color: Colors.white),
-          ],
-        ),
-      ),
-
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ==== GAMBAR PRODUK (SLIDER) ====
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF90CAF9),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: imageUrls.isNotEmpty && imageUrls.first.isNotEmpty
-                  ? Stack(
-                      children: [
-                        PageView.builder(
-                          itemCount: imageUrls.length,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _currentImageIndex = index;
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            final imageUrl = imageUrls[index];
-                            return Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                image: DecorationImage(
-                                  image: NetworkImage(imageUrl),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        // Indicator Dots
-                        Positioned(
-                          bottom: 10,
-                          left: 0,
-                          right: 0,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              imageUrls.length,
-                              (index) => Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                width: _currentImageIndex == index ? 10 : 6,
-                                height: _currentImageIndex == index ? 10 : 6,
-                                decoration: BoxDecoration(
-                                  color: _currentImageIndex == index
-                                      ? Colors.blue
-                                      : Colors.grey.shade400,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : const Center(
-                      child: Icon(Icons.image_outlined,
-                          color: Colors.white70, size: 64),
-                    ),
-            ),
-            const SizedBox(height: 12),
-
-            // ==== NAMA PRODUK ====
-            Text(
-              widget.produk['nama_produk'] ?? 'Produk Tidak Dikenal',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // ==== BRAND PRODUK ====
-            if (widget.produk['brand'] != null)
-              Text(
-                widget.produk['brand'],
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-
-            const SizedBox(height: 10),
-
-            // ==== DESKRIPSI ====
-            Text(
-              widget.produk['deskripsi'] ??
-                  'Deskripsi produk belum tersedia untuk item ini.',
-              style: GoogleFonts.poppins(fontSize: 13),
-            ),
-            const SizedBox(height: 10),
-
-            // ==== HARGA ====
-            Text(
-              formatRupiah(widget.produk['harga']),
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF0B4D3B),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // ==== TOMBOL BELI ====
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CheckoutPage(
-                      produk: widget.produk,
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
-              label: Text(
-                'Beli',
-                style: GoogleFonts.poppins(fontSize: 14, color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1976D2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ==== LAINNYA (REKOMENDASI) ====
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Lainnya',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Icon(Icons.arrow_forward, color: Colors.black54),
-              ],
-            ),
-            const SizedBox(height: 8),
-            isProductLoading ? _buildProductShimmer() : _buildProductList(),
-
-            const SizedBox(height: 16),
-
-            // ==== SERUPA (REKOMENDASI LAIN) ====
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Serupa',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Icon(Icons.arrow_forward, color: Colors.black54),
-              ],
-            ),
-            const SizedBox(height: 8),
-            isProductLoading ? _buildProductShimmer() : _buildProductList(),
-          ],
-        ),
-      ),
-
-      // ===== Bottom Navigation Bar =====
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ServicePage()),
-            );
-          } else if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const MarketplacePage()),
-            );
-          } else if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
-            );
-          } else if (index == 3) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const TukarPoinPage()),
-            );
-          } else if (index == 4) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
-            );
-          } else {
-            setState(() {
-              currentIndex = index;
-            });
-          }
-        },
-        backgroundColor: const Color(0xFF1976D2),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        showUnselectedLabels: true,
-        selectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.build_circle_outlined),
-            label: 'Service',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            label: 'Beli',
-          ),
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: currentIndex == 3
-                ? Image.asset(
-                    'assets/image/promo.png',
-                    width: 24,
-                    height: 24,
-                    color: Colors.white,
-                  )
-                : Opacity(
-                    opacity: 0.6,
-                    child: Image.asset(
-                      'assets/image/promo.png',
-                      width: 24,
-                      height: 24,
-                      color: Colors.white,
-                    ),
-                  ),
-            label: 'Promo',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profile',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget untuk shimmer loading produk
-  Widget _buildProductShimmer() => SizedBox(
-        height: 150,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: 3,
-          itemBuilder: (context, index) => Container(
-            width: 120,
-            margin: const EdgeInsets.only(right: 12),
-            child: Shimmer.fromColors(
-              baseColor: Colors.grey[300]!,
-              highlightColor: Colors.grey[100]!,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-
-  // Widget untuk list produk rekomendasi (mirip HomePage)
-  Widget _buildProductList() => SizedBox(
-        height: 150,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: produkList.length,
-          itemBuilder: (context, index) {
-            final produk = produkList[index];
-            final nama = produk['nama_produk'] ?? 'Produk';
-            final harga = produk['harga'] ?? 0;
-            final imageProvider = getImageProvider(getFirstImageUrl(produk['gambar']));
-
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => DetailProdukPage(produk: produk)));
-              },
-              child: Container(
-                width: 120,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(2, 2))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 80,
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        color: Colors.grey[300],
-                        image: imageProvider != null ? DecorationImage(image: imageProvider, fit: BoxFit.cover) : null,
-                      ),
-                      child: imageProvider == null ? const Center(child: Icon(Icons.image_outlined, color: Colors.white70, size: 36)) : null,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            nama,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
-                          ),
-                          Text(
-                            formatRupiah(harga),
-                            style: GoogleFonts.poppins(color: Colors.red.shade700, fontWeight: FontWeight.w500, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      );
-
-  // Fungsi untuk mendapatkan URL gambar pertama (mirip HomePage)
-  String getFirstImageUrl(dynamic gambarField) {
-    if (gambarField == null) return '';
-
-    if (gambarField is List && gambarField.isNotEmpty) {
-      return 'http://192.168.1.6:8000/storage/${gambarField.first}';
-    }
-
-    if (gambarField is String && gambarField.isNotEmpty) {
-      try {
-        if (gambarField.contains('[')) {
-          final List list = List<String>.from(jsonDecode(gambarField));
-          if (list.isNotEmpty) {
-            return 'http://192.168.1.6:8000/storage/${list.first}';
-          }
-        } else {
-          // Split by comma
-          final List<String> list = gambarField.split(',').map((s) => s.trim()).toList();
-          if (list.isNotEmpty) {
-            return 'http://192.168.1.6:8000/storage/${list.first}';
-          }
-        }
-      } catch (_) {}
-      return 'http://192.168.1.6:8000/storage/$gambarField';
-    }
-
-    return '';
-  }
-
-  void _showShippingOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
+  // Widget for displaying images with better error handling
+  Widget _buildImageWidget(String imageUrl) {
+    if (imageUrl.isEmpty) {
+      return Container(
+        color: Colors.grey[200],
+        child: Center(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text("Pilih Ekspedisi",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              const SizedBox(height: 20),
-              _shippingItem(Icons.local_shipping, "J&T"),
-              _shippingItem(Icons.delivery_dining, "SiCepat"),
-              _shippingItem(Icons.local_shipping_outlined, "JNE"),
-              const SizedBox(height: 10),
+              Icon(
+                Icons.image_not_supported_outlined,
+                size: 80,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Gambar tidak tersedia',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[500],
+                  fontSize: 12,
+                ),
+              ),
             ],
+          ),
+        ),
+      );
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.contain,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey[100],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[400]!),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('Image load error: $error for URL: $imageUrl');
+        return Container(
+          color: Colors.grey[100],
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.broken_image_outlined,
+                  size: 60,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Gagal memuat gambar',
+                  style: GoogleFonts.poppins(
+                    color: Colors.grey[500],
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _shippingItem(IconData icon, String label) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blue),
-      title: Text(label, style: const TextStyle(fontSize: 15)),
-      onTap: () {
-        setState(() {
-          selectedShipping = label;
-        });
-        Navigator.pop(context);
-      },
+  Widget _buildProductImage(dynamic gambarField, {int currentIndex = 0}) {
+    String gambarString = gambarField?.toString() ?? '';
+
+    if (gambarString.isEmpty) {
+      return Container(
+        height: 350,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.grey.shade300, Colors.grey.shade400],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Icon(Icons.image_outlined, color: Colors.white70, size: 36),
+        ),
+      );
+    }
+
+    // Check if string contains multiple URLs separated by commas
+    List<String> paths;
+    if (gambarString.contains(',')) {
+      paths = gambarString.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    } else {
+      paths = [gambarString.trim()];
+    }
+
+    if (paths.isEmpty || currentIndex >= paths.length) {
+      return Container(
+        height: 350,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.grey.shade300, Colors.grey.shade400],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Icon(Icons.image_outlined, color: Colors.white70, size: 36),
+        ),
+      );
+    }
+
+    String imagePath = paths[currentIndex];
+    String baseUrl = ApiConfig.storageBaseUrl;
+
+
+    // Add assets/image/ path if not already a full URL
+    if (!imagePath.startsWith('http')) {
+      imagePath = 'assets/image/' + imagePath;
+    }
+
+    // If path doesn't start with http, add base URL
+    String imageUrl = imagePath.startsWith('http') ? imagePath : '$baseUrl$imagePath';
+
+    return Container(
+      height: 350,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.contain,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey[300],
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.blue.shade400,
+                  ),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('❌ [DETAIL IMAGE] Error loading image: $error for URL: $imageUrl');
+            // Try next image if available
+            if (currentIndex + 1 < paths.length) {
+              return _buildProductImage(
+                gambarField,
+                currentIndex: currentIndex + 1,
+              );
+            }
+            return Container(
+              height: 350,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.grey.shade300, Colors.grey.shade400],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Icon(Icons.broken_image_outlined, color: Colors.white70, size: 36),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
-  IconData _getShippingIcon(String shipping) {
-    switch (shipping) {
-      case "J&T":
-        return Icons.local_shipping;
-      case "SiCepat":
-        return Icons.delivery_dining;
-      case "JNE":
-        return Icons.local_shipping_outlined;
-      default:
-        return Icons.local_shipping;
+  // Generate random rating
+  double _getRandomRating() {
+    return 3.5 + Random().nextDouble() * 1.5;
+  }
+
+  // Generate random sold count
+  int _getRandomSold() {
+    return 50 + Random().nextInt(450);
+  }
+
+  // Generate random stock
+  int _getRandomStock() {
+    return 10 + Random().nextInt(90);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: CustomScrollView(
+        slivers: [
+          // Custom App Bar with Hero Image
+          SliverAppBar(
+            expandedHeight: 350,
+            pinned: true,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                children: [
+                  // Background gradient
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.grey.shade100, Colors.white],
+                      ),
+                    ),
+                  ),
+
+                  // Main Product Image
+                  _buildProductImage(widget.produk['gambar']),
+                ],
+              ),
+            ),
+          ),
+
+          // Product Details
+          SliverToBoxAdapter(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Product Name & Brand
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.produk['nama_produk'] ??
+                              'Produk Tidak Dikenal',
+                          style: GoogleFonts.poppins(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        if (widget.produk['brand'] != null) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              widget.produk['brand'],
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.blue[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Tampilkan total harga sesuai quantity
+                            Text(
+                              formatRupiah(
+                                (double.tryParse(
+                                            widget.produk['harga'].toString()) ??
+                                        0) *
+                                    quantity,
+                              ),
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                            // Tampilkan harga per item jika quantity > 1
+                            if (quantity > 1)
+                              Text(
+                                '${formatRupiah(widget.produk['harga'])} x $quantity',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            Text(
+                              formatRupiah(
+                                (double.tryParse(
+                                          widget.produk['harga'].toString(),
+                                        ) ??
+                                        0) *
+                                    1.2 *
+                                    quantity,
+                              ),
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Rating, Sold & Stock
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildInfoItem(
+                            icon: Icons.star,
+                            iconColor: Colors.amber,
+                            value: rating.toStringAsFixed(1),
+                            label: 'Rating',
+                          ),
+                          _buildDivider(),
+                          _buildInfoItem(
+                            icon: Icons.shopping_bag_outlined,
+                            iconColor: Colors.green,
+                            value: '$sold',
+                            label: 'Terjual',
+                          ),
+                          _buildDivider(),
+                          _buildInfoItem(
+                            icon: Icons.inventory_2_outlined,
+                            iconColor: Colors.blue,
+                            value: '$stock',
+                            label: 'Stok',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Description
+                    Text(
+                      'Deskripsi Produk',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.produk['deskripsi'] ??
+                          'Produk berkualitas tinggi dengan desain modern dan fitur terkini. '
+                              'Cocok untuk kebutuhan sehari-hari maupun profesional. '
+                              'Dilengkapi dengan teknologi terbaru untuk performa optimal.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        height: 1.5,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Recommended Products
+                    _buildRecommendedSection('Produk Serupa'),
+                    const SizedBox(height: 12),
+                    isProductLoading
+                        ? _buildProductShimmer()
+                        : _buildEnhancedProductList(),
+
+                    const SizedBox(height: 20),
+
+                    _buildRecommendedSection('Rekomendasi Untukmu'),
+                    const SizedBox(height: 12),
+                    isProductLoading
+                        ? _buildProductShimmer()
+                        : _buildEnhancedProductList(),
+
+                    const SizedBox(height: 100), // Space for bottom bar
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      // Bottom Purchase Bar
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              // Quantity Selector
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: quantity > 1
+                          ? () {
+                              setState(() {
+                                quantity--;
+                              });
+                            }
+                          : null,
+                      icon: Icon(
+                        Icons.remove,
+                        color: quantity > 1 ? Colors.blue : Colors.grey,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        '$quantity',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: quantity < stock
+                          ? () {
+                              setState(() {
+                                quantity++;
+                              });
+                            }
+                          : null,
+                      icon: Icon(
+                        Icons.add,
+                        color: quantity < stock ? Colors.blue : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Buy Button
+              Expanded(
+                child: GestureDetector(
+                  onTapDown: (_) => _scaleController.forward(),
+                  onTapUp: (_) => _scaleController.reverse(),
+                  onTapCancel: () => _scaleController.reverse(),
+                  onTap: () {
+                    _scaleController.reverse();
+
+                    // Buat copy produk dengan quantity dan total harga
+                    final produkWithQty =
+                        Map<String, dynamic>.from(widget.produk);
+                    produkWithQty['quantity'] = quantity;
+                    produkWithQty['total_harga'] =
+                        (double.tryParse(widget.produk['harga'].toString()) ??
+                                0) *
+                            quantity;
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CheckoutPage(produk: produkWithQty),
+                      ),
+                    );
+                  },
+                  child: AnimatedBuilder(
+                    animation: _scaleAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.blue[600]!, Colors.blue[700]!],
+                            ),
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.shopping_cart_outlined,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  'Beli - ${formatRupiah((double.tryParse(widget.produk['harga'].toString()) ?? 0) * quantity)}',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: iconColor, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(height: 40, width: 1, color: Colors.grey[300]);
+  }
+
+  Widget _buildRecommendedSection(String title) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[800],
+          ),
+        ),
+        Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[500]),
+      ],
+    );
+  }
+
+  Widget _buildProductShimmer() {
+    return SizedBox(
+      height: 240,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: 3,
+        itemBuilder: (context, index) => Container(
+          width: 160,
+          margin: const EdgeInsets.only(right: 12),
+          child: Shimmer.fromColors(
+            baseColor: Colors.grey[300]!,
+            highlightColor: Colors.grey[100]!,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedProductList() {
+    return SizedBox(
+      height: 240,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: produkList.length,
+        itemBuilder: (context, index) {
+          final produk = produkList[index];
+          return _buildEnhancedProductCard(produk: produk, index: index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildEnhancedProductCard({
+    required Map<String, dynamic> produk,
+    required int index,
+  }) {
+    final nama = produk['nama_produk'] ?? 'Produk';
+    final harga = produk['harga'] ?? 0;
+    final imageUrl = getFirstImageUrl(produk['gambar']);
+    final rating = 4.0 + Random().nextDouble();
+    final sold = Random().nextInt(100);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailProdukPage(produk: produk),
+          ),
+        );
+      },
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.grey.shade50, Colors.white],
+                ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                child: imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Icon(
+                              Icons.image_outlined,
+                              color: Colors.grey[400],
+                              size: 40,
+                            ),
+                          );
+                        },
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.image_outlined,
+                          color: Colors.grey[400],
+                          size: 40,
+                        ),
+                      ),
+              ),
+            ),
+
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      nama,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formatRupiah(harga),
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber[50],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.star,
+                                    size: 12,
+                                    color: Colors.amber[600],
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    rating.toStringAsFixed(1),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$sold terjual',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Enhanced getFirstImageUrl with better path cleaning
+  String getFirstImageUrl(dynamic gambarField) {
+    if (gambarField == null) return '';
+
+    String gambarString = gambarField.toString();
+
+    // Check if string contains multiple URLs separated by commas
+    List<String> paths;
+    if (gambarString.contains(',')) {
+      paths = gambarString.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    } else {
+      paths = [gambarString.trim()];
     }
+
+    if (paths.isEmpty) return '';
+
+    String cleanPath = _cleanImagePath(paths.first);
+    if (cleanPath.isEmpty) return '';
+
+    String baseUrl = ApiConfig.storageBaseUrl;
+
+    // Add assets/image/ path if not already a full URL
+    if (!cleanPath.startsWith('http')) {
+      cleanPath = 'assets/image/' + cleanPath;
+    }
+
+    String imageUrl = cleanPath.startsWith('http') ? cleanPath : '$baseUrl$cleanPath';
+
+    return imageUrl;
   }
 }

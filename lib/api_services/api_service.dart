@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:e_service/models/technician_order_model.dart';
+import 'package:e_service/config/api_config.dart';
 
 class ApiService {
-  // Ganti dengan alamat server Laravel kamu
-  // static const String baseUrl = 'http://192.168.1.6:8000/api';
-  static const String baseUrl = 'http://192.168.1.6:8000/api';
+  // Base URL is now configurable in ApiConfig
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
 //Customer
   //  GET semua costomer
@@ -105,60 +105,85 @@ class ApiService {
     }
 
 //Produk
-  // GET semua produk
+   // GET semua produk dengan error handling
   static Future<List<dynamic>> getProduk() async {
-    final response = await http.get(Uri.parse('$baseUrl/produk'));
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/produk'),
+        headers: {
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        // Debug: print first product's image URL
+        if (data.isNotEmpty) {
+          print('First product image URL: ${data[0]['gambar_url']}');
+        }
+        
+        return data;
+      } else {
+        throw Exception('Gagal memuat data produk: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error getProduk: $e');
+      throw Exception('Gagal memuat data produk: $e');
+    }
+  }
+
+   // PROMO
+  static Future<List<dynamic>> getPromo() async {
+    final response = await http.get(Uri.parse('$baseUrl/promo'));
 
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
-      throw Exception('Gagal memuat data produk');
+      throw Exception('Gagal memuat data promo');
     }
   }
-      // PROMO
-      static Future<List<dynamic>> getPromo() async {
-        final response = await http.get(Uri.parse('$baseUrl/promo'));
-
-        if (response.statusCode == 200) {
-          return json.decode(response.body);
-        } else {
-          throw Exception('Gagal memuat data promo');
-        }
-      }
-
-
-
-
-
-
-//AUTH    
+  
+  //AUTH    
     // LOGIN USER
-    static Future<Map<String, dynamic>> login(String username, String password) async {      
-      final response = await http.post(
-        Uri.parse('$baseUrl/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password}),
+    static Future<Map<String, dynamic>> login(String username, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/login'),
+        headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        },
+      body: jsonEncode({'username': username, 'password': password}),
       );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // Pastikan response memiliki 'role'
-        if (data['success'] == true && data.containsKey('role')) {
-          return data;
-        } else {
-          // Jika tidak ada role, anggap sebagai customer
-          return {
-            'success': data['success'] ?? false,
-            'message': data['message'] ?? 'Login berhasil',
-            'user': data['user'],
-            'role': 'customer',
-          };
-        }
-      } else if (response.statusCode == 401) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Gagal login');
+
+      print('[LOGIN] ${response.statusCode} ${response.body}');
+
+      Map<String, dynamic> data = {};
+      try { data = response.body.isNotEmpty ? json.decode(response.body) : {}; } catch (_) {
+      data = {'success': false, 'message': 'Non-JSON response', 'raw': response.body};
       }
+
+      if (response.statusCode == 200) {
+      if (data['success'] == true && data.containsKey('role')) return data;
+      return {
+      'success': data['success'] ?? true,
+      'message': data['message'] ?? 'Login berhasil',
+      'user': data['user'],
+      'role': 'customer',
+      };
+      } else if (response.statusCode == 401) {
+      return data; // {success:false, message:'Username atau password salah'}
+      } else {
+      return {
+      'success': false,
+      'message': 'HTTP ${response.statusCode}: ${data['message'] ?? response.body}',
+      'raw': response.body,
+      };
     }
+  }
   //REGISTER
   static Future<Map<String, dynamic>> registerUser(
     String name, String username, String password, String nohp, String tglLahir) async {
@@ -509,7 +534,13 @@ class ApiService {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['success'] == true) {
-        return data['data'];
+        final dataList = data['data'];
+        if (dataList is List) {
+          return dataList;
+        } else {
+          print('API returned non-list data: $dataList');
+          return [];
+        }
       } else {
         throw Exception(data['message'] ?? 'Order list tidak ditemukan');
       }
@@ -626,4 +657,319 @@ class ApiService {
     }
   }
 
+  
+  // ✅ GET tindakan by trans_kode - UNTUK MENAMPILKAN SUBTOTAL DP
+  static Future<List<dynamic>?> getTindakanByTransKode(String transKode) async {
+    try {
+      final url = Uri.parse('$baseUrl/tindakan/trans/$transKode');
+      print('📋 [API] Fetching tindakan from: $url');
+      
+      final response = await http.get(url);
+      
+      print('📡 [API] Response status: ${response.statusCode}');
+      print('📄 [API] Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        // Handle berbagai format response
+        if (data is Map<String, dynamic>) {
+          if (data['success'] == true && data['data'] is List) {
+            print('✅ [API] Tindakan found: ${data['data'].length} items');
+            return data['data'] as List<dynamic>;
+          } else if (data.containsKey('data') && data['data'] is List) {
+            return data['data'] as List<dynamic>;
+          }
+        } else if (data is List) {
+          print('✅ [API] Tindakan found: ${data.length} items');
+          return data;
+        }
+        
+        print('⚠️ [API] Unexpected response format');
+        return [];
+      } else if (response.statusCode == 404) {
+        print('⚠️ [API] No tindakan found for trans_kode: $transKode');
+        return [];
+      } else {
+        print('❌ [API] HTTP Error: ${response.statusCode}');
+        throw Exception('Gagal mengambil data tindakan: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('🚫 [API] Error getting tindakan: $e');
+      // Return empty list instead of throwing, agar UI tidak crash
+      return [];
+    }
+  }
+
+
+   // ========================
+  // CHECKOUT ENDPOINTS
+  // ========================
+
+  /// Estimasi ongkir berdasarkan lokasi customer
+  static Future<Map<String, dynamic>> estimateShipping({
+    required double customerLat,
+    required double customerLng,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/checkout/estimate-shipping'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'customer_lat': customerLat,
+          'customer_lng': customerLng,
+        }),
+      );
+
+      print('📍 [API] Estimate Shipping Response: ${response.statusCode}');
+      print('📄 [API] Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        } else {
+          throw Exception(data['message'] ?? 'Gagal menghitung ongkir');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ [API] Error estimate shipping: $e');
+      rethrow;
+    }
+  }
+
+  /// Buat order baru
+  static Future<Map<String, dynamic>> createCheckoutOrder({
+    required String customerId,
+    required List<Map<String, dynamic>> items,
+    required double totalPrice,
+    required String paymentMethod,
+    required String deliveryAddress,
+    required double customerLat,
+    required double customerLng,
+    String? voucherCode,
+    double? voucherDiscount,
+  }) async {
+    try {
+      final payload = {
+        'id_costomer': customerId,
+        'items': items,
+        'total_price': totalPrice,
+        'payment_method': paymentMethod,
+        'delivery_address': deliveryAddress,
+        'customer_lat': customerLat,
+        'customer_lng': customerLng,
+        if (voucherCode != null) 'voucher_code': voucherCode,
+      };
+
+      print('📦 [API] Creating Order...');
+      print('   Payload: ${json.encode(payload)}');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/checkout/create-order'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
+      );
+
+      print('📡 [API] Create Order Response: ${response.statusCode}');
+      print('📄 [API] Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        } else {
+          throw Exception(data['message'] ?? 'Gagal membuat order');
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(
+          errorData['message'] ?? 'HTTP Error: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      print('❌ [API] Error create order: $e');
+      rethrow;
+    }
+  }
+
+  /// Update status pembayaran
+  static Future<Map<String, dynamic>> updatePaymentStatus({
+    required String orderCode,
+    required String paymentStatus,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/checkout/update-payment/$orderCode'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'payment_status': paymentStatus}),
+      );
+
+      print('💳 [API] Update Payment Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Gagal update status pembayaran: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ [API] Error update payment: $e');
+      rethrow;
+    }
+  }
+
+  /// Update status pengiriman
+  static Future<Map<String, dynamic>> updateDeliveryStatus({
+    required String orderCode,
+    required String deliveryStatus,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/checkout/update-delivery/$orderCode'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'delivery_status': deliveryStatus}),
+      );
+
+      print('🚚 [API] Update Delivery Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Gagal update status pengiriman: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ [API] Error update delivery: $e');
+      rethrow;
+    }
+  }
+
+  /// Get order by order code
+  static Future<Map<String, dynamic>> getOrderByCode(String orderCode) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/checkout/order/$orderCode'),
+      );
+
+      print('🔍 [API] Get Order: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        } else {
+          throw Exception(data['message'] ?? 'Order tidak ditemukan');
+        }
+      } else {
+        throw Exception('Gagal mengambil data order: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ [API] Error get order: $e');
+      rethrow;
+    }
+  }
+
+  /// Get orders by customer
+  static Future<List<dynamic>> getCustomerOrders(String customerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/checkout/customer-orders/$customerId'),
+      );
+
+      print('📋 [API] Get Customer Orders: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        } else {
+          throw Exception(data['message'] ?? 'Gagal mengambil data orders');
+        }
+      } else {
+        throw Exception('Gagal mengambil data orders customer');
+      }
+    } catch (e) {
+      print('❌ [API] Error get customer orders: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all orders (admin)
+  static Future<List<dynamic>> getAllOrders() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/checkout/all-orders'),
+      );
+
+      print('📊 [API] Get All Orders: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        } else {
+          throw Exception(data['message'] ?? 'Gagal mengambil data orders');
+        }
+      } else {
+        throw Exception('Gagal mengambil semua orders');
+      }
+    } catch (e) {
+      print('❌ [API] Error get all orders: $e');
+      rethrow;
+    }
+  }
+
+  /// Get expedition zones
+  static Future<List<dynamic>> getExpeditionZones() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/checkout/expedition-zones'),
+      );
+
+      print('🗺️ [API] Get Expedition Zones: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        } else {
+          throw Exception(data['message'] ?? 'Gagal mengambil data zona');
+        }
+      } else {
+        throw Exception('Gagal mengambil data zona ekspedisi');
+      }
+    } catch (e) {
+      print('❌ [API] Error get expedition zones: $e');
+      rethrow;
+    }
+  }
+
+  /// Validasi voucher
+  static Future<Map<String, dynamic>> validateVoucher({
+    required String voucherCode,
+    required double totalPrice,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/checkout/validate-voucher'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'voucher_code': voucherCode,
+          'total_price': totalPrice,
+        }),
+      );
+
+      print('🎫 [API] Validate Voucher: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Gagal validasi voucher: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ [API] Error validate voucher: $e');
+      rethrow;
+    }
+  }
 }

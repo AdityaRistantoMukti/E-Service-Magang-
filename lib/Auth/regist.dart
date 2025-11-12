@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'login.dart';
 import '../Home/Home.dart';
+import 'package:e_service/utils/password_utils.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -233,9 +234,10 @@ class _AuthPageState extends State<AuthPage> {
                                   const SnackBar(content: Text('Registrasi berhasil!')),
                                 );
 
-                                Navigator.pushReplacement(
+                                Navigator.pushAndRemoveUntil(
                                   context,
                                   MaterialPageRoute(builder: (context) => const HomePage(isFreshLogin: true)),
+                                  (route) => false
                                 );
                               } else {
                                 String message = result['message'] ?? 'Terjadi kesalahan. Coba lagi.';
@@ -394,9 +396,4 @@ class _AuthPageState extends State<AuthPage> {
     ),
   );
 }
-
-
-
-
-
 }

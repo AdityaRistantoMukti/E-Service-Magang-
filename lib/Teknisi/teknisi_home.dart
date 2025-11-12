@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:e_service/Others/new_order_notification_service.dart';
 import 'package:e_service/Others/notifikasi.dart';
 import 'package:e_service/Others/session_manager.dart';
@@ -14,7 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'teknisi_profil.dart';
 import 'tasks_tab.dart';
 import 'tracking_tab.dart';
-import 'chat_tab.dart';
+import 'waiting_tasks_page.dart';
 import 'history_tab.dart';
 import 'package:e_service/services/location_service.dart';
 
@@ -36,8 +38,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
   Timer? _refreshTimer;
   Set<String> _previousOrderIds = {};
   bool _isAutoRefreshEnabled = true;
-  static const int refreshIntervalSeconds =
-      30; // ✅ Ubah ke 30 detik (lebih hemat)
+  static const int refreshIntervalSeconds = 30;
   // ============================================
 
   Future<void> _initializePreviousOrderIds() async {
@@ -74,26 +75,21 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     super.dispose();
   }
 
-  // Deteksi app lifecycle (pause ketika app di background)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // App kembali aktif, resume auto-refresh
       if (_isAutoRefreshEnabled && _refreshTimer == null) {
         _startAutoRefresh();
         _refreshDataWithNewOrderDetection();
       }
     } else if (state == AppLifecycleState.paused) {
-      // App di background, stop timer untuk hemat resource
       _stopAutoRefresh();
-      // Background check akan tetap berjalan via WorkManager
     }
   }
 
   // ========== AUTO-REFRESH METHODS ==========
-
   void _startAutoRefresh() {
-    _stopAutoRefresh(); // Pastikan tidak ada timer duplikat
+    _stopAutoRefresh();
     _refreshTimer = Timer.periodic(
       const Duration(seconds: refreshIntervalSeconds),
       (timer) {
@@ -142,30 +138,25 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     try {
       final technicianId = await SessionManager.getkry_kode();
       if (technicianId != null) {
-        final fetchedOrdersRaw = await ApiService.getOrderListByKryKode(technicianId);
-        final fetchedOrders = fetchedOrdersRaw.map((item) => TechnicianOrder.fromMap(item)).toList();
+        final fetchedOrdersRaw = await ApiService.getOrderListByKryKode(
+          technicianId,
+        );
+        final fetchedOrders =
+            fetchedOrdersRaw
+                .map((item) => TechnicianOrder.fromMap(item))
+                .toList();
 
         if (mounted) {
-          // Deteksi pesanan baru
           final newOrderIds = fetchedOrders.map((o) => o.orderId).toSet();
           final newOrders = newOrderIds.difference(_previousOrderIds);
 
-          // Jika ada pesanan baru dan bukan load pertama kali
           if (newOrders.isNotEmpty && _previousOrderIds.isNotEmpty) {
-            // ================== PERUBAHAN #1 ==================
-            // Notifikasi In-App (SnackBar) tetap ditampilkan untuk feedback langsung.
             _showInAppNotification(newOrders.length, newOrders.toList());
-
-            // Vibrate untuk alert
             HapticFeedback.vibrate();
-
-            // Panggilan notifikasi sistem SEKARANG DIAKTIFKAN KEMBALI.
-            // Inilah yang akan memunculkan notifikasi dari atas layar.
             await NewOrderNotificationService.sendNewOrderNotification(
               newOrders.length,
               newOrders.toList(),
             );
-            // ================================================
           }
 
           setState(() {
@@ -173,7 +164,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
             _previousOrderIds = newOrderIds;
           });
 
-          // Simpan ke SharedPreferences
           await _savePreviousOrderIds();
         }
       } else {
@@ -181,13 +171,14 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
       }
     } catch (e) {
       print("Error fetching orders in auto-refresh: $e");
-      // Tidak tampilkan error di auto-refresh untuk menghindari spam
     }
 
     try {
       final kryKode = await SessionManager.getkry_kode();
       if (kryKode != null) {
-        final fetchedTransaksi = await ApiService.getOrderListByKryKode(kryKode);
+        final fetchedTransaksi = await ApiService.getOrderListByKryKode(
+          kryKode,
+        );
         if (mounted) setState(() => transaksiList = fetchedTransaksi);
       } else {
         if (mounted) setState(() => transaksiList = []);
@@ -197,9 +188,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     }
   }
 
-  // ✅ Notifikasi IN-APP saja (tidak kirim push notification)
   void _showInAppNotification(int count, List<String> orderIds) {
-    // Tampilkan SnackBar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -225,22 +214,11 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
           label: 'Lihat',
           textColor: Colors.white,
           onPressed: () {
-            setState(() => currentIndex = 0); // Pindah ke Tasks tab
+            setState(() => currentIndex = 0);
           },
         ),
       ),
     );
-
-    // ================== PERUBAHAN #2 ==================
-    // Bagian yang menampilkan pop-up modal (AlertDialog) sekarang dinonaktifkan
-    // dengan memberinya komentar.
-    /*
-    if (currentIndex != 0) {
-      // Hanya show dialog jika user tidak di tab Tasks
-      _showNewOrderDialog(count);
-    }
-    */
-    // ================================================
   }
 
   void _showNewOrderDialog(int count) {
@@ -293,7 +271,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  setState(() => currentIndex = 0); // Pindah ke Tasks tab
+                  setState(() => currentIndex = 0);
                 },
                 icon: const Icon(Icons.visibility),
                 label: const Text('Lihat Sekarang'),
@@ -310,8 +288,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     );
   }
 
-  // ==========================================
-
   Future<void> _refreshData() async {
     if (!mounted) return;
     setState(() => isLoading = true);
@@ -319,12 +295,15 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     try {
       final technicianId = await SessionManager.getkry_kode();
       if (technicianId != null) {
-        // 1. Ambil data order terbaru dari API (order-list endpoint)
-        final fetchedOrdersRaw = await ApiService.getOrderListByKryKode(technicianId);
-        final fetchedOrders = fetchedOrdersRaw.map((item) => TechnicianOrder.fromMap(item)).toList();
+        final fetchedOrdersRaw = await ApiService.getOrderListByKryKode(
+          technicianId,
+        );
+        final fetchedOrders =
+            fetchedOrdersRaw
+                .map((item) => TechnicianOrder.fromMap(item))
+                .toList();
 
         if (mounted) {
-          // 2. Langsung cek data TERBARU (fetchedOrders) untuk status 'enRoute'
           final activeEnRouteOrders = fetchedOrders.where(
             (order) => order.status == OrderStatus.enRoute,
           );
@@ -332,7 +311,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
               activeEnRouteOrders.isNotEmpty ? activeEnRouteOrders.first : null;
 
           if (activeEnRouteOrder != null) {
-            // JIKA DITEMUKAN: Mulai atau lanjutkan pelacakan
             print(
               '▶️ Ditemukan order enRoute [${activeEnRouteOrder.orderId}]. MEMULAI/MELANJUTKAN PELACAKAN.',
             );
@@ -341,14 +319,12 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
               kryKode: technicianId!,
             );
           } else {
-            // JIKA TIDAK DITEMUKAN: Pastikan pelacakan berhenti
             print(
               '⏹️ Tidak ada order enRoute yang aktif. Memastikan pelacakan berhenti.',
             );
             LocationService.instance.stopTracking();
           }
 
-          // 3. Setelah itu, baru update state untuk UI
           setState(() {
             assignedOrders = fetchedOrders;
             _previousOrderIds = fetchedOrders.map((o) => o.orderId).toSet();
@@ -364,11 +340,13 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
       if (mounted) setState(() => assignedOrders = []);
     }
 
-    // Bagian untuk getTransaksi tetap sama
+
     try {
       final kryKode = await SessionManager.getkry_kode();
       if (kryKode != null) {
-        final fetchedTransaksi = await ApiService.getOrderListByKryKode(kryKode);
+        final fetchedTransaksi = await ApiService.getOrderListByKryKode(
+          kryKode,
+        );
         if (mounted) setState(() => transaksiList = fetchedTransaksi);
       } else {
         if (mounted) setState(() => transaksiList = []);
@@ -426,8 +404,8 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
       );
 
       // Handle location tracking based on status change
-      if (newStatus == OrderStatus.enRoute) {
-        // Start tracking when technician starts moving
+      if (newStatus == OrderStatus.enRoute ||
+          newStatus == OrderStatus.pickingParts) {
         final kryKode = await SessionManager.getkry_kode();
         if (kryKode != null) {
           await LocationService.instance.startTracking(
@@ -436,23 +414,33 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
           );
           print('📍 Location tracking started for order ${order.orderId}');
         }
-      } else if (newStatus == OrderStatus.completed || newStatus == OrderStatus.jobDone) {
-        // Stop tracking when order is completed or job is done
+      } else if (newStatus == OrderStatus.completed ||
+          newStatus == OrderStatus.arrived) {
         await LocationService.instance.stopTracking();
-        print(
-          '📍 Location tracking stopped for ${newStatus == OrderStatus.completed ? 'completed' : 'job done'} order ${order.orderId}',
-        );
+        print('📍 Location tracking stopped for order ${order.orderId}');
+      }
+
+      String message = 'Status berhasil diperbarui ke ${newStatus.displayName}';
+
+      // Custom messages untuk status tertentu
+      if (newStatus == OrderStatus.waitingApproval) {
+        message = 'Tindakan disimpan, menunggu persetujuan admin';
+      } else if (newStatus == OrderStatus.pickingParts) {
+        message = 'Mulai mengambil suku cadang';
+      } else if (newStatus == OrderStatus.completed) {
+        message = 'Pekerjaan selesai! Order telah diselesaikan!';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Status berhasil diperbarui ke ${newStatus.displayName}',
-          ),
-          backgroundColor: Colors.green,
+          content: Text(message),
+          backgroundColor:
+              newStatus == OrderStatus.waitingApproval
+                  ? Colors.orange
+                  : Colors.green,
         ),
       );
-      // Refresh data agar pesanan yang selesai muncul di history_tab
+
       await _refreshData();
     } catch (e) {
       print('!!! API call GAGAL: $e. Mengembalikan status ke [$oldStatus].');
@@ -477,13 +465,15 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
       case OrderStatus.enRoute:
         return next == OrderStatus.arrived;
       case OrderStatus.arrived:
+        // Dari Tiba bisa ke Completed atau ke Waiting Approval
         return next == OrderStatus.completed ||
             next == OrderStatus.waitingApproval;
       case OrderStatus.waitingApproval:
+        return next == OrderStatus.waiting;
+      case OrderStatus.approved:
         return next == OrderStatus.pickingParts;
       case OrderStatus.pickingParts:
-        return next == OrderStatus.jobDone;
-      case OrderStatus.repairing:
+        // Dari Picking Parts langsung ke Completed
         return next == OrderStatus.completed;
       default:
         return false;
@@ -504,8 +494,11 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
 
   void _showTindakanForm(TechnicianOrder order) {
     final TextEditingController actionNameController = TextEditingController();
-    final TextEditingController quantityController = TextEditingController(text: '1');
-    final TextEditingController actionDetailController = TextEditingController();
+    final TextEditingController quantityController = TextEditingController(
+      text: '1',
+    );
+    final TextEditingController actionDetailController =
+        TextEditingController();
     String? selectedAction;
     bool isManual = false;
 
@@ -556,10 +549,12 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                             ),
                           ),
                           items: [
-                            ...standardActions.map((action) => DropdownMenuItem(
-                              value: action,
-                              child: Text(action),
-                            )),
+                            ...standardActions.map(
+                              (action) => DropdownMenuItem(
+                                value: action,
+                                child: Text(action),
+                              ),
+                            ),
                             const DropdownMenuItem(
                               value: 'manual',
                               child: Text('Manual (Input Sendiri)'),
@@ -592,7 +587,9 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                         TextField(
                           controller: quantityController,
                           keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           decoration: InputDecoration(
                             labelText: 'Quantity',
                             border: OutlineInputBorder(
@@ -603,8 +600,11 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                             final num = int.tryParse(value);
                             if (num != null && num <= 0) {
                               quantityController.text = '1';
-                              quantityController.selection = TextSelection.fromPosition(
-                                TextPosition(offset: quantityController.text.length),
+                              quantityController
+                                  .selection = TextSelection.fromPosition(
+                                TextPosition(
+                                  offset: quantityController.text.length,
+                                ),
                               );
                             }
                           },
@@ -614,10 +614,41 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                           controller: actionDetailController,
                           maxLines: 3,
                           decoration: InputDecoration(
-                            labelText: 'Detail Tindakan',
+                            labelText:
+                                'Detail Tindakan (termasuk perkiraan harga suku cadang)',
+                            hintText:
+                                'Contoh: Ganti filter AC dengan estimasi harga Rp 150.000',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.orange.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Tindakan ini akan dikirim ke admin untuk persetujuan',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -633,14 +664,25 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () async {
-                                  final actionName = isManual ? actionNameController.text.trim() : selectedAction;
-                                  final quantity = int.tryParse(quantityController.text.trim()) ?? 1;
-                                  final actionDetail = actionDetailController.text.trim();
+                                  final actionName =
+                                      isManual
+                                          ? actionNameController.text.trim()
+                                          : selectedAction;
+                                  final quantity =
+                                      int.tryParse(
+                                        quantityController.text.trim(),
+                                      ) ??
+                                      1;
+                                  final actionDetail =
+                                      actionDetailController.text.trim();
 
-                                  if (actionName == null || actionName.isEmpty) {
+                                  if (actionName == null ||
+                                      actionName.isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Pilih atau isi nama tindakan'),
+                                        content: Text(
+                                          'Pilih atau isi nama tindakan',
+                                        ),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
@@ -658,13 +700,18 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                                   }
 
                                   Navigator.pop(context);
-                                  await _saveTindakanAndUpdateStatus(order, actionName, quantity, actionDetail);
+                                  await _saveTindakanAndUpdateStatus(
+                                    order,
+                                    actionName,
+                                    quantity,
+                                    actionDetail,
+                                  );
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.orange,
                                   foregroundColor: Colors.white,
                                 ),
-                                child: const Text('Simpan'),
+                                child: const Text('Kirim ke Admin'),
                               ),
                             ),
                           ],
@@ -678,6 +725,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     );
   }
 
+  // Updated function untuk otomatis set status ke waitingApproval
   Future<void> _saveTindakanAndUpdateStatus(
     TechnicianOrder order,
     String actionName,
@@ -685,8 +733,10 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     String actionDetail,
   ) async {
     final now = DateTime.now();
-    final tanggal = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final jam = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    final tanggal =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final jam =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
     final tindakanData = {
       'trans_kode': order.orderId,
@@ -700,13 +750,9 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
 
     try {
       await ApiService.createTindakan(tindakanData);
+
+      // Otomatis update status ke waitingApproval setelah input tindakan
       await _updateOrderStatus(order, OrderStatus.waitingApproval);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tindakan berhasil disimpan'),
-          backgroundColor: Colors.green,
-        ),
-      );
     } catch (e) {
       print('Error saving tindakan: $e');
       print('Tindakan data: $tindakanData');
@@ -751,11 +797,17 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     final activeOrders =
         assignedOrders
-            .where((order) => order.status != OrderStatus.completed && order.status != OrderStatus.jobDone)
+            .where(
+              (order) =>
+                  order.status != OrderStatus.completed &&
+                  order.status != OrderStatus.jobDone &&
+                  order.status != OrderStatus.waitingOrder,
+            )
             .toList();
 
     return Scaffold(
@@ -771,75 +823,6 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
           ),
         ),
         actions: [
-          // Debug Button
-          IconButton(
-            icon: Icon(Icons.bug_report, color: Colors.white),
-            onPressed: () async {
-              final kryKode = await SessionManager.getkry_kode();
-              final session = await SessionManager.getUserSession();
-
-              showDialog(
-                context: context,
-                builder:
-                    (context) => AlertDialog(
-                      title: Text('🐛 Debug Info'),
-                      content: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'kry_kode: ${kryKode ?? "NULL"}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    kryKode != null ? Colors.green : Colors.red,
-                              ),
-                            ),
-                            Divider(),
-                            Text('Role: ${session['role'] ?? "NULL"}'),
-                            Text('Name: ${session['name'] ?? "NULL"}'),
-                            Text('ID: ${session['id'] ?? "NULL"}'),
-                            Divider(),
-                            Text('Orders: ${assignedOrders.length}'),
-                            Text(
-                              'Active: ${assignedOrders.where((o) => o.status != OrderStatus.completed).length}',
-                            ),
-                          ],
-                        ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await NewOrderNotificationService.testNotification();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Test notification sent!'),
-                              ),
-                            );
-                          },
-                          child: Text('Test Notif'),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _refreshData();
-                          },
-                          child: Text('Refresh'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text('Close'),
-                        ),
-                      ],
-                    ),
-              );
-            },
-            tooltip: 'Debug',
-          ),
-          // Toggle Auto-Refresh Button
           IconButton(
             icon: Icon(
               _isAutoRefreshEnabled ? Icons.sync : Icons.sync_disabled,
@@ -874,6 +857,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
             onShowDamageForm: _showTindakanForm,
             onOpenMaps: _openMaps,
             isAutoRefreshEnabled: _isAutoRefreshEnabled,
+            // Tidak ada onSimulateApproval karena data dari database
           ),
           TrackingTab(
             customerAddress:
@@ -881,7 +865,9 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
                     ? activeOrders.first.customerAddress
                     : '',
           ),
-          const ChatTab(),
+          WaitingTasksPage(
+            isAutoRefreshEnabled: _isAutoRefreshEnabled,
+          ),
           HistoryTab(
             transaksiList: transaksiList,
             isLoading: isLoading,
@@ -912,7 +898,7 @@ class _TeknisiHomePageState extends State<TeknisiHomePage>
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.chat),
-            label: 'Obrolan',
+            label: 'Order List',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.history),

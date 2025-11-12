@@ -32,7 +32,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
   Future<void> _loadCompletedTransactions() async {
     setState(() => isLoading = true);
     try {
-      final allTransactions = await ApiService.getTransaksi();
+      final allTransactions = await ApiService.getOrderList();
       final filteredTransactions = <dynamic>[];
       for (final transaksi in allTransactions) {
         final status = transaksi['trans_status']?.toString().toLowerCase() ?? '';

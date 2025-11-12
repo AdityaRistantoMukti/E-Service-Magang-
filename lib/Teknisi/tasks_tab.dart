@@ -6,7 +6,6 @@ import 'package:e_service/Others/map_view_page.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/services/location_service.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -44,7 +43,6 @@ class _TasksTabState extends State<TasksTab> {
   Future<void> _startLocationTracking(String orderId) async {
     print('🚀 [LOCATION] Starting location tracking for orderId: $orderId');
 
-    // Get actual kry_kode from session
     final kryKode = await SessionManager.getkry_kode();
     if (kryKode == null || kryKode.isEmpty) {
       print(
@@ -55,7 +53,6 @@ class _TasksTabState extends State<TasksTab> {
 
     print('✅ [LOCATION] Retrieved kry_kode: $kryKode');
 
-    // Use the LocationService singleton to start tracking
     await LocationService.instance.startTracking(
       transKode: orderId,
       kryKode: kryKode,
@@ -72,7 +69,7 @@ class _TasksTabState extends State<TasksTab> {
       onRefresh: widget.onRefresh,
       child: Column(
         children: [
-          // ========== AUTO-REFRESH INDICATOR ==========
+          // Auto-refresh indicator
           if (widget.isAutoRefreshEnabled)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -97,14 +94,11 @@ class _TasksTabState extends State<TasksTab> {
                         ),
                       );
                     },
-                    onEnd: () {
-                      // Trigger rebuild untuk animasi continuous
-                    },
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Auto-refresh aktif • Memperbarui setiap 10 detik',
+                      'Auto-refresh aktif • Memperbarui setiap 30 detik',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: Colors.green.shade700,
@@ -133,7 +127,6 @@ class _TasksTabState extends State<TasksTab> {
                 ],
               ),
             ),
-          // ============================================
           Expanded(
             child:
                 widget.isLoading
@@ -205,10 +198,6 @@ class _TasksTabState extends State<TasksTab> {
   }
 
   Widget _buildOrderCard(BuildContext context, TechnicianOrder order) {
-    print(
-      '--- UI RENDER: Membangun Card untuk Order [${order.orderId}] dengan Status [${order.status.name}]',
-    );
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
@@ -234,7 +223,6 @@ class _TasksTabState extends State<TasksTab> {
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      // Tambahan: Kode Customer jika ada
                       if (order.cosKode != null)
                         Text(
                           'Kode: ${order.cosKode}',
@@ -280,7 +268,7 @@ class _TasksTabState extends State<TasksTab> {
 
             const Divider(height: 24),
 
-            // Informasi Customer dan Perangkat dalam bentuk flat info rows
+            // Informasi Customer dan Perangkat
             _infoRow('Nama Customer', order.customerName),
             const SizedBox(height: 4),
             Row(
@@ -416,34 +404,18 @@ class _TasksTabState extends State<TasksTab> {
               'Rp ${order.estimatedPrice?.toStringAsFixed(0) ?? '0'}',
             ),
 
-            // Action Buttons
-            if (order.status != OrderStatus.completed && order.status != OrderStatus.jobDone) ...[
+            // ===== ACTION BUTTONS SECTION =====
+            if (order.status != OrderStatus.completed &&
+                order.status != OrderStatus.jobDone) ...[
               const SizedBox(height: 16),
+
+              // Status: ARRIVED - Show Selesai and Tindakan buttons
               if (order.status == OrderStatus.arrived) ...[
-                // Only show "Tindakan" button for arrived status
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => widget.onShowDamageForm(order),
-                    icon: const Icon(Icons.report_problem, size: 16),
-                    label: const Text('Tindakan'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-              ] else if (order.status == OrderStatus.waitingApproval) ...[
-                // Show "Selesai" and "Ambil Suku Cadang" buttons for waitingApproval status
                 Row(
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => _showJobDoneDialog(context, order),
+                        onPressed: () => _showCompletionDialog(context, order),
                         icon: const Icon(Icons.check_circle, size: 16),
                         label: const Text('Selesai'),
                         style: ElevatedButton.styleFrom(
@@ -459,19 +431,11 @@ class _TasksTabState extends State<TasksTab> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () async {
-                          // Start location tracking for spare parts pickup
-                          await _startLocationTracking(order.orderId);
-                          // Update status to pickingParts
-                          widget.onUpdateStatus(order, OrderStatus.pickingParts);
-                        },
+                        onPressed: () => widget.onShowDamageForm(order),
                         icon: const Icon(Icons.build, size: 16),
-                        label: const Text(
-                          'Ambil Suku Cadang',
-                          style: TextStyle(fontSize: 12),
-                        ),
+                        label: const Text('Tindakan'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
+                          backgroundColor: Colors.orange,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -482,14 +446,286 @@ class _TasksTabState extends State<TasksTab> {
                     ),
                   ],
                 ),
+
+                // Status: WAITING APPROVAL atau APPROVED
+              ] else if (order.status == OrderStatus.waitingApproval ||
+                  order.status == OrderStatus.approved) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color:
+                        order.status == OrderStatus.approved
+                            ? Colors.green.shade50
+                            : Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color:
+                          order.status == OrderStatus.approved
+                              ? Colors.green.shade300
+                              : Colors.orange.shade300,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Status header
+                      Row(
+                        children: [
+                          Icon(
+                            order.status == OrderStatus.approved
+                                ? Icons.check_circle
+                                : Icons.hourglass_empty,
+                            color:
+                                order.status == OrderStatus.approved
+                                    ? Colors.green.shade700
+                                    : Colors.orange.shade700,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              order.status == OrderStatus.approved
+                                  ? 'Persetujuan admin diterima. Silakan ambil suku cadang.'
+                                  : 'Menunggu persetujuan admin untuk pengambilan suku cadang',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color:
+                                    order.status == OrderStatus.approved
+                                        ? Colors.green.shade700
+                                        : Colors.orange.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Approval Status Badge
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              order.status == OrderStatus.approved
+                                  ? Colors.green.shade100
+                                  : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color:
+                                order.status == OrderStatus.approved
+                                    ? Colors.green.shade400
+                                    : Colors.grey.shade300,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              order.status == OrderStatus.approved
+                                  ? Icons.verified
+                                  : Icons.pending,
+                              size: 16,
+                              color:
+                                  order.status == OrderStatus.approved
+                                      ? Colors.green.shade700
+                                      : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              order.status == OrderStatus.approved
+                                  ? 'Disetujui oleh Admin'
+                                  : 'Belum Disetujui',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color:
+                                    order.status == OrderStatus.approved
+                                        ? Colors.green.shade700
+                                        : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Catatan jika ada
+                      if (order.approvalNotes != null &&
+                          order.approvalNotes!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Catatan:',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                order.approvalNotes!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                      // Action Buttons
+                      Row(
+                        children: [
+                          // Button Ambil Suku Cadang (enabled hanya jika status = approved)
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed:
+                                  order.status == OrderStatus.approved
+                                      ? () async {
+                                        // Start tracking untuk ambil suku cadang
+                                        await _startLocationTracking(
+                                          order.orderId,
+                                        );
+                                        widget.onUpdateStatus(
+                                          order,
+                                          OrderStatus.pickingParts,
+                                        );
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Memulai pengambilan suku cadang',
+                                            ),
+                                            backgroundColor: Colors.purple,
+                                          ),
+                                        );
+                                      }
+                                      : null, // Disabled jika status masih waitingApproval
+                              icon: Icon(
+                                order.status == OrderStatus.approved
+                                    ? Icons.build
+                                    : Icons.lock,
+                                size: 16,
+                              ),
+                              label: Text(
+                                order.status == OrderStatus.approved
+                                    ? 'Ambil Suku Cadang'
+                                    : 'Menunggu Approval',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor: Colors.grey.shade300,
+                                disabledForegroundColor: Colors.grey.shade600,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Info tambahan jika belum disetujui
+                      if (order.status == OrderStatus.waitingApproval) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Admin akan memeriksa kebutuhan suku cadang dan mengubah status menjadi "approved" jika disetujui',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // Status: PICKING PARTS - Show progress and Selesai button
               ] else if (order.status == OrderStatus.pickingParts) ...[
-                // Show only "Selesai" button for pickingParts status
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.purple.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.local_shipping,
+                        color: Colors.purple.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Sedang dalam perjalanan mengambil suku cadang',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: Colors.purple.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            LinearProgressIndicator(
+                              backgroundColor: Colors.purple.shade100,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.purple.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _showJobDoneDialog(context, order),
+                    onPressed: () => _showCompletionDialog(context, order),
                     icon: const Icon(Icons.check_circle, size: 16),
-                    label: const Text('Selesai'),
+                    label: const Text('Selesai Mengambil Part'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -500,6 +736,8 @@ class _TasksTabState extends State<TasksTab> {
                     ),
                   ),
                 ),
+
+                // Other statuses (waiting, accepted, enRoute)
               ] else ...[
                 SizedBox(
                   width: double.infinity,
@@ -518,7 +756,6 @@ class _TasksTabState extends State<TasksTab> {
                           await _startLocationTracking(order.orderId);
                         } else if (order.status == OrderStatus.enRoute &&
                             nextStatus != OrderStatus.enRoute) {
-                          // Stop location tracking when leaving enRoute status
                           _stopLocationTracking();
                         }
                         widget.onUpdateStatus(order, nextStatus);
@@ -546,254 +783,23 @@ class _TasksTabState extends State<TasksTab> {
     );
   }
 
-  // Popup khusus Transaksi untuk "Temuan Kerusakan"
-  void _showTransaksiDamageForm(BuildContext context, dynamic transaksi) {
-    final TextEditingController descCtrl = TextEditingController();
-    final TextEditingController estCtrl = TextEditingController();
-    final List<XFile> media = [];
-    bool isSaving = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setModalState) => Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Tindakan - ${transaksi['order_id'] ?? transaksi['id'] ?? ''}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: descCtrl,
-                          maxLines: 3,
-                          decoration: InputDecoration(
-                            labelText: 'Deskripsi Kerusakan',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: estCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Estimasi Harga (Rp)',
-                            prefixText: 'Rp ',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final picker = ImagePicker();
-                                final picked = await picker.pickMultiImage();
-                                setModalState(() => media.addAll(picked));
-                              },
-                              icon: const Icon(Icons.photo_camera),
-                              label: const Text('Upload Media'),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text('${media.length} file dipilih'),
-                            ),
-                          ],
-                        ),
-                        if (media.isNotEmpty)
-                          Container(
-                            height: 100,
-                            margin: const EdgeInsets.only(top: 8),
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: media.length,
-                              itemBuilder:
-                                  (context, index) => Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: Image.file(
-                                      File(media[index].path),
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                            ),
-                          ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed:
-                                    isSaving
-                                        ? null
-                                        : () => Navigator.pop(context),
-                                child: const Text('Batal'),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed:
-                                    isSaving
-                                        ? null
-                                        : () async {
-                                          final kode =
-                                              (transaksi['order_id'] ?? transaksi['id'] ?? '')
-                                                  .toString();
-                                          final ket = descCtrl.text.trim();
-                                          final totalStr = estCtrl.text
-                                              .trim()
-                                              .replaceAll(
-                                                RegExp(r'[^0-9]'),
-                                                '',
-                                              );
-                                          final total = num.tryParse(totalStr);
-
-                                          if (kode.isEmpty) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'trans_kode tidak ditemukan',
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                            return;
-                                          }
-                                          if (ket.isEmpty || total == null) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Isi deskripsi dan estimasi harga dengan benar',
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                            return;
-                                          }
-
-                                          setModalState(() => isSaving = true);
-                                          try {
-                                            await ApiService.updateTransaksiTemuan(
-                                              kode,
-                                              ket,
-                                              total,
-                                              alsoSetStatus: 'waitingapproval',
-                                            );
-
-                                            // Mutasi lokal agar kartu langsung update
-                                            transaksi['ket_keluhan'] = ket;
-                                            transaksi['total'] = total;
-                                            transaksi['status'] =
-                                                'waitingapproval';
-
-                                            if (context.mounted) {
-                                              Navigator.pop(context);
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Temuan disimpan',
-                                                  ),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                            }
-
-                                            // Rebuild data dari server (opsional tapi disarankan)
-                                            await widget.onRefresh();
-                                          } catch (e) {
-                                            setModalState(
-                                              () => isSaving = false,
-                                            );
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'Gagal simpan temuan: $e',
-                                                  ),
-                                                  backgroundColor: Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child:
-                                    isSaving
-                                        ? const SizedBox(
-                                          height: 18,
-                                          width: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                        : const Text('Simpan'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                ),
-          ),
-    );
-  }
-
-  // ====== Helpers for Order (TechnicianOrder) ======
-
+  // Helper functions
   OrderStatus? _getNextStatus(OrderStatus current) {
     switch (current) {
       case OrderStatus.waiting:
+        return OrderStatus.accepted;
+      case OrderStatus.waitingOrder:
         return OrderStatus.accepted;
       case OrderStatus.accepted:
         return OrderStatus.enRoute;
       case OrderStatus.enRoute:
         return OrderStatus.arrived;
       case OrderStatus.arrived:
-        return null; // Handled by button logic
+        return null; // Handled by specific buttons
       case OrderStatus.waitingApproval:
-        return null; // Handled by button logic
+        return null; // Handled by specific buttons
       case OrderStatus.pickingParts:
-        return null; // Handled by button logic
-      case OrderStatus.repairing:
-        return OrderStatus.completed;
+        return null; // Handled by Selesai button
       default:
         return null;
     }
@@ -803,18 +809,18 @@ class _TasksTabState extends State<TasksTab> {
     switch (status) {
       case OrderStatus.waiting:
         return 'Menerima Pesanan';
+      case OrderStatus.waitingOrder:
+        return 'Menerima Pesanan';
       case OrderStatus.accepted:
         return 'Dalam Perjalanan';
       case OrderStatus.enRoute:
         return 'Tiba';
       case OrderStatus.arrived:
-        return 'Tindakan'; // Changed from 'Pilih Aksi'
+        return 'Pilih Aksi';
       case OrderStatus.waitingApproval:
-        return 'Ambil Suku Cadang'; // Changed from 'Ambil Suku Cadang'
+        return 'Menunggu Approval';
       case OrderStatus.pickingParts:
-        return 'Selesai'; // Changed from 'Memperbaiki'
-      case OrderStatus.repairing:
-        return 'Selesai';
+        return 'Sedang Ambil Suku Cadang';
       default:
         return '';
     }
@@ -824,18 +830,18 @@ class _TasksTabState extends State<TasksTab> {
     switch (status) {
       case OrderStatus.waiting:
         return Icons.assignment_turned_in;
+      case OrderStatus.waitingOrder:
+        return Icons.assignment_turned_in;
       case OrderStatus.accepted:
         return Icons.directions_car;
       case OrderStatus.enRoute:
         return Icons.location_on;
       case OrderStatus.arrived:
-        return Icons.hourglass_empty;
+        return Icons.touch_app;
       case OrderStatus.waitingApproval:
-        return Icons.build;
+        return Icons.hourglass_empty;
       case OrderStatus.pickingParts:
-        return Icons.settings;
-      case OrderStatus.repairing:
-        return Icons.check_circle;
+        return Icons.local_shipping;
       default:
         return Icons.check;
     }
@@ -845,6 +851,8 @@ class _TasksTabState extends State<TasksTab> {
     switch (status) {
       case OrderStatus.waiting:
         return Colors.green;
+      case OrderStatus.waitingOrder:
+        return Colors.green;
       case OrderStatus.accepted:
         return Colors.blue;
       case OrderStatus.enRoute:
@@ -852,107 +860,13 @@ class _TasksTabState extends State<TasksTab> {
       case OrderStatus.arrived:
         return Colors.purple;
       case OrderStatus.waitingApproval:
-        return Colors.indigo;
+        return Colors.amber;
       case OrderStatus.pickingParts:
-        return Colors.teal;
-      case OrderStatus.repairing:
-        return Colors.red;
-      default:
-        return const Color(0xFF1976D2);
-    }
-  }
-
-  // ====== Helpers for Transaksi (String status) ======
-
-  String _getTransaksiButtonLabel(String status) {
-    switch (status.toLowerCase()) {
-      case 'waiting':
-      case 'pending':
-        return 'Menerima Pesanan';
-      case 'accepted':
-        return 'Dalam Perjalanan';
-      case 'enroute':
-        return 'Tiba';
-      case 'arrived':
-        return 'Menunggu Persetujuan';
-      case 'waitingapproval':
-        return 'Ambil Suku Cadang';
-      case 'pickingparts':
-        return 'Memperbaiki';
-      case 'repairing':
-        return 'Selesai';
-      default:
-        return 'Tandai Selesai';
-    }
-  }
-
-  String? _getNextTransaksiStatus(String current) {
-    switch (current.toLowerCase()) {
-      case 'waiting':
-      case 'pending':
-        return 'accepted';
-      case 'accepted':
-        return 'enroute';
-      case 'enroute':
-        return 'arrived';
-      case 'arrived':
-        return null;
-      case 'waitingapproval':
-        return 'pickingparts';
-      case 'pickingparts':
-        return 'repairing';
-      case 'repairing':
-        return 'completed';
-      default:
-        return null;
-    }
-  }
-
-  IconData _getTransaksiButtonIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'waiting':
-      case 'pending':
-        return Icons.assignment_turned_in;
-      case 'accepted':
-        return Icons.directions_car;
-      case 'enroute':
-        return Icons.location_on;
-      case 'arrived':
-        return Icons.hourglass_empty;
-      case 'waitingapproval':
-        return Icons.build;
-      case 'pickingparts':
-        return Icons.settings;
-      case 'repairing':
-        return Icons.check_circle;
-      default:
-        return Icons.check;
-    }
-  }
-
-  Color _getTransaksiButtonColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'waiting':
-      case 'pending':
-        return Colors.green;
-      case 'accepted':
-        return Colors.blue;
-      case 'enroute':
-        return Colors.orange;
-      case 'arrived':
-        return Colors.purple;
-      case 'waitingapproval':
         return Colors.indigo;
-      case 'pickingparts':
-        return Colors.teal;
-      case 'repairing':
-        return Colors.red;
       default:
         return const Color(0xFF1976D2);
     }
   }
-
-  // ====== Common UI helpers ======
 
   Widget _infoRow(String label, String value) {
     return Row(
@@ -974,22 +888,6 @@ class _TasksTabState extends State<TasksTab> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'paid':
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-      case 'failed':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  // Helper function untuk warna status garansi
   Color _getWarrantyColor(String? warrantyStatus) {
     if (warrantyStatus == null) return Colors.grey;
 
@@ -1008,7 +906,8 @@ class _TasksTabState extends State<TasksTab> {
     }
   }
 
-  void _showJobDoneDialog(BuildContext context, TechnicianOrder order) {
+  // ===== PERBAIKAN: Ganti nama method dan logika =====
+  void _showCompletionDialog(BuildContext context, TechnicianOrder order) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1020,16 +919,12 @@ class _TasksTabState extends State<TasksTab> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.check_circle,
-                size: 64,
-                color: Colors.green,
-              ),
+              Icon(Icons.check_circle, size: 64, color: Colors.green),
               const SizedBox(height: 16),
               Text(
-                'Kerja Bagus!',
+                'Konfirmasi Penyelesaian',
                 style: GoogleFonts.poppins(
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.green,
                 ),
@@ -1037,9 +932,11 @@ class _TasksTabState extends State<TasksTab> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Pekerjaan Telah Diselesaikan',
+                order.status == OrderStatus.pickingParts
+                    ? 'Apakah suku cadang sudah diambil dan dipasang?'
+                    : 'Apakah pekerjaan sudah selesai dikerjakan?',
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: 14,
                   color: Colors.grey.shade600,
                 ),
                 textAlign: TextAlign.center,
@@ -1047,31 +944,47 @@ class _TasksTabState extends State<TasksTab> {
             ],
           ),
           actions: [
-            Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // Close dialog
-                  // Stop location tracking if it was active
-                  _stopLocationTracking();
-                  // Update status to jobDone
-                  widget.onUpdateStatus(order, OrderStatus.jobDone);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'Batal',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-                child: Text(
-                  'OK',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _stopLocationTracking();
+                      // UPDATE KE COMPLETED
+                      widget.onUpdateStatus(order, OrderStatus.completed);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Ya, Selesai',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         );

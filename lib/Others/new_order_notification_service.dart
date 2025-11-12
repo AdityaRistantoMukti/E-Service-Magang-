@@ -2,14 +2,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:e_service/config/api_config.dart';
 
 class NewOrderNotificationService {
   static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   static const String _newOrderNotificationKey = 'new_order_notifications_sent';
-  // static const String baseUrl = 'http://192.168.1.6:8000/api';
-  static const String baseUrl = 'http://192.168.1.6:8000/api';
+  // Base URL is now configurable in ApiConfig
+  static String get baseUrl => ApiConfig.apiBaseUrl;
 
   static Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:e_service/Auth/login.dart';
 import 'package:e_service/Home/Home.dart';
 import 'package:e_service/Others/birthday_notification_service.dart';
 import 'package:e_service/Teknisi/teknisi_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:video_player/video_player.dart';
 import 'Others/session_manager.dart';
 
 void main() async {
@@ -74,60 +76,47 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _circleAnimation;
-  late Animation<double> _logoAnimation;
+class _SplashScreenState extends State<SplashScreen> {
+  late VideoPlayerController _controller;
+  bool _isVideoInitialized = false;
 
   @override
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    );
-
-    _circleAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.8, curve: Curves.easeInOutCubic),
-    );
-
-    _logoAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack),
-    );
-
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            BirthdayNotificationService.scheduleDailyBirthdayCheck();
-
-            if (widget.isLoggedIn) {
-              Widget nextPage;
-              if (widget.role == 'karyawan') {
-                nextPage = const TeknisiHomePage();
-              } else {
-                nextPage = const HomePage();
-              }
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => nextPage),
-              );
-            } else {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            }
-          }
+    _controller = VideoPlayerController.asset('assets/video/splash_screen.mp4')
+      ..initialize().then((_) {
+        setState(() {
+          _isVideoInitialized = true;
         });
-      }
-    });
+        _controller.play();
+        _controller.setLooping(false);
+      });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.forward();
-    });
+    // Navigate after 5 seconds regardless of video duration
+    Timer(const Duration(seconds: 5), _navigateToNextScreen);
+  }
+
+  void _navigateToNextScreen() {
+    if (mounted) {
+      BirthdayNotificationService.scheduleDailyBirthdayCheck();
+
+      if (widget.isLoggedIn) {
+        Widget nextPage;
+        if (widget.role == 'karyawan') {
+          nextPage = const TeknisiHomePage();
+        } else {
+          nextPage = const HomePage();
+        }
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => nextPage),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
+    }
   }
 
   @override
@@ -138,51 +127,19 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isLandscape = screenSize.width > screenSize.height;
-
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final circleValue = _circleAnimation.value;
-          final logoVisible = _logoAnimation.value > 0.01;
-
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(color: Colors.white),
-              CustomPaint(
-                painter: CircleRevealPainter(circleValue),
-                child: Container(),
-              ),
-              if (logoVisible)
-                Center(
-                  child: Opacity(
-                    opacity: _logoAnimation.value.clamp(0.0, 1.0),
-                    child: Transform.scale(
-                      scale: _logoAnimation.value.clamp(0.0, 1.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Image.asset(
-                            'assets/image/logo.png',
-                            width: isLandscape
-                                ? screenSize.width * 0.15
-                                : screenSize.width * 0.4,
-                            height: isLandscape
-                                ? screenSize.height * 0.2
-                                : screenSize.height * 0.15,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+      body: _isVideoInitialized
+          ? SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _controller.value.size.width,
+                  height: _controller.value.size.height,
+                  child: VideoPlayer(_controller),
                 ),
-            ],
-          );
-        },
-      ),
+              ),
+            )
+          : Container(color: Colors.white), // Placeholder while video loads
     );
   }
 }

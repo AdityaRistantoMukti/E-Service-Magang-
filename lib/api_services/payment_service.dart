@@ -1,12 +1,22 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
+import '../Others/midtrans_webview.dart';
+
+import 'package:e_service/config/api_config.dart';
 
 class PaymentService {
-  // static const String baseUrl = 'http://192.168.1.6:8000/api';
-  static const String baseUrl = 'http://192.168.1.6:8000/api';
-  static const String midtransClientKey = 'Mid-client-yKTO-_jT2d60u3M1';
+  // Environment Configuration
+  static const bool _isProduction = false; // Set to true for production
+
+  // Midtrans Configuration
+  static const String _devClientKey = 'Mid-client-yKTO-_jT2d60u3M1';
+  static const String _prodClientKey = 'YOUR_PRODUCTION_CLIENT_KEY'; // Update with production key
+
+  // Dynamic URLs based on environment
+  static String get baseUrl => ApiConfig.apiBaseUrl;
+  static String get webhookUrl => ApiConfig.webhookBaseUrl;
+  static String get midtransClientKey => _isProduction ? _prodClientKey : _devClientKey;
 
   /// 🔹 Buat transaksi ke backend
   static Future<Map<String, dynamic>> createPayment({
@@ -44,6 +54,8 @@ class PaymentService {
             'name': 'Service Repair',
           }
         ],
+        // Production-ready: Include webhook URL for real-time notifications
+        if (_isProduction) 'notification_url': webhookUrl,
       };
 
       print('Payment request to: $url');
@@ -71,7 +83,7 @@ class PaymentService {
     }
   }
 
-  /// 🔹 Jalankan UI pembayaran Midtrans menggunakan redirect_url
+  /// 🔹 Jalankan UI pembayaran Midtrans menggunakan WebView
   static Future<void> startMidtransPayment({
     required BuildContext context,
     required String orderId,
@@ -101,19 +113,20 @@ class PaymentService {
 
       final redirectUrl = paymentData['redirect_url'];
 
-      // Buka URL menggunakan url_launcher
-      if (await canLaunchUrl(Uri.parse(redirectUrl))) {
-        await launchUrl(
-          Uri.parse(redirectUrl),
-          mode: LaunchMode.externalApplication, // Buka di browser eksternal
+      // Tampilkan WebView dialog
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => MidtransWebView(
+            redirectUrl: redirectUrl,
+            orderId: orderId,
+            onTransactionFinished: (result) {
+              Navigator.of(dialogContext).pop(); // Close dialog
+              onTransactionFinished(result);
+            },
+          ),
         );
-
-        // Untuk simulasi callback, kita bisa polling status atau menggunakan deep link
-        // Untuk sekarang, kita akan memanggil callback dengan status 'pending'
-        // Dalam implementasi nyata, Anda perlu menangani callback dari Midtrans
-        onTransactionFinished('pending');
-      } else {
-        throw Exception('Tidak dapat membuka URL pembayaran');
       }
 
     } catch (e) {

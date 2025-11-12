@@ -7,6 +7,7 @@ import 'package:e_service/api_services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'regist.dart';
+import 'package:e_service/utils/password_utils.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -230,9 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 if (result['success']) {
                                   final user = result['user'];
                                   final role = result['role'] ?? 'customer';
-                                  final poin =
-                                      int.tryParse(user['cos_poin'].toString()) ??
-                                          0;
+                                  final poin = int.tryParse(user['cos_poin'].toString()) ?? 0;
 
                                   // Simpan session dengan role
                                   await SessionManager.saveUserSession(
@@ -252,9 +251,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                     nextPage = const HomePage(isFreshLogin: true);
                                   }
 
-                                  Navigator.pushReplacement(
+                                  Navigator.pushAndRemoveUntil(
                                     context,
                                     MaterialPageRoute(builder: (context) => nextPage),
+                                    (route) => false,
                                   );
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(

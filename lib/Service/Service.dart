@@ -40,14 +40,14 @@ class _ServicePageState extends State<ServicePage> {
       final ongoingOrders = <dynamic>[];
 
       for (final order in allOrders) {
-        final status = order['status']?.toString().toLowerCase() ?? '';
+        final status = order['trans_status']?.toString().toLowerCase() ?? '';
         if (status == 'pending' || status == 'approved' || status == 'in_progress' || status == 'on_the_way') {
           ongoingOrders.add(order);
         }
       }
 
       setState(() {
-        ongoingTransKodes = ongoingOrders.map((o) => (o['order_id'] ?? o['id']) as String).toList();
+        ongoingTransKodes = ongoingOrders.map((o) => (o['trans_kode'] ?? o['id']) as String).toList();
       });
     } catch (e) {
       print('Error loading ongoing orders: $e');
@@ -100,7 +100,7 @@ class _ServicePageState extends State<ServicePage> {
         return;
       }
       final order = orderList.first;
-      final status = order['status']?.toString().toLowerCase() ?? '';
+      final status = order['trans_status']?.toString().toLowerCase() ?? '';
       final orderCosKode = order['cos_kode']?.toString();
       if (orderCosKode != currentUserId) {
         ScaffoldMessenger.of(context).showSnackBar(

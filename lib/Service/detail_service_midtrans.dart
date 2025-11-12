@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'tracking_driver.dart';
+import '../api_services/unified_payment_service.dart';
 import '../api_services/payment_service.dart';
 import '../Others/session_manager.dart';
 import '../api_services/api_service.dart';
@@ -361,11 +362,19 @@ class _DetailServiceMidtransPageState
         return;
       }
 
-      await PaymentService.startMidtransPayment(
+      // Create service payment data
+      final serviceData = UnifiedPaymentService.createServicePaymentData(
+        serviceType: widget.serviceType,
+        items: widget.items,
+        amount: widget.jumlahBarang * 1,
+      );
+
+      await UnifiedPaymentService.startUnifiedPayment(
         context: context,
+        paymentType: PaymentType.service,
         orderId: 'order_${DateTime.now().millisecondsSinceEpoch}',
         amount: widget.jumlahBarang * 1,
-        customerId: customerId, // 🔹 Tambahkan customerId
+        customerId: customerId,
         customerName: widget.nama,
         customerEmail: '${widget.nama.replaceAll(' ', '').toLowerCase()}@example.com',
         customerPhone: selectedAddress != null ? selectedAddress!['hp'] ?? '08123456789' : '08123456789',
@@ -375,26 +384,23 @@ class _DetailServiceMidtransPageState
           'quantity': 1,
           'name': 'Service ${item['merek']} ${item['device']}',
         }).toList(),
-        onTransactionFinished: (result) {
+        serviceData: serviceData,
+        onSuccess: (orderId) {
           // Close loading
           Navigator.of(context, rootNavigator: true).pop();
-
-          // 🔹 Debug: print result details (HANYA status!)
-          print('Payment Result - Status: $result');
-
-          // 🔹 Cek apakah transaksi sukses menggunakan helper method
-          if (PaymentService.isTransactionSuccess(result)) {
-            _onPaymentSuccess();
-          } else {
-            // Tampilkan pesan error
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(PaymentService.getStatusMessage(result)),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
+          _onPaymentSuccess();
+        },
+        onFailure: (errorMessage) {
+          // Close loading
+          Navigator.of(context, rootNavigator: true).pop();
+          // Tampilkan pesan error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
         },
       );
     } catch (e) {
@@ -499,11 +505,19 @@ class _DetailServiceMidtransPageState
               return;
             }
 
-            await PaymentService.startMidtransPayment(
+            // Create service payment data
+            final serviceData = UnifiedPaymentService.createServicePaymentData(
+              serviceType: widget.serviceType,
+              items: widget.items,
+              amount: widget.jumlahBarang * 1,
+            );
+
+            await UnifiedPaymentService.startUnifiedPayment(
               context: context,
+              paymentType: PaymentType.service,
               orderId: 'order_${DateTime.now().millisecondsSinceEpoch}',
               amount: widget.jumlahBarang * 1,
-              customerId: customerId, // 🔹 Tambahkan customerId
+              customerId: customerId,
               customerName: widget.nama,
               customerEmail: '${widget.nama.replaceAll(' ', '').toLowerCase()}@example.com',
               customerPhone: selectedAddress != null ? selectedAddress!['hp'] ?? '08123456789' : '08123456789',
@@ -513,26 +527,23 @@ class _DetailServiceMidtransPageState
                 'quantity': 1,
                 'name': 'Service ${item['merek']} ${item['device']}',
               }).toList(),
-              onTransactionFinished: (result) {
+              serviceData: serviceData,
+              onSuccess: (orderId) {
                 // Close loading
                 Navigator.of(context, rootNavigator: true).pop();
-
-                // 🔹 Debug: print result details (HANYA status!)
-                print('Payment Result - Status: $result');
-
-                // 🔹 Cek apakah transaksi sukses menggunakan helper method
-                if (PaymentService.isTransactionSuccess(result)) {
-                  _onPaymentSuccess();
-                } else {
-                  // Tampilkan pesan error
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(PaymentService.getStatusMessage(result)),
-                      backgroundColor: Colors.orange,
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                }
+                _onPaymentSuccess();
+              },
+              onFailure: (errorMessage) {
+                // Close loading
+                Navigator.of(context, rootNavigator: true).pop();
+                // Tampilkan pesan error
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(errorMessage),
+                    backgroundColor: Colors.orange,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
               },
             );
           } catch (e) {
@@ -628,7 +639,7 @@ class _DetailServiceMidtransPageState
 
     // Set selected payment method
     setState(() {
-      selectedPaymentMethod = "Midtrans Payment";
+      selectedPaymentMethod = "Lakukan Pembayaran";
     });
 
     // Complete order

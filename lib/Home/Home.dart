@@ -1,32 +1,36 @@
-  import 'dart:convert';
-  import 'dart:async';
-  import 'package:cached_network_image/cached_network_image.dart';
-  import 'package:e_service/Beli/detail_produk.dart';
-  import 'package:e_service/Beli/shop.dart';
-  import 'package:e_service/Others/informasi.dart';
-  import 'package:e_service/Others/notifikasi.dart';
-  import 'package:e_service/Others/notification_service.dart';
+import 'dart:convert';
+import 'dart:async';
+import 'dart:math';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:e_service/Beli/detail_produk.dart';
+import 'package:flutter/foundation.dart';
+import 'package:e_service/Beli/shop.dart' as shop;
+import 'package:e_service/utils/product_cache.dart';
+import 'package:e_service/Others/informasi.dart';
+import 'package:e_service/Others/notifikasi.dart';
+import 'package:e_service/Others/notification_service.dart';
 import 'package:e_service/Others/session_manager.dart';
 import 'package:e_service/Others/tier_utils.dart';
 import 'package:e_service/Others/user_point_data.dart';
-  import 'package:e_service/Profile/profile.dart';
-  import 'package:e_service/Promo/promo.dart';
-  import 'package:e_service/Service/Service.dart';
-  import 'package:e_service/api_services/api_service.dart';
-  import 'package:e_service/api_services/payment_service.dart';
+import 'package:e_service/Profile/profile.dart';
+import 'package:e_service/Promo/promo.dart';
+import 'package:e_service/Service/Service.dart';
+import 'package:e_service/api_services/api_service.dart';
+import 'package:e_service/api_services/payment_service.dart';
 import 'package:e_service/artikel/cek_garansi.dart';
 import 'package:e_service/artikel/kebersihan_alat.dart';
 import 'package:e_service/artikel/poin_info.dart';
 import 'package:e_service/artikel/tips.dart';
-  import 'package:e_service/models/notification_model.dart';
-  import 'package:flutter/material.dart';
-  import 'package:flutter/scheduler.dart';
+import 'package:e_service/config/api_config.dart';
+import 'package:e_service/models/notification_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-  import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-  import 'package:google_fonts/google_fonts.dart';
-  import 'package:intl/intl.dart';
-  import 'package:midtrans_sdk/midtrans_sdk.dart';
-  import 'package:shimmer/shimmer.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:midtrans_sdk/midtrans_sdk.dart';
+import 'package:shimmer/shimmer.dart';
 
 
 
@@ -45,30 +49,48 @@ import 'package:flutter/services.dart';
     bool isLoading = true;
     List<dynamic> produkList = [];
     bool isProductLoading = true;
+    
+    // Store generated values untuk mencegah regenerasi
+    Map<int, int> _productSoldCounts = {};
+    Map<int, double> _productRatings = {};
 
     // non-nullable controller & timer (dijamin diinisialisasi di initState)
     late final PageController _pageController;
     int _currentBannerIndex = 1;
     late final Timer _bannerTimer;
     late final AnimationController _animationController;
-
+    late final AnimationController _scaleAnimationController;
+    late Animation<double> _scaleAnimation;
   
-    @override
-    void initState() {
-      super.initState();
-      _pageController = PageController(
-        viewportFraction: 0.85,
-        initialPage: 1, // mulai dari array ke-2
-      );
-      _pageController.addListener(_onPageChanged);
-      _startBannerTimer();
-      _animationController = AnimationController(
-        duration: const Duration(milliseconds: 300),
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(
+      viewportFraction: 0.85,
+      initialPage: 1, // mulai dari array ke-2
+    );
+    _pageController.addListener(_onPageChanged);
+    _startBannerTimer();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    // Initialize scale animation for product cards
+    _scaleAnimationController = AnimationController(
+        duration: const Duration(milliseconds: 200),
         vsync: this,
       );
+      _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+        CurvedAnimation(
+          parent: _scaleAnimationController,
+          curve: Curves.easeInOut,
+        ),
+      );
+
       _loadUserData();
-      _loadProducts();
       UserPointData.loadUserPoints();
+      _loadProducts();
     }
 
 
@@ -82,9 +104,49 @@ import 'package:flutter/services.dart';
       _pageController.dispose();
       _bannerTimer.cancel();
       _animationController.dispose();
+      _scaleAnimationController.dispose();
       super.dispose();
     }
 
+     // Generate nilai terjual sekali saja untuk setiap produk
+    int _getSoldCount(int index) {
+      if (!_productSoldCounts.containsKey(index)) {
+        final random = Random();
+        _productSoldCounts[index] = 10 + random.nextInt(90); // 10-99 terjual
+      }
+      return _productSoldCounts[index]!;
+    }
+    
+  // Generate rating sekali saja untuk setiap produk
+  double _getProductRating(int index) {
+    if (!_productRatings.containsKey(index)) {
+      final random = Random();
+      _productRatings[index] = 4.0 + (random.nextDouble() * 1.0); // 4.0-5.0
+    }
+    return _productRatings[index]!;
+  }
+
+    // Helper untuk generate badge status
+  String? _getProductBadge(int index) {
+    if (index == 0) return 'HOT';
+    if (index < 3) return 'BEST SELLER';
+    if (index < 5) return 'NEW';
+    return null;
+  }
+
+    // Helper untuk get badge color
+  Color _getBadgeColor(String? badge) {
+    switch (badge) {
+      case 'HOT':
+        return Colors.red;
+      case 'BEST SELLER':
+        return Colors.orange;
+      case 'NEW':
+        return Colors.green;
+      default:
+        return Colors.blue;
+    }
+  }
     // =======================
     // 🔹 MIDTRANS INIT - REMOVED
     // =======================
@@ -98,7 +160,7 @@ import 'package:flutter/services.dart';
       if (gambarField == null) return '';
 
       if (gambarField is List && gambarField.isNotEmpty) {
-        return 'http://192.168.1.6:8000/storage/${gambarField.first}';
+        return '${ApiConfig.storageBaseUrl}${gambarField.first}';
       }
 
       if (gambarField is String && gambarField.isNotEmpty) {
@@ -106,11 +168,11 @@ import 'package:flutter/services.dart';
           if (gambarField.contains('[')) {
             final List list = List<String>.from(jsonDecode(gambarField));
             if (list.isNotEmpty) {
-              return 'http://192.168.1.6:8000/storage/${list.first}';
+              return '${ApiConfig.storageBaseUrl}${list.first}';
             }
           }
         } catch (_) {}
-        return 'http://192.168.1.6:8000/storage/$gambarField';
+        return '${ApiConfig.storageBaseUrl}$gambarField';
       }
 
       return '';
@@ -174,15 +236,31 @@ import 'package:flutter/services.dart';
 
     Future<void> _loadProducts() async {
       try {
-        final data = await ApiService.getProduk();
-        final filtered = data.where((p) {
-          final gambar = p['gambar']?.toString().trim() ?? '';
-          return gambar.isNotEmpty;
-        }).toList();
-        setState(() {
-          produkList = filtered;
-          isProductLoading = false;
-        });
+        // Check if products are already cached from shop.dart
+        if (ProductCache.productsLoaded && ProductCache.cachedProdukList.isNotEmpty) {
+          // Use cached products
+          final filtered = ProductCache.cachedProdukList.where((p) {
+            final gambar = p['gambar']?.toString().trim() ?? '';
+            return gambar.isNotEmpty;
+          }).toList();
+          setState(() {
+            produkList = filtered;
+            isProductLoading = false;
+          });
+        } else {
+          // Load products fresh and cache them
+          final data = await ApiService.getProduk();
+          final filtered = data.where((p) {
+            final gambar = p['gambar']?.toString().trim() ?? '';
+            return gambar.isNotEmpty;
+          }).toList();
+          setState(() {
+            produkList = filtered;
+            isProductLoading = false;
+          });
+          // Also cache for shop.dart
+          ProductCache.setProducts(filtered);
+        }
       } catch (e) {
         setState(() => isProductLoading = false);
       }
@@ -213,91 +291,101 @@ import 'package:flutter/services.dart';
     curve: Curves.easeOutBack,
   );
 
-  overlayEntry = OverlayEntry(
-    builder: (context) {
-      return Positioned(
-        top: MediaQuery.of(context).padding.top + 20,
-        left: 16,
-        right: 16,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, -1.2), // muncul dari atas
-            end: Offset.zero,
-          ).animate(curvedAnimation),
-          child: FadeTransition(
-            opacity: curvedAnimation,
-child: GestureDetector(
-onHorizontalDragEnd: (DragEndDetails details) {
-if (details.velocity.pixelsPerSecond.dx.abs() > 200) {
-HapticFeedback.lightImpact();
-animationController.reverse().then((_) {
-overlayEntry.remove();
-});
-}
-},
-child: Material(
-color: Colors.transparent,
-child: AnimatedContainer(
-duration: const Duration(milliseconds: 500),
-curve: Curves.easeInOut,
-padding: const EdgeInsets.all(16),
-decoration: BoxDecoration(
-color: Colors.green.shade600,
-borderRadius: BorderRadius.circular(14),
-boxShadow: [
-BoxShadow(
-color: Colors.black.withOpacity(0.25),
-blurRadius: 10,
-offset: const Offset(0, 5),
-),
-],
-),
-child: Row(
-crossAxisAlignment: CrossAxisAlignment.center,
-children: [
-const Icon(Icons.waving_hand, color: Colors.white, size: 28),
-const SizedBox(width: 12),
-Expanded(
-child: Column(
-crossAxisAlignment: CrossAxisAlignment.start,
-mainAxisSize: MainAxisSize.min,
-children: [
-Text(
-'Welcome!',
-style: GoogleFonts.poppins(
-color: Colors.white,
-fontWeight: FontWeight.bold,
-fontSize: 16,
-),
-),
-Text(
-'Halooo, $nama 👋',
-style: GoogleFonts.poppins(
-color: Colors.white.withOpacity(0.9),
-fontSize: 13,
-),
-),
-],
-),
-),
-GestureDetector(
-onTap: () {
-animationController.reverse().then((_) {
-overlayEntry.remove();
-});
-},
-child: const Icon(Icons.close, color: Colors.white, size: 20),
-),
-],
-),
-),
-),
-),
+  
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        return Positioned(
+          top: MediaQuery.of(context).padding.top + 20,
+          left: 16,
+          right: 16,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -1.2),
+              end: Offset.zero,
+            ).animate(curvedAnimation),
+            child: FadeTransition(
+              opacity: curvedAnimation,
+              child: GestureDetector(
+                onHorizontalDragEnd: (DragEndDetails details) {
+                  if (details.velocity.pixelsPerSecond.dx.abs() > 200) {
+                    HapticFeedback.lightImpact();
+                    animationController.reverse().then((_) {
+                      overlayEntry.remove();
+                    });
+                  }
+                },
+                child: Material(
+                  color: Colors.transparent,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade600,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.waving_hand,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Welcome!',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                'Halooo, $nama 👋',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            animationController.reverse().then((_) {
+                              overlayEntry.remove();
+                            });
+                          },
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
+
 
   Overlay.of(context).insert(overlayEntry);
 
@@ -515,7 +603,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
               const SizedBox(height: 12),
               SizedBox(
                 height: 240,
-                child: isProductLoading ? _buildProductShimmer() : produkList.isEmpty ? const Center(child: Text("Tidak ada produk dengan gambar")) : _buildProductList(),
+                child: isProductLoading ? _buildProductShimmer() : produkList.isEmpty ? const Center(child: Text("Tidak ada produk dengan gambar")) : _buildEnhancedProductList(),
               ),
             ],
           ),
@@ -526,7 +614,7 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
             if (index == 0) {
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ServicePage()));
             } else if (index == 1) {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MarketplacePage()));
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const shop.MarketplacePage()));
             } else if (index == 3) {
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const TukarPoinPage()));
             } else if (index == 4) {
@@ -643,11 +731,11 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
                       borderRadius: BorderRadius.circular(10),
                       child: (foto != null && foto.toString().isNotEmpty)
                           ? Image.network(
-                              "http://192.168.1.6:8000/storage/$foto",
+                              "${ApiConfig.storageBaseUrl}$foto",
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
-                                  
+
                                   child: Icon(
                                     Icons.person,
                                     size: 36,
@@ -758,57 +846,489 @@ child: const Icon(Icons.close, color: Colors.white, size: 20),
 
 
 
-    Widget _buildShimmerMemberCard() => Shimmer.fromColors(baseColor: Colors.grey[300]!, highlightColor: Colors.grey[100]!, child: Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(16)), child: Row(children: [Container(width: 60, height: 60, color: Colors.grey[400]), const SizedBox(width: 16), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(width: 100, height: 16, color: Colors.grey[400]), const SizedBox(height: 4), Container(width: 50, height: 14, color: Colors.grey[400])])])));
+    Widget _buildShimmerMemberCard() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 100, height: 16, color: Colors.grey[400]),
+                const SizedBox(height: 4),
+                Container(width: 50, height: 14, color: Colors.grey[400]),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    Widget _buildProductShimmer() => ListView.builder(scrollDirection: Axis.horizontal, itemCount: 3, itemBuilder: (context, index) => Container(width: 160, margin: const EdgeInsets.only(right: 12), child: Shimmer.fromColors(baseColor: Colors.grey[300]!, highlightColor: Colors.grey[100]!, child: Container(decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(12))))));
 
-    Widget _buildProductList() => ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: produkList.length,
-          itemBuilder: (context, index) {
-            final produk = produkList[index];
-            final nama = produk['nama_produk'] ?? 'Produk';
-            final harga = produk['harga'] ?? 0;
-            final rating = produk['rating'] ?? 0;
-            final terjual = produk['terjual'] ?? 0;
-            final imageProvider = getImageProvider(produk['gambar']);
-
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => DetailProdukPage(produk: produk)));
-              },
+    
+  Widget _buildProductShimmer() {
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: 3,
+      itemBuilder:
+          (context, index) => Container(
+            width: 180,
+            margin: const EdgeInsets.only(right: 12),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey[300]!,
+              highlightColor: Colors.grey[100]!,
               child: Container(
-                width: 160,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(2, 3))]),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 110,
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        color: Colors.grey[300],
-                        image: imageProvider != null ? DecorationImage(image: imageProvider, fit: BoxFit.cover) : null,
-                      ),
-                      child: imageProvider == null ? const Center(child: Icon(Icons.image_outlined, color: Colors.white70, size: 36)) : null,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(nama, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
-                        const SizedBox(height: 4),
-                        Text(formatRupiah(harga), style: GoogleFonts.poppins(color: Colors.red.shade700, fontWeight: FontWeight.w500, fontSize: 13)),
-                        const SizedBox(height: 4),
-                        Row(children: [const Icon(Icons.star, color: Colors.amber, size: 14), const SizedBox(width: 4), Text('$rating | $terjual terjual', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade700))]),
-                      ]),
-                    ),
-                  ],
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-            );
-          },
-        );
+            ),
+          ),
+    );
+  }
+  
+  // Enhanced Product Card - Tanpa diskon
+  Widget _buildImageWithFallback(
+    dynamic gambarField,
+    double height,
+    BoxFit fit,
+    BorderRadius borderRadius, {
+    int currentIndex = 0,
+  }) {
+    print('🖼️ [IMAGE] Building image with gambarField: $gambarField (type: ${gambarField.runtimeType})');
+
+    // Cek apakah gambarField null atau empty
+    if (gambarField == null || (gambarField is String && gambarField.isEmpty)) {
+      print('🖼️ [IMAGE] gambarField is null or empty, showing fallback');
+      return _buildFallbackImageContainer(height, borderRadius);
     }
+
+    String imageUrl = '';
+
+    // Prioritas: gunakan gambar_url jika tersedia (dari accessor backend)
+    if (gambarField is Map && gambarField.containsKey('gambar_url')) {
+      final gambarUrlField = gambarField['gambar_url'];
+      print('🖼️ [IMAGE] Found gambar_url in map: $gambarUrlField');
+
+      if (gambarUrlField is List && gambarUrlField.isNotEmpty) {
+        // Jika array URL dari backend
+        if (currentIndex < gambarUrlField.length) {
+          imageUrl = gambarUrlField[currentIndex].toString();
+        } else {
+          imageUrl = gambarUrlField[0].toString();
+        }
+      } else if (gambarUrlField is String && gambarUrlField.isNotEmpty) {
+        // Jika single URL string
+        imageUrl = gambarUrlField;
+      } else {
+        // Fallback ke field gambar biasa
+        final gambarBiasa = gambarField['gambar'];
+        if (gambarBiasa != null) {
+          return _buildImageWithFallback(gambarBiasa, height, fit, borderRadius, currentIndex: currentIndex);
+        }
+        return _buildFallbackImageContainer(height, borderRadius);
+      }
+    }
+    // Jika gambarField adalah array (dari gambar_url accessor)
+    else if (gambarField is List && gambarField.isNotEmpty) {
+      print('🖼️ [IMAGE] gambarField is List with ${gambarField.length} items');
+      // Jika array, ambil index yang diminta
+      if (currentIndex < gambarField.length) {
+        imageUrl = gambarField[currentIndex].toString();
+      } else {
+        imageUrl = gambarField[0].toString();
+      }
+    }
+    // Jika gambarField adalah string (URL lengkap atau path)
+    else if (gambarField is String && gambarField.isNotEmpty) {
+      print('🖼️ [IMAGE] gambarField is String: $gambarField');
+
+      // Check if string contains multiple URLs separated by commas
+      if (gambarField.contains(',')) {
+        final urlList = gambarField.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        print('🖼️ [IMAGE] String contains commas, split into ${urlList.length} URLs');
+        if (urlList.isNotEmpty) {
+          if (currentIndex < urlList.length) {
+            imageUrl = urlList[currentIndex];
+          } else {
+            imageUrl = urlList[0];
+          }
+        } else {
+          return _buildFallbackImageContainer(height, borderRadius);
+        }
+      } else {
+        imageUrl = gambarField;
+      }
+
+      // Jika belum lengkap, tambahkan base URL
+      if (!imageUrl.startsWith('http')) {
+        if (imageUrl.contains('assets/image/')) {
+          imageUrl = ApiConfig.storageBaseUrl + imageUrl;
+        } else {
+          imageUrl = ApiConfig.storageBaseUrl + 'assets/image/' + imageUrl;
+        }
+        print('🖼️ [IMAGE] Added base URL, final URL: $imageUrl');
+      } else {
+        print('🖼️ [IMAGE] URL already complete: $imageUrl');
+      }
+    } else {
+      print('🖼️ [IMAGE] gambarField type not recognized, showing fallback');
+      return _buildFallbackImageContainer(height, borderRadius);
+    }
+
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: fit,
+        height: height,
+        width: double.infinity,
+        placeholder: (context, url) => Container(
+          height: height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.grey.shade100, Colors.grey.shade200],
+            ),
+          ),
+          child: Center(
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey.shade200,
+              highlightColor: Colors.grey.shade50,
+              child: Container(
+                height: height,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: borderRadius,
+                ),
+              ),
+            ),
+          ),
+        ),
+        errorWidget: (context, error, stackTrace) {
+          print('❌ [IMAGE] Error loading image: $error');
+          print('❌ [IMAGE] Failed URL: $imageUrl');
+
+          // Jika gambarField adalah array dan masih ada gambar lain, coba gambar berikutnya
+          if (gambarField is List && currentIndex + 1 < gambarField.length) {
+            print('🔄 [IMAGE] Trying next image in array');
+            return _buildImageWithFallback(
+              gambarField,
+              height,
+              fit,
+              borderRadius,
+              currentIndex: currentIndex + 1,
+            );
+          }
+
+          return _buildFallbackImageContainer(height, borderRadius);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFallbackImageContainer(double height, BorderRadius borderRadius) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.grey.shade200, Colors.grey.shade300],
+        ),
+        borderRadius: borderRadius,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image_not_supported_outlined,
+              color: Colors.grey.shade400, size: 40),
+          const SizedBox(height: 4),
+          Text('No Image',
+              style: GoogleFonts.poppins(
+                  fontSize: 10, color: Colors.grey.shade500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedProductCard({
+    required Map<String, dynamic> produk,
+    required int index,
+  }) {
+    final nama = produk['nama_produk'] ?? 'Produk';
+    final harga = produk['harga'] ?? 0;
+    final rating = _getProductRating(index);
+    final terjual = _getSoldCount(index);
+    final badge = _getProductBadge(index);
+
+    // Get screen size for responsive design
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Responsive dimensions - adjust for better fit
+    final cardWidth = screenWidth * 0.42; // Slightly smaller: 42% of screen width
+    final imageHeight = cardWidth * 0.7; // Adjusted aspect ratio for image
+    final contentHeight = 100.0; // Fixed content height to prevent overflow
+    final cardHeight = imageHeight + contentHeight; // Total card height
+
+    // Responsive text sizes
+    final titleFontSize = screenWidth < 360 ? 11.0 : 12.0;
+    final priceFontSize = screenWidth < 360 ? 12.0 : 13.0;
+    final ratingFontSize = screenWidth < 360 ? 9.0 : 10.0;
+    final soldFontSize = screenWidth < 360 ? 9.0 : 10.0;
+
+    return GestureDetector(
+      onTapDown: (_) => _scaleAnimationController.forward(),
+      onTapUp: (_) => _scaleAnimationController.reverse(),
+      onTapCancel: () => _scaleAnimationController.reverse(),
+      onTap: () {
+        _scaleAnimationController.reverse();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailProdukPage(produk: produk),
+          ),
+        );
+      },
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              width: cardWidth,
+              height: cardHeight,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image Container with Badges
+                  Stack(
+                    children: [
+                      Container(
+                        height: imageHeight,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.grey.shade50, Colors.white],
+                          ),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6.0),
+                          child: _buildImageWithFallback(
+                            produk['gambar'],
+                            imageHeight - 12, // Subtract padding
+                            BoxFit.contain,
+                            BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+
+                      // Badge
+                      if (badge != null)
+                        Positioned(
+                          top: 4,
+                          left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  _getBadgeColor(badge),
+                                  _getBadgeColor(badge).withOpacity(0.8),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _getBadgeColor(badge).withOpacity(0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              badge,
+                              style: GoogleFonts.poppins(
+                                fontSize: screenWidth < 360 ? 7 : 8,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  // Content - Flexible height to prevent overflow
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Product Name - Allow more flexible height
+                          Flexible(
+                            flex: 2,
+                            child: Text(
+                              nama,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[800],
+                                height: 1.1,
+                              ),
+                            ),
+                          ),
+
+                          // Price Section
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  formatRupiah(harga),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: priceFontSize,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Icon(
+                                  Icons.shopping_cart_outlined,
+                                  size: screenWidth < 360 ? 12 : 14,
+                                  color: Colors.blue[700],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Rating and Sold - Fixed height section
+                          SizedBox(
+                            height: 20, // Fixed height for rating/sold row
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber[50],
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.star,
+                                        size: screenWidth < 360 ? 8 : 10,
+                                        color: Colors.amber[600],
+                                      ),
+                                      const SizedBox(width: 1),
+                                      Text(
+                                        rating.toStringAsFixed(1),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: ratingFontSize,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    '$terjual terjual',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: soldFontSize,
+                                      color: Colors.grey[500],
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+   
+  // Enhanced Product List
+  Widget _buildEnhancedProductList() {
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: produkList.length,
+      itemBuilder: (context, index) {
+        final produk = Map<String, dynamic>.from(produkList[index]);
+        return _buildEnhancedProductCard(produk: produk, index: index);
+      },
+    );
+  }        
+}
 
 

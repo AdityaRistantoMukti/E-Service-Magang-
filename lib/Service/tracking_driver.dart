@@ -6,7 +6,10 @@ import 'package:e_service/Promo/promo.dart';
 import 'package:e_service/Service/Service.dart';
 import 'package:e_service/Service/detail_service_midtrans.dart';
 import 'package:e_service/api_services/api_service.dart';
+import 'package:e_service/api_services/unified_payment_service.dart';
+import 'package:e_service/Others/session_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart';
@@ -47,12 +50,11 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
   // Map
   LatLng? _userLocation;
-  LatLng? _driverLocation; // Start as null, will be set from database
-  final ValueNotifier<LatLng?> _driverLocationNotifier = ValueNotifier(null); // For real-time marker updates
+  LatLng? _driverLocation;
   LatLng? _previousDriverLocation;
   List<LatLng> _routePoints = [];
   final mapController = MapController();
-  String _driverIcon = 'motorcycle'; // Default icon
+  String _driverIcon = 'motorcycle';
   bool _isMapReady = false;
   bool _hasFittedBounds = false;
   bool _userHasInteracted = false;
@@ -72,6 +74,8 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   String _currentStatus = 'waiting';
   DateTime? _createdAt;
   DateTime? _updatedAt;
+  double? _totalCost; // Untuk menyimpan total biaya dari tindakan
+  double? _subtotalTindakan; // Subtotal dari tdkn_subtot
 
   static const _collapsedCount = 7;
 
@@ -79,13 +83,13 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   void initState() {
     super.initState();
     _loadOrderAddress();
-    _refreshStatus(); // initial fetch
+    _refreshStatus();
     _startStatusPolling();
   }
 
   @override
   void dispose() {
-    _stopLocationPolling(); // Ensure polling stops when page is closed
+    _stopLocationPolling();
     _statusPollingTimer?.cancel();
     _animationController?.dispose();
     super.dispose();
@@ -95,7 +99,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
   void _startLocationPolling() {
     _locationPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
-      // Stop polling if transaction is completed or cancelled
       if (_shouldStopPolling()) {
         _stopLocationPolling();
         return;
@@ -110,14 +113,13 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
             locationData['longitude'] != null) {
           final newLat = double.tryParse(locationData['latitude'].toString());
           final newLng = double.tryParse(locationData['longitude'].toString());
-          final icon = locationData['icon'] ?? 'motorcycle'; // Get icon from API, default to 'motorcycle'
+          final icon = locationData['icon'] ?? 'motorcycle';
           if (newLat != null && newLng != null) {
             final newLocation = LatLng(newLat, newLng);
             if (_driverLocation != newLocation) {
               print('📍 [TRACKING] Driver location changed from ${_driverLocation?.latitude ?? "null"},${_driverLocation?.longitude ?? "null"} to ${newLocation.latitude},${newLocation.longitude}');
               _previousDriverLocation = _driverLocation;
               _startDriverAnimation(newLocation);
-              // Center map on new driver location only if map is ready and user hasn't interacted
               if (_isMapReady && !_userHasInteracted) {
                 mapController.move(newLocation, 13);
               }
@@ -125,12 +127,10 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
             setState(() {
               _driverIcon = icon;
               _driverLocation = newLocation;
-              _driverLocationNotifier.value = newLocation;
             });
             if (_userLocation != null) await _getPolylineRoute();
-            // Fit bounds when driver location changes
             _fitBoundsToRoute();
-            _locationPollingRetryCount = 0; // Reset retry count on success
+            _locationPollingRetryCount = 0;
           }
         } else {
           _handleLocationPollingError('Invalid location data received: $locationData');
@@ -148,7 +148,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   }
 
   bool _shouldStopPolling() {
-    // Stop polling for completed, cancelled, or other final statuses
     final stopStatuses = ['completed', 'cancelled', 'cancel', 'failed', 'rejected'];
     return stopStatuses.contains(_currentStatus.toLowerCase());
   }
@@ -170,40 +169,54 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
     });
   }
 
-  // Ambil trans_status dari transaksi
+  // Ambil trans_status dari transaksi dan subtotal tindakan
   Future<void> _refreshStatus() async {
     if (widget.queueCode == null || widget.queueCode!.isEmpty) return;
     try {
       final detail = await ApiService.getOrderDetail(widget.queueCode!);
       if (detail == null) return;
 
-      // Normalisasi status ke lowercase + handle alias
       String status = (detail['trans_status'] ?? 'waiting').toString().toLowerCase().trim();
       status = _normalizeStatus(status);
 
-      // Ambil waktu dari backend jika ada
       final createdAtStr = (detail['created_at'] ?? detail['trans_tgl'] ?? detail['createdAt'])?.toString();
       final updatedAtStr = (detail['updated_at'] ?? detail['updatedAt'] ?? createdAtStr)?.toString();
       final createdAt = DateTime.tryParse(createdAtStr ?? '');
       final updatedAt = DateTime.tryParse(updatedAtStr ?? '');
 
+      // Ambil subtotal dari tindakan
+      double subtotal = 0.0;
+      try {
+        final tindakanList = await ApiService.getTindakanByTransKode(widget.queueCode!);
+        if (tindakanList != null && tindakanList.isNotEmpty) {
+          for (var tindakan in tindakanList) {
+            final tdknSubtot = tindakan['tdkn_subtot'];
+            if (tdknSubtot != null) {
+              subtotal += double.tryParse(tdknSubtot.toString()) ?? 0.0;
+            }
+          }
+        }
+      } catch (e) {
+        print('Error getting tindakan: $e');
+      }
+
       setState(() {
         _currentStatus = status;
         _createdAt = createdAt ?? DateTime.now().subtract(const Duration(hours: 2));
         _updatedAt = updatedAt ?? DateTime.now();
+        _subtotalTindakan = subtotal;
+        _totalCost = subtotal; // Set total cost sama dengan subtotal tindakan
         _timeline = _buildTimelineFromCurrentStatus(_currentStatus, _createdAt!, _updatedAt!);
       });
 
-      // Start/stop location polling based on status
       _updateLocationPollingForStatus(status);
     } catch (e) {
-      // ignore
+      print('Error refreshing status: $e');
     }
   }
 
   void _updateLocationPollingForStatus(String status) {
-    // Start polling when technician is active (enroute or later)
-    final activeStatuses = ['enroute', 'arrived', 'waitingapproval', 'pickingparts', 'repairing'];
+    final activeStatuses = ['enroute', 'arrived', 'waitingapproval', 'approved', 'waitingOrder', 'pickingparts', 'repairing'];
     final shouldPoll = activeStatuses.contains(status.toLowerCase());
 
     if (shouldPoll && _locationPollingTimer == null) {
@@ -213,7 +226,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       print('📍 Stopping location polling for inactive status: $status');
       _stopLocationPolling();
     } else if (shouldPoll && _locationPollingTimer != null) {
-      // If already polling for active status, ensure it's the correct transaction
       print('📍 Location polling already active for status: $status');
     }
   }
@@ -222,7 +234,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
   Future<void> _loadOrderAddress() async {
     if (widget.queueCode == null || widget.queueCode!.isEmpty) {
-      // If no queueCode, don't set any location
       return;
     }
     try {
@@ -230,7 +241,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       if (detail != null) {
         print('📍 [LOAD_ADDRESS] Order detail received: $detail');
 
-        // Try different field names for latitude/longitude first
         final latValue = detail['latitude'] ?? detail['lat'];
         final lngValue = detail['longitude'] ?? detail['lng'];
         print('📍 [LOAD_ADDRESS] Lat/Lng values: lat=$latValue, lng=$lngValue');
@@ -250,7 +260,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
           }
         }
 
-        // If no coordinates, try to geocode the address
         final address = detail['alamat'] ?? detail['address'] ?? detail['location'];
         final trimmedAddress = address?.toString().trim();
         print('📍 [LOAD_ADDRESS] Address for geocoding: "$trimmedAddress"');
@@ -272,7 +281,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   Future<void> _geocodeAddress(String address) async {
     print('🔍 [GEOCODING] Starting geocoding for address: "$address"');
     try {
-      // First try full address
       List<geocoding.Location> locations = await geocoding.locationFromAddress(address);
       if (locations.isNotEmpty) {
         final loc = locations.first;
@@ -288,7 +296,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       print('⚠️ [GEOCODING] Full address geocoding failed: $e');
     }
 
-    // Fallback: try simplified address (remove house number and specific details)
     try {
       final simplifiedAddress = _simplifyAddress(address);
       print('🔄 [GEOCODING] Trying simplified address: "$simplifiedAddress"');
@@ -307,9 +314,8 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       print('⚠️ [GEOCODING] Simplified address geocoding failed: $e');
     }
 
-    // Final fallback: use Jakarta coordinates as default
     print('❌ [GEOCODING] All geocoding attempts failed, using Jakarta as fallback');
-    const fallbackLatLng = LatLng(-6.2088, 106.8456); // Jakarta coordinates
+    const fallbackLatLng = LatLng(-6.2088, 106.8456);
     setState(() {
       _userLocation = fallbackLatLng;
     });
@@ -318,11 +324,8 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   }
 
   String _simplifyAddress(String address) {
-    // Remove house numbers, specific building names, etc.
-    // Keep main street, district, city, province
     final parts = address.split(',').map((s) => s.trim()).toList();
     if (parts.length >= 2) {
-      // Remove first part if it looks like a house number/street number
       if (parts[0].contains('No.') || parts[0].contains('Jl.') && parts[0].split(' ').length <= 3) {
         parts.removeAt(0);
       }
@@ -364,7 +367,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
             .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
             .toList();
       });
-      // Fit bounds after route is fetched
       _fitBoundsToRoute();
     } catch (e) {
       debugPrint("Gagal ambil rute: $e");
@@ -372,7 +374,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   }
 
   void _fitBoundsToRoute() {
-    // Don't fit bounds if user has interacted with the map
     if (_userHasInteracted) return;
 
     if (_routePoints.isEmpty && _userLocation == null && _driverLocation == null) return;
@@ -397,7 +398,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
     LatLngBounds bounds = LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng));
 
-    // Fit bounds with padding
     mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: EdgeInsets.all(50)));
   }
 
@@ -427,13 +427,14 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
 
   // ========================= Timeline builder =========================
 
-  // Urutan status (lowercase) – harus konsisten dengan yang dikirim teknisi
   final List<String> _orderedStatuses = const [
     'waiting',
     'accepted',
     'enroute',
     'arrived',
     'waitingapproval',
+    'approved',
+    'waitingOrder',
     'pickingparts',
     'repairing',
     'completed',
@@ -452,6 +453,10 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       case 'waitingapproval':
       case 'waitingapprovalstatus':
         return 'waitingapproval';
+      case 'approved':
+        return 'approved';
+      case 'waitingorder':
+        return 'waitingOrder';
       case 'pickingparts':
       case 'pickingpart':
       case 'picking_parts':
@@ -473,18 +478,21 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
         return _StatusMeta('Sampai Lokasi', 'Teknisi telah tiba di lokasi Anda.');
       case 'waitingapproval':
         return _StatusMeta('Menunggu Persetujuan', 'Temuan kerusakan menunggu persetujuan biaya/perbaikan.');
+      case 'approved':
+        return _StatusMeta('Persetujuan Diterima', 'Admin telah menyetujui tindakan perbaikan.');
+      case 'waitingorder':
+        return _StatusMeta('Sedang dalam Pengajuan Part', 'Pesanan sedang dalam pengajuan part.');
       case 'pickingparts':
-        return _StatusMeta('Persiapan Part', 'Teknisi sedang menyiapkan/mengambil part yang dibutuhkan.');
+        return _StatusMeta('Sedang dalam Pengajuan Part', 'Pesanan sedang dalam pengajuan part.');
       case 'repairing':
         return _StatusMeta('Sedang Dikerjakan', 'Perbaikan perangkat Anda sedang diproses.');
       case 'completed':
-        return _StatusMeta('Terkirim', 'Layanan selesai. Terima kasih telah menggunakan layanan kami.');
+        return _StatusMeta('Selesai', 'Layanan selesai. Terima kasih telah menggunakan layanan kami.');
       default:
         return _StatusMeta('Status Tidak Dikenal', 'Sedang memuat informasi status.');
     }
   }
 
-  // Distribusi waktu untuk step yang sudah terjadi (createdAt..updatedAt)
   List<DateTime?> _distributeTimes({
     required int activeIndex,
     required DateTime start,
@@ -522,9 +530,9 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
     );
 
     final List<_TimelineItem> items = [];
+    
     if (currentStatus == 'completed') {
-      // All statuses are done (green) when completed
-      for (int i = 0; i < total; i++) {
+      for (int i = 0; i <= validActiveIndex; i++) {
         final s = _orderedStatuses[i];
         final meta = _statusMeta(s);
         items.add(_TimelineItem(
@@ -534,25 +542,56 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
           state: StepState.done,
         ));
       }
+    } else if (currentStatus == 'waiting') {
+      final currentMeta = _statusMeta('waiting');
+      items.add(_TimelineItem(
+        time: times[0],
+        title: currentMeta.title,
+        description: currentMeta.description,
+        state: StepState.progress,
+      ));
+      
+      if (validActiveIndex + 1 < total) {
+        final nextMeta = _statusMeta(_orderedStatuses[1]);
+        items.add(_TimelineItem(
+          time: times[1],
+          title: nextMeta.title,
+          description: nextMeta.description,
+          state: StepState.progress,
+        ));
+      }
     } else {
-      // Normal logic: done up to activeIndex, progress at activeIndex, pending after
-      for (int i = 0; i < total; i++) {
+      for (int i = 0; i < validActiveIndex; i++) {
         final s = _orderedStatuses[i];
         final meta = _statusMeta(s);
-        final state = i < validActiveIndex
-            ? StepState.done
-            : (i == validActiveIndex ? StepState.progress : StepState.pending);
-
         items.add(_TimelineItem(
           time: times[i],
           title: meta.title,
           description: meta.description,
-          state: state,
+          state: StepState.done,
+        ));
+      }
+      
+      final currentMeta = _statusMeta(_orderedStatuses[validActiveIndex]);
+      items.add(_TimelineItem(
+        time: times[validActiveIndex],
+        title: currentMeta.title,
+        description: currentMeta.description,
+        state: StepState.done,
+      ));
+      
+      if (validActiveIndex + 1 < total) {
+        final nextStatus = _orderedStatuses[validActiveIndex + 1];
+        final nextMeta = _statusMeta(nextStatus);
+        items.add(_TimelineItem(
+          time: times[validActiveIndex + 1],
+          title: nextMeta.title,
+          description: nextMeta.description,
+          state: StepState.progress,
         ));
       }
     }
 
-    // Keep order as per _orderedStatuses (vertical order)
     return items;
   }
 
@@ -569,6 +608,454 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       case 'motorcycle':
       default:
         return Icons.motorcycle;
+    }
+  }
+
+  // ===== MODAL PEMBAYARAN DP =====
+  void _showPaymentModal() {
+    final TextEditingController dpAmountController = TextEditingController();
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Title
+            Text(
+              'Pembayaran DP',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Sub Total yang harus dibayar
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sub Total Biaya Perbaikan',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _subtotalTindakan != null 
+                      ? 'Rp ${NumberFormat('#,###', 'id_ID').format(_subtotalTindakan)}'
+                      : 'Rp 0',
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.blue[900],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Total yang harus dibayarkan untuk perbaikan',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Input nominal DP
+            Text(
+              'Nominal DP (Down Payment)',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: dpAmountController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              decoration: InputDecoration(
+                hintText: 'Masukkan jumlah DP yang ingin dibayar',
+                hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[400]),
+                prefixText: 'Rp ',
+                prefixStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.blue, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Info helper text
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: Colors.orange[800]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'DP minimal 30% dari total biaya',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.orange[900],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Button Bayar dengan Midtrans
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  // Validasi input
+                  final dpAmount = double.tryParse(
+                    dpAmountController.text.replaceAll(',', '').replaceAll('.', '')
+                  );
+
+                  if (dpAmount == null || dpAmount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Masukkan nominal DP yang valid',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (_subtotalTindakan != null && dpAmount > _subtotalTindakan!) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Nominal DP tidak boleh melebihi total biaya',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Validasi minimal 30%
+                  if (_subtotalTindakan != null && dpAmount < (_subtotalTindakan! * 0.3)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'DP minimal 30% dari total biaya (Rp ${NumberFormat('#,###', 'id_ID').format(_subtotalTindakan! * 0.3)})',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Tutup modal dan langsung proses pembayaran dengan Midtrans
+                  Navigator.pop(context);
+                  await _processPayment(dpAmount);
+                },
+                icon: const Icon(Icons.payment, size: 20),
+                label: Text(
+                  'Bayar dengan Midtrans',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+
+  // Fungsi untuk memproses pembayaran DP
+  Future<void> _processPayment(double amount) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Memproses pembayaran...',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Gunakan UnifiedPaymentService untuk pembayaran DP
+      await UnifiedPaymentService.startUnifiedPayment(
+        context: context,
+        paymentType: PaymentType.service,
+        orderId: widget.queueCode!,
+        amount: amount.toInt(),
+        customerId: (await SessionManager.getCustomerId()) ?? '',
+        customerName: 'Customer',
+        customerEmail: 'customer@example.com',
+        customerPhone: '081234567890',
+        itemDetails: [
+          {
+            'id': 'dp_payment',
+            'price': amount.toInt(),
+            'quantity': 1,
+            'name': 'Down Payment Service',
+          }
+        ],
+        onSuccess: (orderId) async {
+          Navigator.pop(context); // Close loading
+
+          // Show success dialog
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 64,
+                      color: Colors.green[600],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Pembayaran Berhasil!',
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'DP sebesar Rp ${NumberFormat('#,###', 'id_ID').format(amount)} telah dibayarkan',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Metode:',
+                              style: GoogleFonts.poppins(fontSize: 12),
+                            ),
+                            Text(
+                              'Midtrans',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Sisa Pembayaran:',
+                              style: GoogleFonts.poppins(fontSize: 12),
+                            ),
+                            Text(
+                              'Rp ${NumberFormat('#,###', 'id_ID').format((_subtotalTindakan ?? 0) - amount)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _refreshStatus();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'OK',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        onFailure: (error) {
+          Navigator.pop(context); // Close loading
+
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Gagal memproses pembayaran: $error',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        },
+        serviceData: {
+          'technicianCode': 'KRY001',
+          'amount': amount,
+          'brand': '',
+          'device': '',
+          'serial': '',
+          'complaint': 'Down Payment',
+          'warrantyStatus': 'Tidak Ada Garansi',
+        },
+      );
+
+    } catch (e) {
+      Navigator.pop(context); // Close loading
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal memproses pembayaran: $e',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -603,7 +1090,7 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // HANYA MAP (tanpa info nama/device/dll)
+            // Map
             Container(
               height: 220,
               width: double.infinity,
@@ -642,9 +1129,39 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Riwayat Status', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text('Status Pesanan', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   _buildTimelineSection(),
+                  
+                  // Button Bayar DP (muncul saat status approved - Persetujuan Diterima)
+                  if (_currentStatus == 'approved') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _showPaymentModal,
+                        icon: const Icon(Icons.payment, size: 20),
+                        label: Text(
+                          'Bayar DP',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 2,
+                        ),
+                      ),
+                    ),
+                  ],
+                  
+                  // Button Lanjutkan Pembayaran (muncul saat completed)
                   if (_currentStatus == 'completed') ...[
                     const SizedBox(height: 16),
                     SizedBox(
@@ -655,12 +1172,12 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
                             context,
                             MaterialPageRoute(
                               builder: (context) => DetailServiceMidtransPage(
-                                serviceType: 'repair', // Placeholder, adjust as needed
-                                nama: 'Customer', // Placeholder, adjust as needed
+                                serviceType: 'repair',
+                                nama: 'Customer',
                                 status: _currentStatus,
                                 jumlahBarang: 1,
-                                items: const [], // Placeholder, adjust as needed
-                                alamat: 'Alamat Customer', // Placeholder, adjust as needed
+                                items: const [],
+                                alamat: 'Alamat Customer',
                               ),
                             ),
                           );
@@ -672,9 +1189,13 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Lanjutkan Pembayaran',
-                          style: TextStyle(color: Colors.white, fontSize: 14),
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -689,8 +1210,7 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
   }
 
   Widget _buildMap() {
-    // Show map only if status is enroute or later
-    final activeStatuses = ['enroute', 'arrived', 'waitingapproval', 'pickingparts', 'repairing'];
+    final activeStatuses = ['enroute', 'arrived', 'waitingapproval', 'approved', 'waitingorder', 'pickingparts', 'repairing'];
     final shouldShowMap = activeStatuses.contains(_currentStatus.toLowerCase());
 
     if (!shouldShowMap) {
@@ -713,15 +1233,12 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       );
     }
 
-    // If we have driver location but no user location, use driver location as center
-    final mapCenter = _userLocation ?? _driverLocation ?? const LatLng(-6.2, 106.816666); // Default to Jakarta if nothing
+    final mapCenter = _userLocation ?? _driverLocation ?? const LatLng(-6.2, 106.816666);
 
-    // Show loading only if we have no locations at all and are actively polling
     if (_driverLocation == null && _locationPollingTimer != null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Mark map as ready when building
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isMapReady) {
         setState(() {
@@ -738,7 +1255,7 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
         minZoom: 3.0,
         maxZoom: 19.0,
         interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate, // Disable rotation
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
         onPositionChanged: (position, hasGesture) {
           if (hasGesture) {
@@ -763,7 +1280,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
           ),
         MarkerLayer(
           markers: [
-            // Lokasi User (only show if available) - place at end of route if route exists
             if (_userLocation != null)
               Marker(
                 point: _routePoints.isNotEmpty ? _routePoints.last : _userLocation!,
@@ -771,7 +1287,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
                 height: 16,
                 child: Container(decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
               ),
-            // Lokasi Driver - place at start of route if route exists
             if (_driverLocation != null)
               Marker(
                 point: _routePoints.isNotEmpty ? _routePoints.first : _driverLocation!,
@@ -785,8 +1300,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
     );
   }
 
-  // ========================= Timeline UI =========================
-
   Widget _buildTimelineSection() {
     if (_timeline.isEmpty) {
       return Padding(
@@ -796,25 +1309,12 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
     }
 
     final items = List<_TimelineItem>.from(_timeline);
-    final visibleCount = _isTimelineExpanded
-        ? items.length
-        : (items.length < _collapsedCount ? items.length : _collapsedCount);
-    final visibleItems = items.take(visibleCount).toList();
 
     List<Widget> children = [];
-    for (int i = 0; i < visibleItems.length; i++) {
-      final e = visibleItems[i];
+    for (int i = 0; i < items.length; i++) {
+      final e = items[i];
       final isFirst = i == 0;
-      final isLast = i == visibleItems.length - 1 && visibleItems.length == items.length;
-
-      // Add separator if transitioning from done to progress
-      if (i > 0 && e.state == StepState.progress && visibleItems[i - 1].state == StepState.done) {
-        children.add(Container(
-          height: 1,
-          color: Colors.grey.shade300,
-          margin: const EdgeInsets.symmetric(vertical: 8),
-        ));
-      }
+      final isLast = i == items.length - 1;
 
       children.add(_timelineRow(
         dateText: _fmt(e.time),
@@ -823,19 +1323,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
         state: e.state,
         showTopLine: !isFirst,
         showBottomLine: !isLast,
-      ));
-    }
-
-    if (items.length > _collapsedCount) {
-      children.add(Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton(
-          onPressed: () => setState(() => _isTimelineExpanded = !_isTimelineExpanded),
-          child: Text(
-            _isTimelineExpanded ? 'Tampilkan Lebih Sedikit' : 'Tampilkan Lebih Banyak',
-            style: GoogleFonts.poppins(color: const Color(0xFF1976D2), fontWeight: FontWeight.w600),
-          ),
-        ),
       ));
     }
 
@@ -854,15 +1341,15 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
     final Widget dotChild;
     switch (state) {
       case StepState.done:
-        dotColor = const Color(0xFF2E7D32); // hijau
+        dotColor = const Color(0xFF2E7D32);
         dotChild = const Icon(Icons.check, size: 10, color: Colors.white);
         break;
       case StepState.progress:
-        dotColor = const Color(0xFFFF8F00); // oranye
+        dotColor = const Color(0xFFFF8F00);
         dotChild = const SizedBox.shrink();
         break;
       case StepState.pending:
-        dotColor = Colors.grey.shade400; // abu
+        dotColor = Colors.grey.shade400;
         dotChild = const SizedBox.shrink();
         break;
     }
@@ -877,7 +1364,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Rail
           SizedBox(
             width: 24,
             child: Column(
@@ -894,7 +1380,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
             ),
           ),
           const SizedBox(width: 8),
-          // Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -911,8 +1396,6 @@ class _TrackingPageState extends State<TrackingPage> with TickerProviderStateMix
       ),
     );
   }
-
-  // ========================= Bottom Nav =========================
 
   Widget _bottomNavBar() {
     return BottomNavigationBar(
