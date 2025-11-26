@@ -34,17 +34,8 @@ class PaymentService {
     String? transKode,
     String? paymentType,
   }) async {
-    // For development/testing, return fake success without API call
-    if (!_isProduction) {
-      return {
-        'success': true,
-        'message': 'Simulated payment created successfully',
-        // No redirect_url for simulation
-      };
-    }
-
-    // Production: Use real API
-    final url = Uri.parse('$baseUrl/payment/simulate');
+    // Always use real API for Midtrans sandbox testing
+    final url = Uri.parse('$baseUrl/payment/charge');
 
     try {
       // Check if this is service payment (has paymentType dp/full/cancel)
@@ -131,13 +122,6 @@ class PaymentService {
         transKode: transKode,
         paymentType: paymentType,
       );
-
-      // Check if this is simulation (no redirect_url)
-      if (!paymentData.containsKey('redirect_url')) {
-        // Simulation mode: directly call success
-        onTransactionFinished('success');
-        return;
-      }
 
       final redirectUrl = paymentData['redirect_url'];
 

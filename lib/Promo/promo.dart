@@ -868,23 +868,96 @@ Widget _productCard(
 
                         // Exchange Button
                         ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CheckoutPage(
-                                  usePointsFromPromo: true,
-                                  produk: {
-                                    'nama_produk': promo.tipeProduk,
-                                    'harga': promo.harga,
-                                    'poin': promo.koin,
-                                    'gambar': img,
-                                    'deskripsi': promo.tipeProduk,
-                                    'kode_barang': promo.kodeBarang,
-                                  },
+                          onPressed: () async {
+                            // Get customer ID from session
+                            final session = await SessionManager.getUserSession();
+                            final customerId = session['id']?.toString();
+
+                            if (customerId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('User tidak ditemukan')),
+                              );
+                              return;
+                            }
+
+                            // Get current points from UserPointData
+                            final currentPoints = UserPointData.userPoints.value;
+
+                            if (currentPoints >= promo.koin) {
+                              // Points sufficient, proceed to checkout
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CheckoutPage(
+                                    usePointsFromPromo: true,
+                                    produk: {
+                                      'nama_produk': promo.tipeProduk,
+                                      'harga': promo.harga,
+                                      'poin': promo.koin,
+                                      'gambar': img,
+                                      'deskripsi': promo.tipeProduk,
+                                      'kode_barang': promo.kodeBarang,
+                                    },
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            } else {
+                              // Insufficient points, show friendly dialog
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    backgroundColor: Colors.white,
+                                    title: Row(
+                                      children: [
+                                        const Icon(Icons.warning, color: Colors.orange),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          'Poin Tidak Cukup',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    content: Text(
+                                      'Poin Anda tidak cukup untuk menukar produk ini.',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                    actions: [
+                                      Center(
+                                        child: ElevatedButton(
+                                          onPressed: () => Navigator.of(context).pop(),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF0041c3),
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                          ),
+                                          child: Text(
+                                            'OK',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0041c3),

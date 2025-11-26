@@ -17,6 +17,9 @@ import 'package:video_player/video_player.dart';
 import 'Others/session_manager.dart';
 import 'services/background_service_manager.dart';
 
+// Global navigator key for navigation from anywhere
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 // ====================== Error handling utilities ======================
 class ErrorHandler {
   static void showErrorSnackBar(BuildContext context, String message) {
@@ -237,6 +240,7 @@ class MyApp extends StatelessWidget {
     return ErrorBoundary(
       child: MaterialApp(
         title: 'E Service',
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,

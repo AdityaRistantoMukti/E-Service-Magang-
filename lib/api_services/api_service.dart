@@ -720,6 +720,7 @@ class ApiService {
     required double customerLng,
     String? voucherCode,
     double? voucherDiscount,
+    bool isPointExchange = false,
   }) async {
     try {
       final payload = {
@@ -730,8 +731,9 @@ class ApiService {
         'delivery_address': deliveryAddress,
         'customer_lat': customerLat,
         'customer_lng': customerLng,
-        if (voucherCode != null) 'voucher_code': voucherCode,
+        if (voucherCode != null) 'voucherCode': voucherCode,
         'voucher_discount': voucherDiscount ?? 0.0,
+        'isPointExchange': isPointExchange,
       };
 
       debugPrint('Create checkout order payload: $payload');
@@ -927,7 +929,7 @@ class ApiService {
         Uri.parse('$baseUrl/checkout/validate-voucher'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'voucher_code': voucherCode,
+          'voucherCode': voucherCode,
           'id_costomer': customerId,
         }),
       );
@@ -975,7 +977,7 @@ class ApiService {
         Uri.parse('$baseUrl/checkout/mark-voucher-used'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'voucher_code': voucherCode,
+          'voucherCode': voucherCode,
           'id_costomer': customerId,
         }),
       );
@@ -1052,6 +1054,133 @@ class ApiService {
         }
       } else {
         throw Exception('Gagal update user voucher: ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ========================
+  // POINT EXCHANGE ENDPOINTS
+  // ========================
+
+  /// Validasi poin sebelum tukar produk
+  static Future<Map<String, dynamic>> validatePointExchange({
+    required String customerId,
+    required String kodeBarang,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/checkout/validate-point-exchange'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'customerId': customerId,
+          'kodeBarang': kodeBarang,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        } else {
+          throw Exception(data['message'] ?? 'Validasi poin gagal');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Proses tukar poin secara atomic (deduct poin + create order)
+  static Future<Map<String, dynamic>> processPointExchange({
+    required String customerId,
+    required String kodeBarang,
+    required Map<String, dynamic> orderData,
+  }) async {
+    try {
+      final payload = {
+        'customerId': customerId,
+        'kodeBarang': kodeBarang,
+        'orderData': orderData,
+      };
+
+      debugPrint('Process point exchange payload: $payload');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/checkout/process-point-exchange'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        } else {
+          throw Exception(data['message'] ?? 'Gagal proses tukar poin');
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(
+          errorData['message'] ?? 'HTTP Error: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Tambah poin dari pembelian (otomatis)
+  static Future<Map<String, dynamic>> addPointsFromPurchase({
+    required String customerId,
+    required double purchaseAmount,
+    required String orderCode,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/checkout/add-points-from-purchase'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'customerId': customerId,
+          'purchaseAmount': purchaseAmount,
+          'orderCode': orderCode,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        } else {
+          throw Exception(data['message'] ?? 'Gagal menambah poin');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get riwayat transaksi poin user
+  static Future<List<dynamic>> getPointTransactions(String customerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/checkout/point-transactions/$customerId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['data'] ?? [];
+        } else {
+          throw Exception(data['message'] ?? 'Gagal mengambil riwayat poin');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

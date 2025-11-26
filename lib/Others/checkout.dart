@@ -18,6 +18,8 @@ import '../models/promo_model.dart';
 import '../models/voucher_model.dart';
 import '../config/api_config.dart';
 import 'custom_dialog.dart';
+import '../main.dart';
+
 
 class PaymentModal extends StatefulWidget {
   final String? initialPaymentMethod;
@@ -503,7 +505,9 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey();
   late BuildContext _pageContext;
+  late BuildContext pageContext;
   String? selectedPaymentMethod;
   String? selectedShipping;
   String? selectedBank;
@@ -521,7 +525,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   List<UserVoucher> userVouchers = [];
   bool isUserVouchersLoaded = false;
   double? hargaAsli;
-  
+
   // Inisialisasi quantity dan totalPoin
   late int quantity;
   late int totalPoin;
@@ -608,10 +612,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      setState(() {
-        customerLat = position.latitude;
-        customerLng = position.longitude;
-      });
+      if (mounted) {
+        setState(() {
+          customerLat = position.latitude;
+          customerLng = position.longitude;
+        });
+      }
     } catch (e) {
       // Location error handled silently
     }
@@ -658,11 +664,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       if (response['success'] == true) {
         final data = response['data'];
-        setState(() {
-          shippingCost = double.tryParse(data['shipping_cost']?.toString() ?? '0') ?? 0.0;
-          distanceKm = double.tryParse(data['distance_km']?.toString() ?? '0') ?? 0.0;
-          isCalculatingShipping = false;
-        });
+        if (mounted) {
+          setState(() {
+            shippingCost = double.tryParse(data['shipping_cost']?.toString() ?? '0') ?? 0.0;
+            distanceKm = double.tryParse(data['distance_km']?.toString() ?? '0') ?? 0.0;
+            isCalculatingShipping = false;
+          });
+        }
 
         // Show success message
         CustomDialog.show(
@@ -692,9 +700,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
         throw Exception('Gagal menghitung ongkir');
       }
     } catch (e) {
-      setState(() {
-        isCalculatingShipping = false;
-      });
+      if (mounted) {
+        setState(() {
+          isCalculatingShipping = false;
+        });
+      }
       CustomDialog.show(
         context: context,
         icon: Container(
@@ -731,9 +741,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           orElse: () => null,
         );
         if (produk != null) {
-          setState(() {
-            hargaAsli = (double.tryParse(produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
-          });
+          if (mounted) {
+            setState(() {
+              hargaAsli = (double.tryParse(produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
+            });
+          }
         }
       } catch (e) {
         debugPrint("Error fetching harga asli: $e");
@@ -747,20 +759,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (userId != null) {
       try {
         final data = await ApiService.getCostomerById(userId);
-        setState(() {
-          userData = data;
-          // Auto-fill address if cos_alamat exists and no address selected
-          if (selectedAddress == null && data['cos_alamat'] != null && data['cos_alamat'].isNotEmpty) {
-            selectedAddress = {
-              'alamat': data['cos_alamat'],
-              'detailAlamat': data['cos_alamat'], // Use same for detail
-              'nama': data['cos_nama'] ?? '',
-              'hp': data['cos_hp'] ?? '',
-              'latitude': 0.0,
-              'longitude': 0.0,
-            };
-          }
-        });
+        if (mounted) {
+          setState(() {
+            userData = data;
+            // Auto-fill address if cos_alamat exists and no address selected
+            if (selectedAddress == null && data['cos_alamat'] != null && data['cos_alamat'].isNotEmpty) {
+              selectedAddress = {
+                'alamat': data['cos_alamat'],
+                'detailAlamat': data['cos_alamat'], // Use same for detail
+                'nama': data['cos_nama'] ?? '',
+                'hp': data['cos_hp'] ?? '',
+                'latitude': 0.0,
+                'longitude': 0.0,
+              };
+            }
+          });
+        }
       } catch (e) {
         debugPrint('Error loading user data: $e');
       }
@@ -770,14 +784,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Future<void> _fetchPromo() async {
     try {
       final response = await ApiService.getPromo();
-      setState(() {
-        promoList = response.map<Promo>((json) => Promo.fromJson(json)).toList();
-        isPromoLoaded = true;
-      });
+      if (mounted) {
+        setState(() {
+          promoList = response.map<Promo>((json) => Promo.fromJson(json)).toList();
+          isPromoLoaded = true;
+        });
+      }
     } catch (e) {
-      setState(() {
-        isPromoLoaded = true;
-      });
+      if (mounted) {
+        setState(() {
+          isPromoLoaded = true;
+        });
+      }
       debugPrint("Error loading promo: $e");
     }
   }
@@ -788,19 +806,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final customerId = session['id']?.toString();
       if (customerId != null) {
         final response = await ApiService.getUserVouchers(customerId);
-        setState(() {
-          userVouchers = response.map<UserVoucher>((json) => UserVoucher.fromJson(json)).toList();
-          isUserVouchersLoaded = true;
-        });
+        if (mounted) {
+          setState(() {
+            userVouchers = response.map<UserVoucher>((json) => UserVoucher.fromJson(json)).toList();
+            isUserVouchersLoaded = true;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            isUserVouchersLoaded = true;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
           isUserVouchersLoaded = true;
         });
       }
-    } catch (e) {
-      setState(() {
-        isUserVouchersLoaded = true;
-      });
       debugPrint("Error loading user vouchers: $e");
     }
   }
@@ -1033,6 +1057,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     _pageContext = context; // Store the page context for navigation
+    pageContext = context; // Store for async operations
     // Gunakan total harga berdasarkan quantity
     double totalHarga = _getTotalHarga();
     double voucherDiscount = _getVoucherDiscount();
@@ -1045,6 +1070,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     int poinPerItem = int.tryParse(widget.produk['poin']?.toString() ?? '0') ?? 0;
 
     return Scaffold(
+      key: scaffoldKey,
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0041c3),
@@ -2453,486 +2479,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
 
-  // Show payment modal before processing
-  void _showPaymentModal() {
-    // Hitung total biaya yang harus dibayar
-    final double totalHarga = usePoints
-        ? 0.0
-        : (hargaAsli != null
-            ? (hargaAsli! * quantity) - _getVoucherDiscount() + _getFinalShippingCost()
-            : _getTotalHarga() - _getVoucherDiscount() + _getFinalShippingCost());
-
-    String? selectedPaymentMethod = this.selectedPaymentMethod; // Initialize with current value
-    String? selectedBank; // For bank transfer and e-wallet selection
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF667eea).withOpacity(0.95),
-                  const Color(0xFF764ba2).withOpacity(0.95),
-                ],
-              ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 25,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.9,
-            ),
-            child: Column(
-              children: [
-                // Enhanced handle bar with animation
-                Container(
-                  margin: const EdgeInsets.only(top: 15),
-                  width: 60,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white.withOpacity(0.3),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 25),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                        left: 24,
-                        right: 24,
-                        top: 30,
-                      ),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Enhanced Header with modern design
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.purple.shade50,
-                                    Colors.blue.shade50,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.blue.shade100,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(18),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF667eea).withOpacity(0.4),
-                                          blurRadius: 15,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.payment_rounded,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Pembayaran Checkout',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue.shade100,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            'Secure Payment',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              color: Colors.blue.shade700,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 30),
-
-                            // Enhanced Total Amount Card with premium design
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.blue.shade50,
-                                    Colors.purple.shade50,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.blue.shade200,
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.blue.shade100.withOpacity(0.5),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.account_balance_wallet,
-                                          size: 16,
-                                          color: Colors.blue.shade700,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Total Pembayaran',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: Colors.blue.shade700,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    totalHarga > 0
-                                        ? 'Rp ${NumberFormat('#,###', 'id_ID').format(totalHarga)}'
-                                        : 'Rp 0',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.blue.shade900,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.green.shade200),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.verified,
-                                          size: 16,
-                                          color: Colors.green.shade600,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Pembayaran Aman & Terjamin',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            color: Colors.green.shade700,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 32),
-
-                            // Enhanced Payment Methods Section
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.shade100,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    Icons.credit_card,
-                                    color: Colors.orange.shade600,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Pilih Metode Pembayaran',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-
-                            // QRIS - Available with enhanced design
-                            _buildModernPaymentOption(
-                              "QRIS",
-                              "Scan QR code untuk pembayaran cepat & instan",
-                              Icons.qr_code_scanner,
-                              Colors.green,
-                              selectedPaymentMethod == "QRIS",
-                              () => setModalState(() => selectedPaymentMethod = "QRIS"),
-                              available: true,
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Transfer Bank - Coming Soon with better design
-                            _buildModernPaymentOption(
-                              "Transfer Bank",
-                              "Transfer ke rekening bank (Coming Soon)",
-                              Icons.account_balance,
-                              Colors.grey,
-                              false,
-                              null,
-                              available: false,
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // E-wallet - Coming Soon with better design
-                            _buildModernPaymentOption(
-                              "E-wallet",
-                              "GoPay, OVO, Dana, LinkAja (Coming Soon)",
-                              Icons.account_balance_wallet,
-                              Colors.grey,
-                              false,
-                              null,
-                              available: false,
-                            ),
-
-                            const SizedBox(height: 32),
-
-                            // Enhanced Pay Button with premium design
-                            Container(
-                              width: double.infinity,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF667eea).withOpacity(0.4),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  if (mounted) {
-                                    setState(() => this.selectedPaymentMethod = selectedPaymentMethod);
-                                  }
-
-                                  if (selectedPaymentMethod == null) {
-                                    CustomDialog.show(
-                                      context: context,
-                                      icon: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.withOpacity(0.1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.warning,
-                                          color: Colors.red,
-                                          size: 24,
-                                        ),
-                                      ),
-                                      title: 'Pilih Metode Pembayaran',
-                                      content: const Text('Mohon pilih metode pembayaran terlebih dahulu'),
-                                      actions: [
-                                        ElevatedButton(
-                                          onPressed: () => Navigator.pop(context),
-                                          child: const Text('OK'),
-                                        ),
-                                      ],
-                                    );
-                                    return;
-                                  }
-
-                                  Navigator.pop(context);
-
-                                  // Bayar full amount
-                                  if (selectedPaymentMethod == "QRIS") {
-                                    _showQrisPayment(context, totalHarga);
-                                  }
-                                },
-                                icon: const Icon(Icons.rocket_launch, size: 24),
-                                label: Text(
-                                  'Bayar Sekarang',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Enhanced Security note with better design
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.green.shade50,
-                                    Colors.teal.shade50,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.green.shade200),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.green.shade100.withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      Icons.security,
-                                      color: Colors.green.shade600,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Pembayaran 100% Aman',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.green.shade800,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Dijamin aman dengan enkripsi tingkat bank',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            color: Colors.green.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 24),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   // Process checkout and create order
   Future<void> _processCheckout(BuildContext context) async {
@@ -3301,28 +2847,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _navigateToPaymentSuccess() {
-    debugPrint('Navigating to RiwayatPage');
-    // Navigate to RiwayatPage (transaction history) instead of payment confirmation
-    // Use root navigator to bypass any modal navigators
-    if (mounted && _pageContext != null) {
-      Navigator.of(_pageContext, rootNavigator: true).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const RiwayatPage(shouldRefresh: true),
-        ),
-      );
-    }
+    debugPrint('Navigating to RiwayatPage using global navigator');
+    // Use global navigator key to navigate regardless of context state
+    navigatorKey.currentState!.pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => const RiwayatPage(shouldRefresh: true),
+      ),
+    ).then((_) {
+      debugPrint('Navigation to RiwayatPage completed');
+    }).catchError((e) {
+      debugPrint('Navigation error: $e');
+    });
   }
 
   void _onPaymentSuccess(BuildContext ctx, String orderCode) {
-    debugPrint('Navigating to RiwayatPage from _onPaymentSuccess');
-    // Navigate to RiwayatPage (transaction history) instead of payment confirmation
-    if (mounted && _pageContext != null) {
-      Navigator.of(_pageContext, rootNavigator: true).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const RiwayatPage(shouldRefresh: true),
-        ),
-      );
-    }
+    debugPrint('Navigating to RiwayatPage from _onPaymentSuccess using global navigator');
+    // Use global navigator key to navigate regardless of context state
+    navigatorKey.currentState!.pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => const RiwayatPage(shouldRefresh: true),
+      ),
+    ).then((_) {
+      debugPrint('Navigation to RiwayatPage from _onPaymentSuccess completed');
+    }).catchError((e) {
+      debugPrint('Navigation error from _onPaymentSuccess: $e');
+    });
   }
 
   void _showManualPaymentDialog(BuildContext context) {
@@ -3985,7 +3534,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                     child: ElevatedButton(
                                       onPressed: paymentProof == null ? null : () {
                                         Navigator.pop(context);
-                                        _confirmManualPayment(context, amount, 'QRIS', paymentProof: paymentProof);
+                                        _confirmManualPayment(amount, 'QRIS', paymentProof: paymentProof);
                                       },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.transparent,
@@ -4200,7 +3749,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ElevatedButton(
           onPressed: paymentProof == null ? null : () {
             Navigator.pop(context);
-            _confirmManualPayment(context, amount, 'Transfer Bank');
+            _confirmManualPayment(amount, 'Transfer Bank');
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
@@ -4430,7 +3979,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ElevatedButton(
           onPressed: (paymentProof == null || selectedEwallet == null) ? null : () {
             Navigator.pop(context);
-            _confirmManualPayment(context, amount, 'E-wallet - $selectedEwallet');
+            _confirmManualPayment(amount, 'E-wallet - $selectedEwallet');
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
@@ -4443,6 +3992,187 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ],
     );
   }
+  void _showQRISPayment(BuildContext context, double amount) {
+    Navigator.pop(context); // Close method selection dialog
+
+    File? paymentProof;
+    final ImagePicker picker = ImagePicker();
+
+    CustomDialog.show(
+      context: context,
+      barrierDismissible: false,
+      icon: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.qr_code,
+          color: Colors.blue,
+          size: 48,
+        ),
+      ),
+      title: 'Pembayaran QRIS',
+      content: StatefulBuilder(
+        builder: (context, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.qr_code_2,
+                size: 100,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Nominal: Rp ${NumberFormat('#,###', 'id_ID').format(amount)}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Scan QR code di atas untuk pembayaran',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 10),
+            const Text(
+              'Upload Bukti Pembayaran',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (paymentProof != null)
+              Container(
+                width: double.infinity,
+                height: 120,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    paymentProof!,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                height: 80,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey.shade50,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.camera_alt,
+                      size: 32,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Belum ada bukti",
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () async {
+                try {
+                  final XFile? pickedFile = await picker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 1920,
+                    maxHeight: 1080,
+                    imageQuality: 85,
+                  );
+
+                  if (pickedFile != null) {
+                    setState(() {
+                      paymentProof = File(pickedFile.path);
+                    });
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error picking image: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.photo_library),
+              label: Text(paymentProof != null ? "Ganti Foto" : "Pilih dari Galeri"),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 40),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: paymentProof == null ? null : () {
+            Navigator.pop(context);
+            _confirmManualPayment(amount, 'QRIS', paymentProof: paymentProof);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+          ),
+          child: const Text(
+            'Konfirmasi Pembayaran',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+
+void _confirmPayment() {
+  double voucherDiscount = _getVoucherDiscount();
+  double finalShippingCost = _getFinalShippingCost();
+  double totalHarga = _getTotalHarga();
+  double effectivePrice = usePoints ? 0.0 : (hargaAsli != null ? (hargaAsli! * quantity) - voucherDiscount + finalShippingCost : totalHarga - voucherDiscount + finalShippingCost);
+  double amount = effectivePrice;
+  if (selectedPaymentMethod == 'QRIS') {
+    _showQRISPayment(context, amount);
+  } else if (selectedPaymentMethod == 'Transfer Bank') {
+    _showBankTransferPayment(context, amount, selectedBank);
+  } else if (selectedPaymentMethod == 'E-wallet') {
+    _showEwalletPayment(context, amount);
+  }
+}
 
   Widget _buildEwalletOption(String name, bool isSelected, VoidCallback onTap) {
     return InkWell(
@@ -4486,27 +4216,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-  void _confirmManualPayment(BuildContext context, double amount, String method, {File? paymentProof}) async {
-    // Store context reference to avoid invalid context issues
-    final pageContext = context;
+  void _confirmManualPayment(double amount, String method, {File? paymentProof}) async {
     debugPrint('=== STARTING MANUAL PAYMENT CONFIRMATION ===');
     debugPrint('Amount: $amount, Method: $method, Has Payment Proof: ${paymentProof != null}');
+    debugPrint('Context mounted: ${mounted}');
+
+    // Use stored page context to avoid invalid context issues
+    final safeContext = this.pageContext;
+    debugPrint('Using safeContext for dialog: ${safeContext != null}');
 
     // Show loading
-    CustomLoadingDialog.show(context: context);
+    try {
+      CustomLoadingDialog.show(context: safeContext);
+      debugPrint('Loading dialog shown');
+    } catch (e) {
+      debugPrint('Failed to show loading dialog: $e');
+    }
 
     try {
       // Get customer ID first
       debugPrint('Getting customer ID...');
       String? customerId = await SessionManager.getCustomerId();
       if (customerId == null) {
+        debugPrint('ERROR: Customer ID is null');
         throw Exception('Customer ID tidak ditemukan');
       }
-      debugPrint('Customer ID: $customerId');
+      debugPrint('Customer ID obtained: $customerId');
 
       // Generate order code
       final orderCode = 'ORD_${DateTime.now().millisecondsSinceEpoch}';
       debugPrint('Generated order code: $orderCode');
+      debugPrint('Starting price calculations...');
 
       // Calculate prices
       double totalHarga = _getTotalHarga();
@@ -4522,69 +4262,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       debugPrint('- Total Price: $totalPrice');
       debugPrint('- Total Payment: $totalPayment');
 
-      // Validate voucher using backend API
+      // For manual payments, use the selected voucher directly
+      // The backend will validate it during order creation
       String? validVoucherCode = selectedVoucher;
-      double validVoucherDiscount = 0.0;
-
-      if (selectedVoucher != null && selectedVoucher!.isNotEmpty) {
-        debugPrint('Validating voucher with backend: $selectedVoucher');
-        try {
-          final voucherValidation = await ApiService.validateVoucher(
-            voucherCode: selectedVoucher!,
-            customerId: customerId,
-          );
-
-          if (voucherValidation['success'] == true) {
-            final voucherData = voucherValidation['data'];
-            validVoucherDiscount = (totalPrice * (voucherData['discount_percent'] / 100)).toDouble();
-            debugPrint('Voucher validated successfully. Discount: $validVoucherDiscount (${voucherData['discount_percent']}%)');
-          } else {
-            debugPrint('Voucher validation failed: ${voucherValidation['message']}');
-            // Reset voucher selection if invalid
-            validVoucherCode = null;
-            selectedVoucher = null;
-            if (mounted) {
-              setState(() {
-                useVoucher = false;
-              });
-            }
-            // Show error dialog
-            CustomDialog.show(
-              context: context,
-              icon: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.warning,
-                  color: Colors.orange,
-                  size: 24,
-                ),
-              ),
-              title: 'Voucher Tidak Valid',
-              content: Text(voucherValidation['message'] ?? 'Voucher tidak dapat digunakan'),
-              actions: [
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          }
-        } catch (e) {
-          debugPrint('Error validating voucher: $e');
-          // Reset voucher on error
-          validVoucherCode = null;
-          selectedVoucher = null;
-          if (mounted) {
-            setState(() {
-              useVoucher = false;
-            });
-          }
-        }
-      }
+      double validVoucherDiscount = voucherDiscount;
 
       // Recalculate total payment with validated voucher
       totalPayment = totalPrice - validVoucherDiscount + finalShippingCost;
@@ -4594,16 +4275,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // UPLOAD PAYMENT PROOF FIRST (atomic with data creation)
       String? buktiPembayaranPath;
       if (paymentProof != null) {
-        debugPrint('Uploading payment proof...');
+        debugPrint('Uploading payment proof... File exists: ${paymentProof.existsSync()}, size: ${paymentProof.lengthSync()}');
         try {
           final uploadResult = await ApiService.uploadPaymentProof(paymentProof);
           buktiPembayaranPath = uploadResult['path'];
           debugPrint('Payment proof uploaded successfully: $buktiPembayaranPath');
         } catch (uploadError) {
           debugPrint('Payment proof upload failed: $uploadError');
+          debugPrint('Upload error details: ${uploadError.toString()}');
           throw Exception('Gagal upload bukti pembayaran. Proses dibatalkan.');
         }
       } else {
+        debugPrint('ERROR: Payment proof is null');
         throw Exception('Bukti pembayaran diperlukan.');
       }
 
@@ -4621,6 +4304,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       // Create checkout order ONLY after successful image upload
       debugPrint('Creating checkout order...');
+      debugPrint('Order params: customerId=$customerId, items=$items, totalPrice=$totalPrice, method=$method');
       final orderResponse = await ApiService.createCheckoutOrder(
         customerId: customerId,
         items: items,
@@ -4632,7 +4316,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         voucherCode: validVoucherCode,
         voucherDiscount: validVoucherDiscount,
       );
-      debugPrint('Order response: $orderResponse');
+      debugPrint('Order response received: $orderResponse');
 
       if (orderResponse['success'] == true) {
         final orderData = orderResponse['data'];
@@ -4654,39 +4338,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
         });
         debugPrint('Order updated successfully');
 
-        // Mark voucher as used if voucher was used
-        if (validVoucherCode != null) {
-          try {
-            // Find the user voucher record to update
-            final userVoucher = userVouchers.firstWhere(
-              (uv) => uv.voucher?.voucherCode == validVoucherCode,
-              orElse: () => UserVoucher(id: 0, idCostomer: '', voucherId: 0, claimedDate: DateTime.now(), used: 'no'),
-            );
-
-            if (userVoucher.id != 0) {
-              // Update the user_voucher record to mark as used
-              final updateResult = await ApiService.updateUserVoucher(userVoucher.id, {'used': 'yes'});
-              if (updateResult['success'] == true) {
-                debugPrint('User voucher marked as used successfully: $validVoucherCode');
-              } else {
-                debugPrint('Failed to mark user voucher as used: ${updateResult['message']}');
-              }
-            } else {
-              debugPrint('User voucher record not found for code: $validVoucherCode');
-            }
-          } catch (e) {
-            debugPrint('Error marking voucher as used: $e');
-            // Don't fail the checkout for this - voucher marking is not critical
-          }
-        }
 
         // Close loading
-        if (mounted && Navigator.canPop(pageContext)) {
-          Navigator.of(pageContext, rootNavigator: true).pop();
+        if (mounted && safeContext != null && Navigator.canPop(safeContext)) {
+          Navigator.of(safeContext, rootNavigator: true).pop();
         }
 
-        // Show success dialog
-        _showOrderSuccessDialog(pageContext, actualOrderCode, method);
+        await Future.delayed(const Duration(milliseconds: 200));
+
+        // Show success dialog before navigation
+        _showPaymentSuccessDialog(method);
       } else {
         debugPrint('Order creation failed: ${orderResponse['message']}');
         throw Exception(orderResponse['message'] ?? 'Gagal membuat order');
@@ -4694,34 +4355,185 @@ class _CheckoutPageState extends State<CheckoutPage> {
     } catch (e) {
       debugPrint('ERROR in _confirmManualPayment: $e');
       // Close loading
-      if (Navigator.canPop(context)) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
+      try {
+        if (safeContext != null && Navigator.canPop(safeContext)) {
+          Navigator.of(safeContext, rootNavigator: true).pop();
+        }
 
-      CustomDialog.show(
-        context: context,
-        icon: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
-            shape: BoxShape.circle,
+        CustomDialog.show(
+          context: safeContext,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
           ),
-          child: const Icon(
-            Icons.error,
-            color: Colors.red,
-            size: 24,
-          ),
-        ),
-        title: 'Error',
-        content: Text('Error: $e'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      );
+          title: 'Error',
+          content: Text('Error: $e'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(safeContext),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      } catch (dialogError) {
+        debugPrint('Failed to show error dialog: $dialogError');
+        // Show snackbar as fallback
+        if (safeContext != null) {
+          try {
+            ScaffoldMessenger.of(safeContext).showSnackBar(
+              SnackBar(content: Text('Error: $e')),
+            );
+          } catch (snackbarError) {
+            debugPrint('Failed to show snackbar: $snackbarError');
+          }
+        }
+      }
     }
+  }
+
+  void _showPaymentSuccessDialog(String method) {
+    // Show success dialog before navigation
+    showDialog(
+      context: navigatorKey.currentContext!,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with icon and title
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 50,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        "Pembayaran Berhasil!",
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Pembayaran dengan metode $method telah dikonfirmasi.",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Anda akan diarahkan ke halaman riwayat...",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Actions
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Close dialog
+                      debugPrint('OK clicked, navigating to RiwayatPage');
+                      _navigateToPaymentSuccess();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 12,
+                      ),
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                    child: const Text(
+                      "Oke",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showOrderSuccessDialog(BuildContext context, String orderCode, String method) {
@@ -4783,7 +4595,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       const SizedBox(height: 12),
                       Text(
                         "Pembayaran Berhasil!",
-                        style: GoogleFonts.poppins(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: Colors.black87,
@@ -4878,6 +4690,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
     });
   }
 
+  void _showPaymentModal() {
+    double totalHarga = _getTotalHarga();
+    double voucherDiscount = _getVoucherDiscount();
+    double finalShippingCost = _getFinalShippingCost();
+    double effectivePrice = usePoints
+        ? 0.0
+        : (hargaAsli != null
+            ? (hargaAsli! * quantity) - voucherDiscount + finalShippingCost
+            : totalHarga - voucherDiscount + finalShippingCost);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => PaymentModal(
+        initialPaymentMethod: selectedPaymentMethod,
+        initialSelectedBank: selectedBank,
+        totalPrice: effectivePrice,
+        onPaymentConfirmed: (method, bank) {
+          setState(() {
+            selectedPaymentMethod = method;
+            selectedBank = bank;
+          });
+          Navigator.pop(context);
+          _processCheckout(context);
+        },
+        setModalState: setState,
+      ),
+    );
+  }
+
   void _showPointExchangeConfirmation(BuildContext context) {
     CustomDialog.show(
       context: context,
@@ -4960,177 +4803,105 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  void _validatePointsAndProceed(BuildContext context) {
-    // Check if user has enough points
-    final userPoints = UserPointData.userPoints.value;
-    final requiredPoints = totalPoin;
-
-    if (userPoints < requiredPoints) {
-      CustomDialog.show(
-        context: context,
-        icon: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.error_outline,
-            color: Colors.red,
-            size: 50,
-          ),
-        ),
-        title: "Poin Tidak Cukup",
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Anda membutuhkan $requiredPoints poin, tetapi hanya memiliki $userPoints poin.",
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text(
-              "Tutup",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      );
-      return;
-    }
-
-    // If points are sufficient, proceed to Midtrans payment
-    _processPointExchangeWithMidtrans(context);
-  }
-
-  void _processPointExchangeWithMidtrans(BuildContext context) async {
-    // Validasi
-    if (selectedAddress == null) {
-      CustomDialog.show(
-        context: context,
-        icon: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.location_off,
-            color: Colors.red,
-            size: 24,
-          ),
-        ),
-        title: 'Alamat Diperlukan',
-        content: const Text('Mohon pilih alamat pengiriman'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      );
-      return;
-    }
-
-    if (selectedShipping == null) {
-      CustomDialog.show(
-        context: context,
-        icon: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.local_shipping,
-            color: Colors.red,
-            size: 24,
-          ),
-        ),
-        title: 'Ekspedisi Diperlukan',
-        content: const Text('Mohon pilih ekspedisi'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      );
-      return;
-    }
-
+  void _validatePointsAndProceed(BuildContext context) async {
     // Show loading
     CustomLoadingDialog.show(context: context);
 
     try {
-      // Create order data for point exchange
-      final orderData = {
-        'produk': widget.produk,
-        'alamat': selectedAddress,
-        'ekspedisi': selectedShipping,
-        'total_harga': _getFinalShippingCost(),
-        'poin_digunakan': totalPoin,
-        'use_points': true,
-      };
+      // Get customer ID
+      final session = await SessionManager.getUserSession();
+      final customerId = session['id'];
+      if (customerId == null) {
+        if (Navigator.canPop(context)) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Error',
+          content: const Text('User tidak ditemukan'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+        return;
+      }
 
-      // Process payment with Midtrans
-      final paymentResult = await PaymentService.startMidtransPayment(
-        context: context,
-        orderId: 'promo_${DateTime.now().millisecondsSinceEpoch}',
-        amount: _getFinalShippingCost().toInt(),
-        customerId: await SessionManager.getCustomerId() ?? '',
-        customerName: 'Customer',
-        customerEmail: 'customer@example.com',
-        customerPhone: selectedAddress?['hp'] ?? '08123456789',
-        itemDetails: [
-          {
-            'id': 'promo_exchange',
-            'price': _getFinalShippingCost(),
-            'quantity': 1,
-            'name': 'Promo Exchange Shipping',
-          }
-        ],
-        onTransactionFinished: (result) {
-          Navigator.of(context).pop(); // Close loading
-
-          if (PaymentService.isTransactionSuccess(result)) {
-            // Payment successful, complete the point exchange
-            _completeOrderWithPoints(context);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(PaymentService.getStatusMessage(result)),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        },
+      // Validate points first
+      final validateResponse = await ApiService.validatePointExchange(
+        customerId: customerId,
+        kodeBarang: widget.produk['kode_barang'] ?? '',
       );
+
+      if (validateResponse['success'] != true) {
+        // Close loading
+        if (Navigator.canPop(context)) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+
+        // Points insufficient
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Poin Tidak Cukup',
+          content: Text(validateResponse['message'] ?? 'Poin Anda tidak cukup untuk menukar produk ini.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+        return;
+      }
+
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      // Check shipping cost
+      double finalShippingCost = _getFinalShippingCost();
+
+      if (finalShippingCost > 0) {
+        // Create pending order for shipping payment first
+        _createPendingShippingOrder(context, customerId, finalShippingCost);
+      } else {
+        // No shipping cost, directly complete point exchange
+        _completePointExchange(context, customerId);
+      }
+
     } catch (e) {
-      Navigator.of(context).pop(); // Close loading
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
       CustomDialog.show(
         context: context,
         icon: Container(
@@ -5155,6 +4926,828 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ],
       );
     }
+  }
+
+  Future<void> _startMidtransPaymentForShipping(BuildContext context, String orderCode, double shippingCost, {VoidCallback? onSuccess}) async {
+    try {
+      debugPrint('=== STARTING MIDTRANS PAYMENT FOR SHIPPING ===');
+      debugPrint('Order Code: $orderCode');
+      debugPrint('Shipping Cost: $shippingCost');
+
+      String? customerId = await SessionManager.getCustomerId();
+      debugPrint('Session Customer ID: $customerId');
+
+      if (customerId == null) {
+        throw Exception('Customer ID tidak ditemukan');
+      }
+
+      // Use session customer ID for Midtrans
+      String midtransCustomerId = customerId;
+      String customerEmail = userData?['email'] ?? 'test@example.com';
+      String customerPhone = selectedAddress?['hp'] ?? userData?['cos_hp'] ?? '08123456789';
+      String customerName = selectedAddress?['nama'] ?? userData?['cos_nama'] ?? 'Customer';
+
+      debugPrint('Midtrans Customer ID: $midtransCustomerId');
+      debugPrint('Customer Email: $customerEmail');
+      debugPrint('Customer Phone: $customerPhone');
+      debugPrint('Customer Name: $customerName');
+      debugPrint('User Data: $userData');
+
+      await PaymentService.startMidtransPayment(
+        context: context,
+        orderId: orderCode,
+        amount: shippingCost.toInt() > 0 ? shippingCost.toInt() : 1000,
+        customerId: midtransCustomerId,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        customerPhone: customerPhone,
+        itemDetails: [
+          {
+            'id': 'SHIPPING',
+            'price': shippingCost.toInt(),
+            'quantity': 1,
+            'name': 'Ongkos Kirim',
+          }
+        ],
+        onTransactionFinished: (result) async {
+          debugPrint('Midtrans transaction finished: $result');
+          if (PaymentService.isTransactionSuccess(result)) {
+            debugPrint('Payment success, updating payment status...');
+            // Update payment status for shipping
+            await ApiService.updatePaymentStatus(
+              orderCode: orderCode,
+              paymentStatus: 'paid',
+            );
+            debugPrint('Payment status updated');
+
+            // Call success callback if provided
+            if (onSuccess != null) {
+              debugPrint('Calling success callback');
+              onSuccess();
+            }
+          } else {
+            debugPrint('Payment failed: ${PaymentService.getStatusMessage(result)}');
+            CustomDialog.show(
+              context: context,
+              icon: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning,
+                  color: Colors.orange,
+                  size: 24,
+                ),
+              ),
+              title: 'Pembayaran Gagal',
+              content: Text(PaymentService.getStatusMessage(result)),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          }
+        },
+      );
+      debugPrint('Midtrans payment started successfully');
+    } catch (e) {
+      debugPrint('ERROR in _startMidtransPaymentForShipping: $e');
+      debugPrint('Error details: ${e.toString()}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error payment: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _createPendingShippingOrder(BuildContext context, String customerId, double shippingCost) async {
+    debugPrint('Creating pending order for shipping payment');
+
+    // Show loading
+    CustomLoadingDialog.show(context: context);
+
+    try {
+      // Generate order code
+      final orderCode = 'ORD${DateTime.now().millisecondsSinceEpoch}';
+
+      // Create pending order for shipping payment
+      final orderResponse = await ApiService.createCheckoutOrder(
+        customerId: customerId,
+        items: [{
+          'kode_barang': widget.produk['kode_barang'] ?? widget.produk['id_produk'] ?? 'PROD001',
+          'nama_produk': namaProduk,
+          'quantity': quantity,
+          'price': 0, // Product is free for point exchange
+        }],
+        totalPrice: shippingCost,
+        paymentMethod: 'pending_shipping_payment', // Special status for pending shipping payment
+        deliveryAddress: selectedAddress!['detailAlamat'],
+        customerLat: customerLat ?? 0.0,
+        customerLng: customerLng ?? 0.0,
+        voucherCode: null,
+        voucherDiscount: 0,
+        isPointExchange: true,
+      );
+
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (orderResponse['success'] == true) {
+        debugPrint('Pending order created successfully: $orderCode');
+        // Now start Midtrans payment
+        _startMidtransPaymentForShipping(
+          context,
+          orderCode,
+          shippingCost,
+          onSuccess: () => _onShippingPaymentSuccess(context, customerId, orderCode),
+        );
+      } else {
+        debugPrint('Failed to create pending order: ${orderResponse['message']}');
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Gagal Membuat Order',
+          content: Text(orderResponse['message'] ?? 'Gagal membuat order pending.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      }
+    } catch (e) {
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      debugPrint('Error creating pending order: $e');
+      CustomDialog.show(
+        context: context,
+        icon: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.error,
+            color: Colors.red,
+            size: 24,
+          ),
+        ),
+        title: 'Error',
+        content: Text('Error: $e'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
+  }
+
+  void _onShippingPaymentSuccess(BuildContext context, String customerId, String orderCode) async {
+    debugPrint('Shipping payment successful, now updating order status and completing exchange');
+
+    // Show loading
+    CustomLoadingDialog.show(context: context);
+
+    try {
+      // 1. Update the pending order status to 'paid'
+      final updateResponse = await ApiService.updatePaymentStatus(
+        orderCode: orderCode,
+        paymentStatus: 'paid',
+      );
+
+      if (updateResponse['success'] != true) {
+        debugPrint('Failed to update order status: ${updateResponse['message']}');
+        // Continue anyway, as payment was successful
+      }
+
+      // 2. Deduct points
+      final exchangeResponse = await ApiService.processPointExchange(
+        customerId: customerId,
+        kodeBarang: widget.produk['kode_barang'] ?? '',
+        orderData: {
+          'order_code': orderCode,
+        },
+      );
+
+      if (exchangeResponse['success'] != true) {
+        // Close loading
+        if (Navigator.canPop(context)) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Gagal Tukar Poin',
+          content: Text(exchangeResponse['message'] ?? 'Gagal memproses tukar poin.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+        return;
+      }
+
+      // 3. Create final order with isPointExchange: true (prevents earning points)
+      final hargaAsli = (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
+      final orderResponse = await ApiService.createCheckoutOrder(
+        customerId: customerId,
+        items: [{
+          'kode_barang': widget.produk['kode_barang'] ?? widget.produk['id_produk'] ?? 'PROD001',
+          'nama_produk': namaProduk,
+          'quantity': quantity,
+          'price': hargaAsli,
+        }],
+        totalPrice: hargaAsli * quantity,
+        paymentMethod: 'point_exchange',
+        deliveryAddress: selectedAddress!['detailAlamat'],
+        customerLat: customerLat ?? 0.0,
+        customerLng: customerLng ?? 0.0,
+        voucherCode: null,
+        voucherDiscount: 0,
+        isPointExchange: true, // Prevents earning points
+      );
+
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (orderResponse['success'] == true) {
+        // Show success
+        _showPointExchangeSuccess(context);
+      } else {
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Gagal Membuat Order',
+          content: Text(orderResponse['message'] ?? 'Gagal membuat order.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      }
+    } catch (e) {
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      CustomDialog.show(
+        context: context,
+        icon: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.error,
+            color: Colors.red,
+            size: 24,
+          ),
+        ),
+        title: 'Error',
+        content: Text('Error: $e'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
+  }
+
+  void _completePointExchange(BuildContext context, String customerId) async {
+    debugPrint('Completing point exchange without shipping payment');
+
+    // Show loading
+    CustomLoadingDialog.show(context: context);
+
+    try {
+      // 1. Deduct points
+      final exchangeResponse = await ApiService.processPointExchange(
+        customerId: customerId,
+        kodeBarang: widget.produk['kode_barang'] ?? '',
+        orderData: {
+          'order_code': 'ORD${DateTime.now().millisecondsSinceEpoch}',
+        },
+      );
+
+      if (exchangeResponse['success'] != true) {
+        // Close loading
+        if (Navigator.canPop(context)) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Gagal Tukar Poin',
+          content: Text(exchangeResponse['message'] ?? 'Gagal memproses tukar poin.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+        return;
+      }
+
+      // 2. Create order with isPointExchange: true
+      final hargaAsli = (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
+      final orderResponse = await ApiService.createCheckoutOrder(
+        customerId: customerId,
+        items: [{
+          'kode_barang': widget.produk['kode_barang'] ?? widget.produk['id_produk'] ?? 'PROD001',
+          'nama_produk': namaProduk,
+          'quantity': quantity,
+          'price': hargaAsli,
+        }],
+        totalPrice: hargaAsli * quantity,
+        paymentMethod: 'point_exchange',
+        deliveryAddress: selectedAddress!['detailAlamat'],
+        customerLat: customerLat ?? 0.0,
+        customerLng: customerLng ?? 0.0,
+        voucherCode: null,
+        voucherDiscount: 0,
+        isPointExchange: true, // Prevents earning points
+      );
+
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (orderResponse['success'] == true) {
+        // Show success
+        _showPointExchangeSuccess(context);
+      } else {
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Gagal Membuat Order',
+          content: Text(orderResponse['message'] ?? 'Gagal membuat order.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      }
+    } catch (e) {
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      CustomDialog.show(
+        context: context,
+        icon: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.error,
+            color: Colors.red,
+            size: 24,
+          ),
+        ),
+        title: 'Error',
+        content: Text('Error: $e'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
+  }
+
+
+  void _processPointExchangeWithMidtrans(BuildContext context) async {
+  // ============================
+  // VALIDASI
+  // ============================
+  if (selectedAddress == null) {
+    CustomDialog.show(
+      context: context,
+      icon: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.location_off, color: Colors.red, size: 24),
+      ),
+      title: 'Alamat Diperlukan',
+      content: const Text('Mohon pilih alamat pengiriman'),
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('OK'),
+        ),
+      ],
+    );
+    return;
+  }
+
+  if (selectedShipping == null) {
+    CustomDialog.show(
+      context: context,
+      icon: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.local_shipping, color: Colors.red, size: 24),
+      ),
+      title: 'Ekspedisi Diperlukan',
+      content: const Text('Mohon pilih ekspedisi'),
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('OK'),
+        ),
+      ],
+    );
+    return;
+  }
+
+  // ============================
+  // PRODUCTION MODE -> MIDTRANS
+  // ============================
+  CustomLoadingDialog.show(context: context);
+
+  try {
+    // Ambil customer ID
+    String? customerId = await SessionManager.getCustomerId();
+    if (customerId == null) {
+      Navigator.pop(context);
+      CustomDialog.show(
+        context: context,
+        icon: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.error, color: Colors.red, size: 24),
+        ),
+        title: 'Error',
+        content: const Text('User tidak ditemukan'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+      return;
+    }
+
+    // Generate order code for Midtrans payment
+    final orderCode = 'ORD${DateTime.now().millisecondsSinceEpoch}';
+
+    // Start Midtrans payment for shipping cost
+    await PaymentService.startMidtransPayment(
+      context: context,
+      orderId: orderCode,
+      amount: _getFinalShippingCost().toInt(),
+      customerId: customerId,
+      customerName: selectedAddress?['nama'] ?? "Customer",
+      customerEmail: "customer@example.com",
+      customerPhone: selectedAddress?['hp'] ?? "08123456789",
+      itemDetails: [
+        {
+          'id': 'promo_exchange',
+          'price': _getFinalShippingCost(),
+          'quantity': 1,
+          'name': 'Promo Exchange Shipping',
+        }
+      ],
+      paymentType: 'product',
+      onTransactionFinished: (result) {
+        Navigator.pop(context);
+
+        if (PaymentService.isTransactionSuccess(result)) {
+          CustomDialog.show(
+            context: context,
+            icon: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle,
+                  color: Colors.green, size: 50),
+            ),
+            title: "Pembayaran Berhasil",
+            content: const Text(
+              "Pembayaran ongkir berhasil. Menyelesaikan penukaran poin...",
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _completeOrderWithPoints(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text(
+                  "Selesai",
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(PaymentService.getStatusMessage(result)),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+    );
+  } catch (e) {
+    Navigator.pop(context);
+    CustomDialog.show(
+      context: context,
+      icon: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.error, color: Colors.red, size: 24),
+      ),
+      title: 'Error',
+      content: Text('Error: $e'),
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+}
+
+
+  void _createPointExchangeOrder(BuildContext context, String customerId, String orderCode) async {
+    // Show loading
+    CustomLoadingDialog.show(context: context);
+
+    try {
+      // BARU BUAT ORDER dengan flag isPointExchange: true
+      final hargaAsli = (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
+      final orderResponse = await ApiService.createCheckoutOrder(
+        customerId: customerId,
+        items: [{
+          'kode_barang': widget.produk['kode_barang'] ?? widget.produk['id_produk'] ?? 'PROD001',
+          'nama_produk': namaProduk,
+          'quantity': quantity,
+          'price': hargaAsli,
+        }],
+        totalPrice: hargaAsli * quantity,
+        paymentMethod: 'point_exchange',
+        deliveryAddress: selectedAddress!['detailAlamat'],
+        customerLat: customerLat ?? 0.0,
+        customerLng: customerLng ?? 0.0,
+        voucherCode: null,
+        voucherDiscount: 0,
+        isPointExchange: true, // ← PENTING! Flag ini mencegah penambahan poin otomatis
+      );
+
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (orderResponse['success'] == true) {
+        final orderData = orderResponse['data'];
+        final actualOrderCode = orderData['order_code'];
+
+        // Check if shipping cost needs to be paid
+        double finalShippingCost = _getFinalShippingCost();
+        if (finalShippingCost > 0) {
+          // Proceed to pay shipping cost via Midtrans
+          _startMidtransPaymentForShipping(context, actualOrderCode, finalShippingCost, onSuccess: () => _showPointExchangeSuccess(context));
+        } else {
+          // No shipping cost, show success
+          _showPointExchangeSuccess(context);
+        }
+      } else {
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+          title: 'Gagal Membuat Order',
+          content: Text(orderResponse['message'] ?? 'Gagal membuat order.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      }
+    } catch (e) {
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      CustomDialog.show(
+        context: context,
+        icon: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.error,
+            color: Colors.red,
+            size: 24,
+          ),
+        ),
+        title: 'Error',
+        content: Text('Gagal memproses tukar poin: $e'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
+  }
+
+
+  void _showPointExchangeSuccess(BuildContext context) {
+    CustomDialog.show(
+      context: context,
+      icon: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.check_circle,
+          color: Colors.green,
+          size: 50,
+        ),
+      ),
+      title: "Penukaran Poin Berhasil!",
+      content: const Text(
+        "Produk berhasil ditukar dengan poin. Pesanan Anda sedang diproses.",
+        textAlign: TextAlign.center,
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context); // Close dialog
+            // Navigate to success page
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StruckPesananPage(
+                  serviceType: 'shop',
+                  nama: selectedAddress?['nama'] ?? 'User',
+                  jumlahBarang: quantity,
+                  items: [
+                    {
+                      'merek': widget.produk['nama_produk'] ?? 'Produk',
+                      'device': widget.produk['deskripsi'] ?? 'Deskripsi',
+                      'seri': 'Poin: $totalPoin ($quantity x ${totalPoin ~/ quantity} poin)',
+                    },
+                  ],
+                  alamat: selectedAddress?['detailAlamat'] ?? 'Atur alamat anda di sini',
+                  totalHarga: '$totalPoin Poin',
+                ),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text(
+            "Selesai",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _completeOrderWithPoints(BuildContext context) async {
@@ -5213,75 +5806,129 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    int userPoints = UserPointData.userPoints.value;
-
-    if (userPoints < totalPoin) {
+    // Get customer ID
+    final session = await SessionManager.getUserSession();
+    final customerId = session['id'];
+    if (customerId == null) {
       CustomDialog.show(
         context: context,
         icon: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.redAccent.withOpacity(0.1),
+            color: Colors.red.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: const Icon(
-            Icons.error_outline,
-            color: Colors.redAccent,
-            size: 50,
+            Icons.error,
+            color: Colors.red,
+            size: 24,
           ),
         ),
-        title: "Koin anda tidak mencukupi",
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Anda memiliki $userPoints koin, tetapi diperlukan $totalPoin koin untuk menukar produk ini.",
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+        title: 'Error',
+        content: const Text('User tidak ditemukan'),
         actions: [
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0041c3),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 30,
-                vertical: 10,
-              ),
-            ),
-            child: const Text(
-              "Tutup",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
         ],
       );
       return;
     }
 
-    // Deduct points from user
-    final newPoints = userPoints - totalPoin;
-    final session = await SessionManager.getUserSession();
-    final userId = session['id'];
+    // Show loading
+    CustomLoadingDialog.show(context: context);
 
-    if (userId != null) {
-      try {
-        await ApiService.updateCostomer(userId, {'cos_poin': newPoints.toString()});
-        UserPointData.setPoints(newPoints);
-      } catch (e) {
+    try {
+      // BARU BUAT ORDER dengan flag isPointExchange: true (poin sudah dikurangi sebelumnya)
+      final hargaAsli = (double.tryParse(widget.produk['harga']?.toString() ?? '0') ?? 0.0) * 10;
+      final orderResponse = await ApiService.createCheckoutOrder(
+        customerId: customerId,
+        items: [{
+          'kode_barang': widget.produk['kode_barang'] ?? widget.produk['id_produk'] ?? 'PROD001',
+          'nama_produk': namaProduk,
+          'quantity': quantity,
+          'price': hargaAsli,
+        }],
+        totalPrice: hargaAsli * quantity,
+        paymentMethod: 'point_exchange',
+        deliveryAddress: selectedAddress!['detailAlamat'],
+        customerLat: customerLat ?? 0.0,
+        customerLng: customerLng ?? 0.0,
+        voucherCode: null,
+        voucherDiscount: 0,
+        isPointExchange: true, // ← PENTING! Flag ini mencegah penambahan poin otomatis
+      );
+
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (orderResponse['success'] == true) {
+        // Show success popup
+        CustomDialog.show(
+          context: context,
+          icon: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 50,
+            ),
+          ),
+          title: "Penukaran Poin Berhasil!",
+          content: const Text(
+            "Produk berhasil ditukar dengan poin. Pesanan Anda sedang diproses.",
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                // Navigate to success page
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => StruckPesananPage(
+                      serviceType: 'shop',
+                      nama: selectedAddress?['nama'] ?? 'User',
+                      jumlahBarang: quantity,
+                      items: [
+                        {
+                          'merek': widget.produk['nama_produk'] ?? 'Produk',
+                          'device': widget.produk['deskripsi'] ?? 'Deskripsi',
+                          'seri': 'Poin: $totalPoin ($quantity x ${totalPoin ~/ quantity} poin)',
+                        },
+                      ],
+                      alamat: selectedAddress?['detailAlamat'] ?? 'Atur alamat anda di sini',
+                      totalHarga: '$totalPoin Poin',
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                "Selesai",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      } else {
         CustomDialog.show(
           context: context,
           icon: Container(
@@ -5296,8 +5943,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               size: 24,
             ),
           ),
-          title: 'Error',
-          content: Text('Gagal memperbarui poin: $e'),
+          title: 'Gagal Membuat Order',
+          content: Text(orderResponse['message'] ?? 'Gagal membuat order.'),
           actions: [
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
@@ -5305,29 +5952,36 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
           ],
         );
-        return;
       }
-    }
+    } catch (e) {
+      // Close loading
+      if (Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
-    // For point payments, we still go directly to success page since no bank transfer needed
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StruckPesananPage(
-          serviceType: 'shop',
-          nama: selectedAddress?['nama'] ?? 'User',
-          jumlahBarang: quantity,
-          items: [
-            {
-              'merek': widget.produk['nama_produk'] ?? 'Produk',
-              'device': widget.produk['deskripsi'] ?? 'Deskripsi',
-              'seri': 'Poin: $totalPoin ($quantity x ${totalPoin ~/ quantity} poin)',
-            },
-          ],
-          alamat: selectedAddress?['detailAlamat'] ?? 'Atur alamat anda di sini',
-          totalHarga: '$totalPoin Poin',
+      CustomDialog.show(
+        context: context,
+        icon: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.error,
+            color: Colors.red,
+            size: 24,
+          ),
         ),
-      ),
-    );
+        title: 'Error',
+        content: Text('Gagal memproses tukar poin: $e'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
   }
 }
