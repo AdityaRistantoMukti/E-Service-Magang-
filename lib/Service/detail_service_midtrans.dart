@@ -568,18 +568,8 @@ class _DetailServiceMidtransPageState
     // Get customer ID from session
     String? customerId = await SessionManager.getCustomerId();
     if (customerId != null) {
-      // Create payment record in backend
-      try {
-        await PaymentService.createPayment(
-          customerId: customerId,
-          amount: widget.jumlahBarang * 1,
-          kodeBarang: null,
-        );
-        print('Payment record created successfully');
-      } catch (e) {
-        print('Failed to create payment record: $e');
-        // Continue with order completion even if payment record fails
-      }
+      // Payment record is handled by Midtrans webhook
+      print('Payment completed via Midtrans');
 
       // Create transaction record in backend
       bool transactionCreated = false;

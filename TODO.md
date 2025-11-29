@@ -1,31 +1,28 @@
-# TODO: Replace Splash Screen with Video
+# Midtrans Snap Error Logging Implementation
 
-## Tasks
-- [x] Add video_player dependency to pubspec.yaml
-- [x] Add splash_screen.mp4 asset to pubspec.yaml
-- [x] Modify main.dart to use VideoPlayer instead of animation for splash screen
-- [x] Ensure navigation logic remains unchanged after video playback
-- [x] Test the changes to verify video plays and navigation works
+## Task: Add logging to identify "snap cannot be opened" error
 
-# TODO: Test Birthday Notification Service
+### Completed Tasks:
+- [x] Added debug logging to NavigationDelegate callbacks (onPageStarted, onPageFinished, onNavigationRequest, onWebResourceError)
+- [x] Enhanced JavaScript injection to check for window.snap availability
+- [x] Added console logging in JavaScript for snap availability and payment events
+- [x] Added special error handling for "Snap not available" case with detailed diagnostic information
+- [x] Updated _handleJavaScriptMessage to provide comprehensive error logging
 
-## Tasks
-- [x] Create unit tests for BirthdayNotificationService
-- [x] Test resetDailyNotifications functionality
-- [x] Test scheduleDailyBirthdayCheck method
-- [x] Verify dummy data structure for testing
-- [x] Run tests and ensure they pass
+### Key Changes Made:
+1. **NavigationDelegate Logging**: Added debugPrint statements to track webview loading states and errors
+2. **JavaScript Snap Detection**: Added explicit check for window.snap object availability
+3. **Console Logging**: Added detailed console.log statements in JavaScript for debugging
+4. **Error Diagnostics**: Added specific error handling for snap unavailability with possible causes listed
 
-# TODO: Integrate Midtrans Payment with WebView
+### Expected Outcome:
+When the "snap cannot be opened" error occurs, the logs will now show:
+- Whether the Midtrans Snap JavaScript loaded properly
+- Web resource errors if any
+- Navigation issues
+- Specific diagnostic messages for troubleshooting
 
-## Tasks
-- [x] Create MidtransWebView widget for in-app payment processing
-- [x] Update PaymentService to use WebView instead of external browser
-- [x] Remove url_launcher dependency from PaymentService
-- [x] Run flutter analyze to check for code issues
-- [x] Prepare production-ready configuration
-  - [x] Add environment-based configuration (dev/prod URLs and keys)
-  - [x] Include webhook URL for production real-time notifications
-  - [x] Create WebhookService for handling Midtrans callbacks
-  - [x] Optimize polling frequency for production (5s vs 3s in dev)
-- [x] Fix Navigator lock error when pressing "Leave this page" button in MidtransWebView
+### Next Steps:
+- Test the payment flow to verify logging works
+- Monitor console and debug logs during payment attempts
+- Use the diagnostic information to identify root cause of snap loading issues

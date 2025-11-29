@@ -1,20 +1,18 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../api_services/payment_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MidtransWebView extends StatefulWidget {
   final String redirectUrl;
   final String orderId;
-  final Function(String) onTransactionFinished;
+  final Function(String)? onTransactionFinished;
 
   const MidtransWebView({
-    super.key,
+    Key? key,
     required this.redirectUrl,
     required this.orderId,
-    required this.onTransactionFinished,
-  });
+    this.onTransactionFinished,
+  }) : super(key: key);
 
   @override
   State<MidtransWebView> createState() => _MidtransWebViewState();
@@ -22,257 +20,254 @@ class MidtransWebView extends StatefulWidget {
 
 class _MidtransWebViewState extends State<MidtransWebView> {
   late final WebViewController _controller;
-  Timer? _pollingTimer;
   bool _isLoading = true;
-  bool _shouldPop = false;
-  String? _popStatus;
+  bool _hasFinished = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeWebView();
-    _startPolling();
+    debugPrint('🌐 [MidtransWebView] Initializing with URL: ${widget.redirectUrl}');
+    _initWebView();
   }
 
-  void _initializeWebView() {
+  void _initWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
+            debugPrint('📄 [MidtransWebView] Page started: $url');
             if (mounted) {
-              setState(() {
-                _isLoading = true;
-              });
+              setState(() => _isLoading = true);
             }
           },
           onPageFinished: (String url) {
+            debugPrint('✅ [MidtransWebView] Page finished: $url');
             if (mounted) {
-              setState(() {
-                _isLoading = false;
-              });
+              setState(() => _isLoading = false);
             }
-            _injectJavaScript();
+            _checkForPaymentResult(url);
           },
           onNavigationRequest: (NavigationRequest request) {
-            // Handle external links if needed
-            if (request.url.startsWith('http') &&
-                !request.url.contains('app.midtrans.com') &&
-                !request.url.contains('snap.midtrans.com')) {
-              // Open external links in browser
+            debugPrint('🔗 [MidtransWebView] Navigation: ${request.url}');
+
+            // Check if this is a callback/finish URL
+            if (_isCallbackUrl(request.url)) {
+              _handleCallback(request.url);
               return NavigationDecision.prevent;
             }
+
             return NavigationDecision.navigate;
           },
+          onWebResourceError: (WebResourceError error) {
+            debugPrint('❌ [MidtransWebView] Error: ${error.description}');
+          },
         ),
-      )
-      ..addJavaScriptChannel(
-        'FlutterChannel',
-        onMessageReceived: _handleJavaScriptMessage,
       )
       ..loadRequest(Uri.parse(widget.redirectUrl));
   }
 
-  void _injectJavaScript() {
-    const String jsCode = '''
-      // Override Midtrans Snap events
-      if (window.snap) {
-        var originalPay = window.snap.pay;
-        window.snap.pay = function(token, options) {
-          options = options || {};
-          var originalOnSuccess = options.onSuccess;
-          var originalOnPending = options.onPending;
-          var originalOnError = options.onError;
-          var originalOnClose = options.onClose;
-
-          options.onSuccess = function(result) {
-            FlutterChannel.postMessage(JSON.stringify({
-              event: 'success',
-              data: result
-            }));
-            if (originalOnSuccess) originalOnSuccess(result);
-          };
-
-          options.onPending = function(result) {
-            FlutterChannel.postMessage(JSON.stringify({
-              event: 'pending',
-              data: result
-            }));
-            if (originalOnPending) originalOnPending(result);
-          };
-
-          options.onError = function(result) {
-            FlutterChannel.postMessage(JSON.stringify({
-              event: 'error',
-              data: result
-            }));
-            if (originalOnError) originalOnError(result);
-          };
-
-          options.onClose = function() {
-            FlutterChannel.postMessage(JSON.stringify({
-              event: 'close',
-              data: {}
-            }));
-            if (originalOnClose) originalOnClose();
-          };
-
-          return originalPay(token, options);
-        };
-      }
-
-      // Listen for page events
-      window.addEventListener('beforeunload', function(event) {
-        FlutterChannel.postMessage(JSON.stringify({
-          event: 'close',
-          data: {}
-        }));
-      });
-
-      // Hide "Leave This Page" button
-      setTimeout(function() {
-        var elements = document.querySelectorAll('button, a, div, span');
-        for (var i = 0; i < elements.length; i++) {
-          if (elements[i].textContent.trim() === 'Leave This Page' || elements[i].innerText.trim() === 'Leave This Page') {
-            elements[i].style.display = 'none';
-          }
-        }
-      }, 2000);
-    ''';
-
-    _controller.runJavaScript(jsCode);
+  bool _isCallbackUrl(String url) {
+    final lowerUrl = url.toLowerCase();
+    return lowerUrl.contains('/finish') ||
+           lowerUrl.contains('/callback') ||
+           lowerUrl.contains('transaction_status=') ||
+           lowerUrl.contains('status_code=200') ||
+           lowerUrl.contains('status_code=201') ||
+           (lowerUrl.contains('order_id=') && lowerUrl.contains('status'));
   }
 
-  void _handleJavaScriptMessage(JavaScriptMessage message) {
-    // Check if widget is still mounted before processing
-    if (!mounted) {
-      print('Widget disposed, ignoring JavaScript message');
-      return;
+  void _checkForPaymentResult(String url) {
+    if (_hasFinished) return;
+
+    final uri = Uri.parse(url);
+    final params = uri.queryParameters;
+
+    debugPrint('🔍 [MidtransWebView] Checking URL params: $params');
+
+    // Check for transaction_status in URL
+    if (params.containsKey('transaction_status')) {
+      final status = params['transaction_status']!;
+      debugPrint('💳 [MidtransWebView] Found transaction_status: $status');
+      _finishWithStatus(status);
     }
-
-    try {
-      final data = json.decode(message.message);
-      final event = data['event'];
-      final eventData = data['data'];
-
-      print('Midtrans Event: $event, Data: $eventData');
-
-      switch (event) {
-        case 'success':
-          _handlePaymentResult('success');
-          break;
-        case 'pending':
-          _handlePaymentResult('pending');
-          break;
-        case 'error':
-          _handlePaymentResult('error');
-          break;
-        case 'close':
-          _handlePaymentResult('cancel');
-          break;
+    // Check for status_code
+    else if (params.containsKey('status_code')) {
+      final statusCode = params['status_code']!;
+      debugPrint('💳 [MidtransWebView] Found status_code: $statusCode');
+      if (statusCode == '200' || statusCode == '201') {
+        _finishWithStatus('success');
+      } else if (statusCode == '201') {
+        _finishWithStatus('pending');
       }
-    } catch (e) {
-      print('Error parsing JavaScript message: $e');
-      // Don't crash on parsing errors
     }
   }
 
-  void _startPolling() {
-    // Production-ready: Reduce polling frequency to save resources
-    // Note: _isProduction is private, so we use a different approach
-    const bool isProduction = false; // Set to true for production deployment
-    final pollingInterval = isProduction
-        ? const Duration(seconds: 5)  // Less frequent in production
-        : const Duration(seconds: 3); // More frequent in development
+  void _handleCallback(String url) {
+    if (_hasFinished) return;
 
-    _pollingTimer = Timer.periodic(pollingInterval, (timer) async {
-      // Check if widget is still mounted before polling
-      if (!mounted) {
-        timer.cancel();
-        return;
+    debugPrint('🏁 [MidtransWebView] Handling callback URL: $url');
+
+    final uri = Uri.parse(url);
+    final params = uri.queryParameters;
+
+    String status = 'unknown';
+
+    // Parse status from URL params
+    if (params.containsKey('transaction_status')) {
+      status = params['transaction_status']!;
+    } else if (params.containsKey('status_code')) {
+      final statusCode = params['status_code'];
+      if (statusCode == '200') {
+        status = 'success';
+      } else if (statusCode == '201') {
+        status = 'pending';
+      } else {
+        status = 'error';
       }
+    } else if (url.toLowerCase().contains('success') || url.toLowerCase().contains('finish')) {
+      status = 'success';
+    } else if (url.toLowerCase().contains('pending')) {
+      status = 'pending';
+    } else if (url.toLowerCase().contains('error') || url.toLowerCase().contains('failure')) {
+      status = 'error';
+    }
 
-      try {
-        final statusData = await PaymentService.getPaymentStatus(widget.orderId);
-        final status = statusData['transaction_status']?.toString() ?? '';
-
-        print('Polling status for ${widget.orderId}: $status');
-
-        if (status.isNotEmpty && status != 'pending') {
-          _handlePaymentResult(status);
-        }
-      } catch (e) {
-        print('Error polling payment status: $e');
-        // If we get HTML response (server error), stop polling
-        if (e.toString().contains('FormatException') || e.toString().contains('<!DOCTYPE html>')) {
-          timer.cancel();
-        }
-      }
-    });
+    _finishWithStatus(status);
   }
 
-  void _handlePaymentResult(String status) {
-    _pollingTimer?.cancel();
-    // Prevent multiple calls
-    if (_shouldPop) return;
+  void _finishWithStatus(String status) {
+    if (_hasFinished) return;
+    _hasFinished = true;
 
-    widget.onTransactionFinished(status);
-    if (mounted) {
-      setState(() {
-        _shouldPop = true;
-        _popStatus = status;
-      });
+    // Normalize status
+    String normalizedStatus;
+    switch (status.toLowerCase()) {
+      case 'capture':
+      case 'settlement':
+      case 'success':
+        normalizedStatus = 'success';
+        break;
+      case 'pending':
+      case 'challenge':
+        normalizedStatus = 'pending';
+        break;
+      case 'deny':
+      case 'cancel':
+      case 'expire':
+      case 'failure':
+      case 'error':
+        normalizedStatus = 'cancel';
+        break;
+      default:
+        normalizedStatus = status;
+    }
+
+    debugPrint('💰 [MidtransWebView] Finishing with status: $normalizedStatus');
+
+    widget.onTransactionFinished?.call(normalizedStatus);
+
+    // Close dialog and return result
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(normalizedStatus);
     }
   }
 
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    // Remove JavaScript channel to prevent further messages
-    try {
-      _controller.removeJavaScriptChannel('FlutterChannel');
-    } catch (e) {
-      // Ignore errors if channel doesn't exist
-    }
-    super.dispose();
+  void _cancelPayment() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Batalkan Pembayaran?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin membatalkan pembayaran ini?',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Tidak', style: GoogleFonts.poppins(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _finishWithStatus('cancel');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Ya, Batalkan', style: GoogleFonts.poppins(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Handle pop after build if needed
-    if (_shouldPop && _popStatus != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.of(context).pop();
-          setState(() {
-            _shouldPop = false;
-            _popStatus = null;
-          });
-        }
-      });
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0041c3),
-        titleTextStyle: const TextStyle(color: Colors.white),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Pembayaran'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () {
-            _handlePaymentResult('cancel');
-          },
-        ),
-      ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
+    return Dialog(
+      insetPadding: const EdgeInsets.all(0),
+      child: WillPopScope(
+        onWillPop: () async {
+          _cancelPayment();
+          return false;
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF0041c3),
+            title: Text(
+              'Pembayaran',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-        ],
+            leading: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: _cancelPayment,
+            ),
+            actions: [
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              WebViewWidget(controller: _controller),
+              if (_isLoading)
+                Container(
+                  color: Colors.white,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CircularProgressIndicator(
+                          color: Color(0xFF0041c3),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Memuat halaman pembayaran...',
+                          style: GoogleFonts.poppins(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

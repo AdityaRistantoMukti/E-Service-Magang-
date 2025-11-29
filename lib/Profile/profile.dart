@@ -8,7 +8,6 @@ import 'package:azza_service/Others/session_manager.dart';
 import 'package:azza_service/Others/tier_utils.dart';
 import 'package:azza_service/Others/user_point_data.dart';
 import 'package:azza_service/Profile/edit_profile.dart';
-import 'package:azza_service/Profile/point_history.dart';
 import 'package:azza_service/Profile/scan_qr.dart';
 import 'package:azza_service/Profile/show_qr_detail.dart';
 import 'package:azza_service/Promo/promo.dart';
@@ -226,15 +225,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     _infoTile(Icons.phone, 'Nomor Telpon', displayNohp),
                     const SizedBox(height: 12),
                     _infoTile(Icons.card_giftcard, 'Jumlah Voucher', '$voucherCount'),
-                    const SizedBox(height: 12),
-                    _infoTile(Icons.history, 'Riwayat Poin', 'Lihat detail transaksi poin',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const PointHistoryPage()),
-                        );
-                      },
-                    ),
                     const SizedBox(height: 24),
 
                     Row(
@@ -523,44 +513,39 @@ Widget _buildTierIcon(String label) {
     );
   }
 
-  Widget _infoTile(IconData icon, String label, String value, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.grey.shade300, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 3),
+  Widget _infoTile(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF0041c3)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(label,
+                    style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500)),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF0041c3)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(label,
-                      style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                  Text(value,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-            if (onTap != null)
-              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

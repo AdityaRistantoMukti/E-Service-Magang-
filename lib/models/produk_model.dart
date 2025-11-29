@@ -17,23 +17,23 @@ class Produk {
 
   factory Produk.fromJson(Map<String, dynamic> json) {
     return Produk(
-      kodeBarang: json['kode_barang'],
-      namaProduk: json['nama_produk'],
+      kodeBarang: json['kodeBarang'],
+      namaProduk: json['namaProduk'],
       harga: json['harga'] is int ? json['harga'] : int.parse(json['harga'].toString()),
       deskripsi: json['deskripsi'],
       gambar: json['gambar'],
-      gambarUrl: json['gambar_url'],
+      gambarUrl: json['gambarUrl'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'kode_barang': kodeBarang,
-      'nama_produk': namaProduk,
+      'kodeBarang': kodeBarang,
+      'namaProduk': namaProduk,
       'harga': harga,
       'deskripsi': deskripsi,
       'gambar': gambar,
-      'gambar_url': gambarUrl,
+      'gambarUrl': gambarUrl,
     };
   }
 }

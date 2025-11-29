@@ -14,7 +14,7 @@ class ApiConfig {
 
   // Midtrans Configuration
   static const String midtransServerKey =
-      'YOUR_MIDTRANS_SANDBOX_SERVER_KEY'; // Sandbox server key - Replace with actual key from environment
+      'Mid-server-8X8p8w8w8w8w8w8w8w8w8w8w8w8w8w8w'; // Replace with your actual server key
 
   // Google Maps API Configuration
   static const String googleMapsApiKey =

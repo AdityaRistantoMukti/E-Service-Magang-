@@ -5,12 +5,14 @@ import 'package:intl/intl.dart';
 // Import your existing files
 import 'package:azza_service/Beli/shop.dart';
 import 'package:azza_service/Home/Home.dart';
+import 'package:azza_service/Others/notifikasi.dart';
 import 'package:azza_service/Others/session_manager.dart';
 import 'package:azza_service/Promo/promo.dart';
 import 'package:azza_service/Service/Service.dart';
 import 'package:azza_service/Service/tracking_driver.dart';
 import 'package:azza_service/api_services/api_service.dart';
 import 'package:azza_service/api_services/payment_service.dart';
+import 'package:azza_service/Others/midtrans_webview.dart';
 
 class RiwayatPage extends StatefulWidget {
   final bool shouldRefresh;
@@ -44,7 +46,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
 
   // Status definitions
   final List<String> serviceStatuses = ['pending', 'approved', 'in_progress', 'on_the_way', 'completed'];
-  final List<String> purchaseStatuses = ['pending', 'paid', 'diproses', 'dikirim', 'selesai', 'pending_shipping_payment', 'cancelled'];
+  final List<String> purchaseStatuses = ['pending', 'paid', 'diproses', 'dikirim', 'selesai'];
 
   @override
   void initState() {
@@ -75,6 +77,11 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
 
     try {
       final session = await SessionManager.getUserSession();
+      if (session == null) {
+        _setEmptyState();
+        return;
+      }
+
       final userCosKode = session['id']?.toString();
       if (userCosKode == null || userCosKode.isEmpty) {
         _setEmptyState();
@@ -109,12 +116,19 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
 
         tempPurchase.add({
           'order_code': orderCode,
+          'total_price': order['total_price'] ?? 0,
           'total_payment': order['total_payment'] ?? order['total_price'] ?? 0,
+          'shipping_cost': order['shipping_cost'] ?? 0,
           'created_at': order['created_at'],
           'payment_status': order['payment_status']?.toString().toLowerCase() ?? 'pending',
           'delivery_status': order['delivery_status']?.toString().toLowerCase() ?? 'menunggu',
           'payment_method': order['payment_method'] ?? 'N/A',
           'expedition_type': order['expedition_type'] ?? 'N/A',
+          'delivery_address': order['delivery_address'] ?? '',
+          'is_point_exchange': order['is_point_exchange'] == true || order['is_point_exchange'] == 1,
+          'points_used': order['points_used'] ?? 0,
+          'midtrans_redirect_url': order['midtrans_redirect_url'],
+          'payment_url_expires_at': order['payment_url_expires_at'],
           'items': orderData['items'] ?? [],
         });
       }
@@ -128,9 +142,8 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
         purchaseTransactions = tempPurchase;
         isLoading = false;
       });
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('Error loading transactions: $e');
-      debugPrint('Stack trace: $stackTrace');
       if (mounted) _setEmptyState();
     }
   }
@@ -187,8 +200,8 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
       'dikirim': 'Dikirim',
       'selesai': 'Selesai',
       'menunggu': 'Menunggu',
-      'pending_shipping_payment': 'Menunggu Pembayaran Ongkir',
       'cancelled': 'Dibatalkan',
+      'expired': 'Kadaluarsa',
     };
     return labels[status.toLowerCase()] ?? status;
   }
@@ -205,8 +218,8 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
       'dikirim': Colors.purple,
       'selesai': Colors.green,
       'menunggu': Colors.orange,
-      'pending_shipping_payment': Colors.orange,
       'cancelled': Colors.red,
+      'expired': Colors.grey,
     };
     return colors[status.toLowerCase()] ?? Colors.grey;
   }
@@ -223,10 +236,45 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
       'dikirim': Icons.local_shipping,
       'selesai': Icons.check_circle,
       'menunggu': Icons.hourglass_empty,
-      'pending_shipping_payment': Icons.payment,
       'cancelled': Icons.cancel,
+      'expired': Icons.timer_off,
     };
     return icons[status.toLowerCase()] ?? Icons.help_outline;
+  }
+
+  // ✅ Check if payment URL is still valid
+  bool _isPaymentUrlValid(String? expiresAt) {
+    if (expiresAt == null || expiresAt.isEmpty) return false;
+    try {
+      final expiry = DateTime.parse(expiresAt);
+      return DateTime.now().isBefore(expiry);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ✅ Get expiry text
+  String _getExpiryText(String? expiresAt) {
+    if (expiresAt == null) return '';
+    try {
+      final expiry = DateTime.parse(expiresAt);
+      final now = DateTime.now();
+      
+      if (now.isAfter(expiry)) {
+        return '⚠️ Link pembayaran expired';
+      }
+      
+      final diff = expiry.difference(now);
+      if (diff.inHours > 0) {
+        return '⏰ Bayar dalam ${diff.inHours}j ${diff.inMinutes % 60}m';
+      } else if (diff.inMinutes > 0) {
+        return '⏰ Bayar dalam ${diff.inMinutes} menit';
+      } else {
+        return '⚠️ Segera expired!';
+      }
+    } catch (e) {
+      return '';
+    }
   }
 
   // ============ COUNT METHODS ============
@@ -242,22 +290,17 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
     return purchaseTransactions.where((t) {
       final paymentStatus = t['payment_status']?.toString().toLowerCase() ?? '';
       final deliveryStatus = t['delivery_status']?.toString().toLowerCase() ?? '';
-      final paymentMethod = t['payment_method']?.toString().toLowerCase() ?? '';
-
+      
       if (status == 'pending') {
-        return paymentStatus == 'pending' && paymentMethod != 'pending_shipping_payment';
+        return paymentStatus == 'pending';
       } else if (status == 'paid') {
-        return paymentStatus == 'paid' && deliveryStatus != 'selesai';
+        return paymentStatus == 'paid' && deliveryStatus != 'selesai' && deliveryStatus != 'dikirim';
       } else if (status == 'diproses') {
         return deliveryStatus == 'diproses';
       } else if (status == 'dikirim') {
         return deliveryStatus == 'dikirim';
       } else if (status == 'selesai') {
         return deliveryStatus == 'selesai';
-      } else if (status == 'pending_shipping_payment') {
-        return paymentMethod == 'pending_shipping_payment';
-      } else if (status == 'cancelled') {
-        return paymentStatus == 'cancelled' || deliveryStatus == 'cancelled';
       }
       return false;
     }).length;
@@ -276,25 +319,322 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
     return purchaseTransactions.where((t) {
       final paymentStatus = t['payment_status']?.toString().toLowerCase() ?? '';
       final deliveryStatus = t['delivery_status']?.toString().toLowerCase() ?? '';
-      final paymentMethod = t['payment_method']?.toString().toLowerCase() ?? '';
-
+      
       if (_selectedPurchaseStatus == 'pending') {
-        return paymentStatus == 'pending' && paymentMethod != 'pending_shipping_payment';
+        return paymentStatus == 'pending';
       } else if (_selectedPurchaseStatus == 'paid') {
-        return paymentStatus == 'paid' && deliveryStatus != 'selesai';
+        return paymentStatus == 'paid' && deliveryStatus != 'selesai' && deliveryStatus != 'dikirim';
       } else if (_selectedPurchaseStatus == 'diproses') {
         return deliveryStatus == 'diproses';
       } else if (_selectedPurchaseStatus == 'dikirim') {
         return deliveryStatus == 'dikirim';
       } else if (_selectedPurchaseStatus == 'selesai') {
         return deliveryStatus == 'selesai';
-      } else if (_selectedPurchaseStatus == 'pending_shipping_payment') {
-        return paymentMethod == 'pending_shipping_payment';
-      } else if (_selectedPurchaseStatus == 'cancelled') {
-        return paymentStatus == 'cancelled' || deliveryStatus == 'cancelled';
       }
       return false;
     }).toList();
+  }
+
+  // ============ PAYMENT HANDLING ============
+
+  Future<void> _handleContinuePayment(
+    BuildContext context,
+    Map<String, dynamic> transaction,
+  ) async {
+    final orderCode = transaction['order_code']?.toString() ?? '';
+    final midtransUrl = transaction['midtrans_redirect_url']?.toString();
+    final expiresAt = transaction['payment_url_expires_at']?.toString();
+    final shippingCost = double.tryParse(transaction['shipping_cost']?.toString() ?? '0') ?? 0;
+    final isPointExchange = transaction['is_point_exchange'] == true;
+    final pointsUsed = int.tryParse(transaction['points_used']?.toString() ?? '0') ?? 0;
+    
+    final bool hasValidUrl = midtransUrl != null && 
+        midtransUrl.isNotEmpty && 
+        _isPaymentUrlValid(expiresAt);
+
+    debugPrint('💳 Continue payment for order: $orderCode');
+    debugPrint('🔗 Existing URL: $midtransUrl');
+    debugPrint('✅ URL Valid: $hasValidUrl');
+    debugPrint('🎯 Is Point Exchange: $isPointExchange');
+
+    if (hasValidUrl) {
+      // ✅ Use existing Midtrans URL
+      debugPrint('🔓 Opening existing Midtrans URL...');
+      
+      final result = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => MidtransWebView(
+          redirectUrl: midtransUrl!,
+          orderId: orderCode,
+          onTransactionFinished: (status) {
+            debugPrint('💳 Payment status: $status');
+          },
+        ),
+      );
+
+      await _handlePaymentResult(context, orderCode, result, isPointExchange, pointsUsed);
+    } else {
+      // ✅ Generate new Midtrans URL
+      debugPrint('🔄 Generating new payment URL...');
+      await _regeneratePaymentUrl(context, transaction);
+    }
+  }
+
+  Future<void> _regeneratePaymentUrl(
+    BuildContext context,
+    Map<String, dynamic> transaction,
+  ) async {
+    final orderCode = transaction['order_code']?.toString() ?? '';
+    final shippingCost = double.tryParse(transaction['shipping_cost']?.toString() ?? '0') ?? 0;
+    final deliveryAddress = transaction['delivery_address']?.toString() ?? '';
+    final isPointExchange = transaction['is_point_exchange'] == true;
+    final pointsUsed = int.tryParse(transaction['points_used']?.toString() ?? '0') ?? 0;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Color(0xFF0041c3)),
+            const SizedBox(height: 16),
+            Text(
+              'Mempersiapkan pembayaran...',
+              style: GoogleFonts.poppins(),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final session = await SessionManager.getUserSession();
+      final customerId = session['id']?.toString() ?? '';
+
+      final paymentData = await PaymentService.createPaymentCharge(
+        orderId: '${orderCode}_RETRY_${DateTime.now().millisecondsSinceEpoch}',
+        customerId: customerId,
+        totalPrice: 0,
+        totalPayment: shippingCost,
+        items: [
+          {
+            'kode_barang': 'SHIPPING',
+            'nama_produk': 'Ongkos Kirim',
+            'quantity': 1,
+            'price': shippingCost,
+            'subtotal': shippingCost,
+          }
+        ],
+        deliveryAddress: deliveryAddress,
+        isPointExchange: isPointExchange,
+        pointsRequired: pointsUsed,
+      );
+
+      // Close loading
+      if (mounted) Navigator.of(context).pop();
+
+      if (paymentData['redirect_url'] != null) {
+        final result = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => MidtransWebView(
+            redirectUrl: paymentData['redirect_url'],
+            orderId: orderCode,
+            onTransactionFinished: (status) {
+              debugPrint('💳 Payment status: $status');
+            },
+          ),
+        );
+
+        await _handlePaymentResult(context, orderCode, result, isPointExchange, pointsUsed);
+      } else {
+        throw Exception('Tidak mendapat URL pembayaran');
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mempersiapkan pembayaran: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handlePaymentResult(
+    BuildContext context,
+    String orderCode,
+    String? result,
+    bool isPointExchange,
+    int pointsUsed,
+  ) async {
+    if (PaymentService.isTransactionSuccess(result)) {
+      debugPrint('✅ Payment successful!');
+      
+      // Update payment status
+      try {
+        await ApiService.updateOrderPaymentStatus(
+          orderCode: orderCode,
+          status: 'paid',
+        );
+      } catch (e) {
+        debugPrint('Error updating status: $e');
+      }
+
+      // ✅ Potong poin jika point exchange dan belum dipotong
+      if (isPointExchange && pointsUsed > 0) {
+        try {
+          final session = await SessionManager.getUserSession();
+          final customerId = session['id']?.toString() ?? '';
+          final userData = await ApiService.getCostomerById(customerId);
+          final currentPoints = int.tryParse(userData['cos_poin']?.toString() ?? '0') ?? 0;
+          
+          if (currentPoints >= pointsUsed) {
+            final newPoints = currentPoints - pointsUsed;
+            await ApiService.updateCostomer(customerId, {'cos_poin': newPoints.toString()});
+            debugPrint('💰 Points deducted: $pointsUsed, New balance: $newPoints');
+          }
+        } catch (e) {
+          debugPrint('Error deducting points: $e');
+        }
+      }
+
+      // Refresh and show success
+      await _loadTransactionHistory();
+      
+      if (mounted) {
+        _showPaymentSuccessSnackbar(context);
+      }
+    } else if (result == 'pending') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.hourglass_empty, color: Colors.white),
+                const SizedBox(width: 8),
+                const Text('Menunggu pembayaran...'),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Pembayaran dibatalkan. Anda dapat mencoba lagi nanti.')),
+              ],
+            ),
+            backgroundColor: Colors.grey[700],
+          ),
+        );
+      }
+    }
+  }
+
+  void _showPaymentSuccessSnackbar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            const Text('Pembayaran berhasil!'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _cancelOrder(BuildContext context, String orderCode) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Batalkan Pesanan?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Pesanan akan dibatalkan dan tidak dapat dikembalikan.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Tidak', style: GoogleFonts.poppins(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Ya, Batalkan', style: GoogleFonts.poppins(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Membatalkan pesanan...'),
+            ],
+          ),
+        ),
+      );
+      
+      await ApiService.updateOrderPaymentStatus(
+        orderCode: orderCode,
+        status: 'cancelled',
+      );
+      
+      if (mounted) Navigator.of(context).pop();
+      
+      await _loadTransactionHistory();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pesanan berhasil dibatalkan'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membatalkan pesanan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // ============ BUILD METHODS ============
@@ -342,10 +682,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
   Widget _buildBody() {
     return Column(
       children: [
-        // Custom Tab Bar dengan background yang kontras
         _buildCustomTabBar(),
-        
-        // Tab Content
         Expanded(
           child: TabBarView(
             controller: _mainTabController,
@@ -386,7 +723,6 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
               padding: const EdgeInsets.all(4),
               child: Row(
                 children: [
-                  // Service Tab
                   Expanded(
                     child: _buildTabItem(
                       index: 0,
@@ -397,7 +733,6 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Purchase Tab
                   Expanded(
                     child: _buildTabItem(
                       index: 1,
@@ -468,7 +803,6 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
               ),
             ),
             const SizedBox(width: 6),
-            // Count Badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
@@ -505,10 +839,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
 
     return Column(
       children: [
-        // Status Grid
         _buildStatusGrid(isService: true),
-        
-        // Transaction List
         Expanded(
           child: _selectedServiceStatus == null
               ? _buildSelectStatusHint()
@@ -581,7 +912,6 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -594,10 +924,10 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                               color: const Color(0xFF0041c3).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.build,
                               size: 18,
-                              color: const Color(0xFF0041c3),
+                              color: Color(0xFF0041c3),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -620,31 +950,19 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                 ),
                 
                 const SizedBox(height: 14),
-                
-                // Divider
-                Container(
-                  height: 1,
-                  color: Colors.grey[100],
-                ),
-                
+                Container(height: 1, color: Colors.grey[100]),
                 const SizedBox(height: 14),
                 
-                // Info Row
                 Row(
                   children: [
                     Expanded(child: _buildInfoItem(Icons.calendar_today, tanggal)),
-                    Container(
-                      width: 1,
-                      height: 20,
-                      color: Colors.grey[200],
-                    ),
+                    Container(width: 1, height: 20, color: Colors.grey[200]),
                     Expanded(child: _buildInfoItem(Icons.payments, total)),
                   ],
                 ),
                 
                 const SizedBox(height: 12),
                 
-                // Keluhan
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -656,19 +974,12 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.description_outlined,
-                        size: 16,
-                        color: Colors.grey[500],
-                      ),
+                      Icon(Icons.description_outlined, size: 16, color: Colors.grey[500]),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           keluhan,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.grey[700],
-                          ),
+                          style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[700]),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -677,29 +988,21 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                   ),
                 ),
                 
-                // Tracking Button
                 if (isTrackable) ...[
                   const SizedBox(height: 14),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF0041c3),
-                          const Color(0xFF0052E0),
-                        ],
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0041c3), Color(0xFF0052E0)],
                       ),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 18,
-                          color: Colors.white,
-                        ),
+                        const Icon(Icons.location_on, size: 18, color: Colors.white),
                         const SizedBox(width: 8),
                         Text(
                           'Lacak Pesanan',
@@ -710,11 +1013,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 14,
-                          color: Colors.white,
-                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
                       ],
                     ),
                   ),
@@ -740,10 +1039,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
 
     return Column(
       children: [
-        // Status Grid
         _buildStatusGrid(isService: false),
-        
-        // Transaction List
         Expanded(
           child: _selectedPurchaseStatus == null
               ? _buildSelectStatusHint()
@@ -777,14 +1073,23 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
 
   Widget _buildPurchaseCard(Map<String, dynamic> transaction) {
     final orderCode = transaction['order_code'] ?? '-';
-    final paymentStatus = transaction['payment_status'] ?? 'pending';
-    final deliveryStatus = transaction['delivery_status'] ?? 'menunggu';
+    final paymentStatus = transaction['payment_status']?.toString().toLowerCase() ?? 'pending';
+    final deliveryStatus = transaction['delivery_status']?.toString().toLowerCase() ?? 'menunggu';
     final tanggal = _formatDate(transaction['created_at']);
     final total = _formatCurrency(transaction['total_payment']);
+    final shippingCost = double.tryParse(transaction['shipping_cost']?.toString() ?? '0') ?? 0;
     final items = transaction['items'] as List? ?? [];
-    final paymentMethod = transaction['payment_method'] ?? 'N/A';
-    final isPendingShippingPayment = paymentMethod.toLowerCase() == 'pending_shipping_payment';
-
+    final isPointExchange = transaction['is_point_exchange'] == true;
+    final pointsUsed = transaction['points_used'] ?? 0;
+    final midtransUrl = transaction['midtrans_redirect_url']?.toString();
+    final expiresAt = transaction['payment_url_expires_at']?.toString();
+    
+    // Check if needs payment
+    final bool needsPayment = paymentStatus == 'pending' && shippingCost > 0;
+    final bool hasValidUrl = midtransUrl != null && 
+        midtransUrl.isNotEmpty && 
+        _isPaymentUrlValid(expiresAt);
+    
     // Get product summary
     String productSummary = 'Tidak ada produk';
     if (items.isNotEmpty) {
@@ -827,48 +1132,56 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
+                          color: isPointExchange 
+                              ? const Color.fromARGB(255, 0, 193, 164).withOpacity(0.1)
+                              : Colors.green.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
-                          Icons.shopping_bag,
+                        child: Icon(
+                          isPointExchange ? Icons.monetization_on : Icons.shopping_bag,
                           size: 18,
-                          color: Colors.green,
+                          color: isPointExchange 
+                              ? const Color.fromARGB(255, 0, 193, 164)
+                              : Colors.green,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          '#$orderCode',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF0041c3),
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '#$orderCode',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF0041c3),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (isPointExchange)
+                              Text(
+                                'Tukar $pointsUsed Poin',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: const Color.fromARGB(255, 0, 193, 164),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-                _buildStatusChip(
-                  paymentStatus == 'cancelled' ? 'cancelled' :
-                  deliveryStatus == 'cancelled' ? 'cancelled' :
-                  isPendingShippingPayment ? 'pending_shipping_payment' : deliveryStatus
-                ),
+                _buildStatusChip(deliveryStatus),
               ],
             ),
-
+            
             const SizedBox(height: 14),
-
-            // Divider
-            Container(
-              height: 1,
-              color: Colors.grey[100],
-            ),
-
+            Container(height: 1, color: Colors.grey[100]),
             const SizedBox(height: 14),
-
+            
             // Product Summary
             Container(
               width: double.infinity,
@@ -880,11 +1193,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.inventory_2_outlined,
-                    size: 18,
-                    color: Colors.blue[700],
-                  ),
+                  Icon(Icons.inventory_2_outlined, size: 18, color: Colors.blue[700]),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -900,24 +1209,20 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                 ],
               ),
             ),
-
+            
             const SizedBox(height: 14),
-
+            
             // Info Row
             Row(
               children: [
                 Expanded(child: _buildInfoItem(Icons.calendar_today, tanggal)),
-                Container(
-                  width: 1,
-                  height: 20,
-                  color: Colors.grey[200],
-                ),
+                Container(width: 1, height: 20, color: Colors.grey[200]),
                 Expanded(child: _buildInfoItem(Icons.payments, total)),
               ],
             ),
-
+            
             const SizedBox(height: 14),
-
+            
             // Status Row
             Row(
               children: [
@@ -938,96 +1243,112 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                 ),
               ],
             ),
-
-            // Resume Payment Button for pending shipping payments
-            if (isPendingShippingPayment) ...[
-              const SizedBox(height: 16),
+            
+            // ✅ Payment Action Button for pending orders
+            if (needsPayment) ...[
+              const SizedBox(height: 14),
+              
+              // Warning banner
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF0041c3),
-                      const Color(0xFF0052E0),
-                    ],
-                  ),
+                  color: Colors.orange[50],
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange[200]!),
                 ),
-                child: ElevatedButton(
-                  onPressed: () => _resumeShippingPayment(context, transaction),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.payment,
-                        size: 18,
-                        color: Colors.white,
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Menunggu Pembayaran Ongkir',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                          Text(
+                            _formatCurrency(shippingCost),
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.orange[600],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Lanjutkan Pembayaran Ongkir',
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Pay Now Button
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _cancelOrder(context, orderCode),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.red[300]!),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(
+                        'Batalkan',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: Colors.red,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Cancel Order Button
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  border: Border.all(color: Colors.red[200]!, width: 1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextButton(
-                  onPressed: () => _cancelOrder(context, transaction),
-                  style: TextButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.cancel,
-                        size: 18,
-                        color: Colors.red[700],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _handleContinuePayment(context, transaction),
+                      icon: const Icon(Icons.payment, size: 18),
+                      label: Text(
+                        'Bayar Sekarang',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Batalkan Pesanan',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.red[700],
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0041c3),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                    ],
+                    ),
+                  ),
+                ],
+              ),
+              
+              // Expiry info
+              if (expiresAt != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Center(
+                    child: Text(
+                      _getExpiryText(expiresAt),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: hasValidUrl ? Colors.grey[500] : Colors.red,
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ],
         ),
@@ -1045,9 +1366,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[200]!, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1062,11 +1381,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                     color: const Color(0xFF0041c3).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
-                    Icons.filter_list,
-                    size: 16,
-                    color: const Color(0xFF0041c3),
-                  ),
+                  child: const Icon(Icons.filter_list, size: 16, color: Color(0xFF0041c3)),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -1178,36 +1493,18 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
               width: isSelected ? 2 : 1,
             ),
             boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: color.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+                ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))]
+                : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 1))],
           ),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isSelected 
-                      ? Colors.white.withOpacity(0.2) 
-                      : color.withOpacity(0.1),
+                  color: isSelected ? Colors.white.withOpacity(0.2) : color.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  _getStatusIcon(status),
-                  size: 20,
-                  color: isSelected ? Colors.white : color,
-                ),
+                child: Icon(_getStatusIcon(status), size: 20, color: isSelected ? Colors.white : color),
               ),
               const SizedBox(height: 6),
               Text(
@@ -1249,11 +1546,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
           const SizedBox(width: 4),
           Text(
             _getStatusLabel(status),
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+            style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: color),
           ),
         ],
       ),
@@ -1269,11 +1562,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
         Flexible(
           child: Text(
             text,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
+            style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w500),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -1298,10 +1587,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
         children: [
           Container(
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
             child: Icon(icon, size: 12, color: color),
           ),
           const SizedBox(width: 8),
@@ -1309,22 +1595,8 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 9,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  _getStatusLabel(status),
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
+                Text(label, style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                Text(_getStatusLabel(status), style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
               ],
             ),
           ),
@@ -1346,30 +1618,15 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
                 color: const Color(0xFF0041c3).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.touch_app,
-                size: 48,
-                color: const Color(0xFF0041c3).withOpacity(0.5),
-              ),
+              child: Icon(Icons.touch_app, size: 48, color: const Color(0xFF0041c3).withOpacity(0.5)),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Pilih Status',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-              ),
-            ),
+            Text('Pilih Status', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[700])),
             const SizedBox(height: 8),
             Text(
               'Tap salah satu status di atas\nuntuk melihat daftar pesanan',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[500],
-                height: 1.5,
-              ),
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[500], height: 1.5),
             ),
           ],
         ),
@@ -1377,11 +1634,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _buildEmptyState({required IconData icon, required String title, required String subtitle}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1390,183 +1643,17 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
           children: [
             Container(
               padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 52,
-                color: Colors.grey[400],
-              ),
+              decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle),
+              child: Icon(icon, size: 52, color: Colors.grey[400]),
             ),
             const SizedBox(height: 24),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(title, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[700]), textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.grey[500],
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(subtitle, style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[500], height: 1.4), textAlign: TextAlign.center),
           ],
         ),
       ),
     );
-  }
-
-  // ============ RESUME PAYMENT ============
-
-  void _resumeShippingPayment(BuildContext context, Map<String, dynamic> transaction) async {
-    final orderCode = transaction['order_code'] ?? '';
-    final totalPayment = transaction['total_payment'] ?? 0;
-
-    if (orderCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order code tidak valid')),
-      );
-      return;
-    }
-
-    try {
-      // Get customer ID from session (since orders are already filtered by logged-in user)
-      final session = await SessionManager.getUserSession();
-      final customerId = session['id']?.toString();
-
-      if (customerId == null || customerId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session user tidak ditemukan')),
-        );
-        return;
-      }
-
-      // Get customer data for payment
-      final customerData = await ApiService.getCostomerById(customerId);
-      final customerName = customerData['cos_nama'] ?? 'Customer';
-      final customerEmail = 'test@example.com'; // Use fixed email for testing
-      final customerPhone = customerData['cos_hp'] ?? '08123456789';
-
-      // Start Midtrans payment directly
-      await PaymentService.startMidtransPayment(
-        context: context,
-        orderId: orderCode,
-        amount: totalPayment.toInt(),
-        customerId: customerId,
-        customerName: customerName,
-        customerEmail: customerEmail,
-        customerPhone: customerPhone,
-        itemDetails: [
-          {
-            'id': 'SHIPPING_RESUME',
-            'price': totalPayment.toInt(),
-            'quantity': 1,
-            'name': 'Pembayaran Ongkir (Resume)',
-          }
-        ],
-        onTransactionFinished: (result) async {
-          if (PaymentService.isTransactionSuccess(result)) {
-            // Update payment status
-            await ApiService.updatePaymentStatus(
-              orderCode: orderCode,
-              paymentStatus: 'paid',
-            );
-
-            // Navigate back to refresh the list
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-            _loadTransactionHistory();
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Pembayaran ongkir berhasil!')),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Pembayaran gagal: ${PaymentService.getStatusMessage(result)}')),
-            );
-          }
-        },
-      );
-    } catch (e, stackTrace) {
-      debugPrint('Error resuming shipping payment: $e');
-      debugPrint('Stack trace: $stackTrace');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
-
-  // ============ CANCEL ORDER ============
-
-  void _cancelOrder(BuildContext context, Map<String, dynamic> transaction) async {
-    final orderCode = transaction['order_code'] ?? '';
-
-    if (orderCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order code tidak valid')),
-      );
-      return;
-    }
-
-    // Show confirmation dialog
-    final shouldCancel = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Batalkan Pesanan'),
-        content: const Text('Apakah Anda yakin ingin membatalkan pesanan ini?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Tidak'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Ya, Batalkan'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldCancel != true) return;
-
-    try {
-      // Update payment status to cancelled
-      await ApiService.updatePaymentStatus(
-        orderCode: orderCode,
-        paymentStatus: 'cancelled',
-      );
-
-      // Update delivery status to cancelled as well
-      await ApiService.updateDeliveryStatus(
-        orderCode: orderCode,
-        deliveryStatus: 'cancelled',
-      );
-
-      // Refresh the list
-      _loadTransactionHistory();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pesanan berhasil dibatalkan')),
-      );
-    } catch (e, stackTrace) {
-      debugPrint('Error cancelling order: $e');
-      debugPrint('Stack trace: $stackTrace');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal membatalkan pesanan: $e')),
-      );
-    }
   }
 
   // ============ BOTTOM NAVIGATION ============
@@ -1574,13 +1661,7 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2))],
       ),
       child: BottomNavigationBar(
         currentIndex: currentIndex,
@@ -1592,27 +1673,15 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
           
           Widget? page;
           switch (index) {
-            case 0:
-              page = const ServicePage();
-              break;
-            case 1:
-              page = const MarketplacePage();
-              break;
-            case 2:
-              page = const HomePage();
-              break;
-            case 3:
-              page = const TukarPoinPage();
-              break;
-            case 4:
-              return;
+            case 0: page = const ServicePage(); break;
+            case 1: page = const MarketplacePage(); break;
+            case 2: page = const HomePage(); break;
+            case 3: page = const TukarPoinPage(); break;
+            case 4: return;
           }
           
           if (page != null) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => page!),
-            );
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => page!));
           }
         },
         backgroundColor: const Color(0xFF0041c3),
@@ -1623,31 +1692,16 @@ class _RiwayatPageState extends State<RiwayatPage> with SingleTickerProviderStat
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.build_circle_outlined),
-            label: 'Service',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            label: 'Beli',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.build_circle_outlined), label: 'Service'),
+          const BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: 'Beli'),
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: currentIndex == 3
                 ? Image.asset('assets/image/promo.png', width: 24, height: 24)
-                : Opacity(
-                    opacity: 0.6,
-                    child: Image.asset('assets/image/promo.png', width: 24, height: 24),
-                  ),
+                : Opacity(opacity: 0.6, child: Image.asset('assets/image/promo.png', width: 24, height: 24)),
             label: 'Promo',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Riwayat',
-          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Riwayat'),
         ],
       ),
     );

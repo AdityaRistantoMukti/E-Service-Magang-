@@ -720,45 +720,58 @@ class ApiService {
     required double customerLng,
     String? voucherCode,
     double? voucherDiscount,
-    bool isPointExchange = false,
+    bool isPointExchange = false,      // ✅ NEW optional parameter
+    int pointsUsed = 0,                 // ✅ NEW optional parameter
+    double shippingCost = 0.0,
   }) async {
     try {
-      final payload = {
-        'id_costomer': customerId,
-        'items': items,
+      // ✅ FIXED: Use correct field names
+      final body = {
+        'id_costomer': customerId,       // ✅ Changed from 'customerId'
+        'items': items.map((item) {
+          // ✅ Ensure items use 'price' instead of 'harga'
+          return {
+            'kode_barang': item['kode_barang'],
+            'nama_produk': item['nama_produk'],
+            'price': item['price'] ?? item['harga'] ?? 0,  // ✅ Support both
+            'quantity': item['quantity'],
+          };
+        }).toList(),
         'total_price': totalPrice,
         'payment_method': paymentMethod,
         'delivery_address': deliveryAddress,
         'customer_lat': customerLat,
         'customer_lng': customerLng,
-        if (voucherCode != null) 'voucherCode': voucherCode,
         'voucher_discount': voucherDiscount ?? 0.0,
-        'isPointExchange': isPointExchange,
+        'shipping_cost': shippingCost,
+        'expedition_type': 'pribadi',
       };
 
-      debugPrint('Create checkout order payload: $payload');
+      // ✅ Add point exchange fields if applicable
+      if (isPointExchange) {
+        body['is_point_exchange'] = true;
+        body['points_used'] = pointsUsed;
+      }
+
+      debugPrint('📤 [createCheckoutOrder] Payload: ${jsonEncode(body)}');
 
       final response = await http.post(
-        Uri.parse('$baseUrl/checkout/create-order'),
+        Uri.parse('$baseUrl/checkout/create'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(payload),
+        body: jsonEncode(body),
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return data;
-        } else {
-          throw Exception(data['message'] ?? 'Gagal membuat order');
-        }
-      } else {
-        final errorData = json.decode(response.body);
-        throw Exception(
-          errorData['message'] ?? 'HTTP Error: ${response.statusCode}',
-        );
-      }
+      debugPrint('📥 [createCheckoutOrder] Status: ${response.statusCode}');
+      debugPrint('📥 [createCheckoutOrder] Response: ${response.body}');
+
+      final data = jsonDecode(response.body);
+      return data;
     } catch (e) {
-      rethrow;
+      debugPrint('❌ [createCheckoutOrder] Error: $e');
+      return {
+        'success': false,
+        'message': 'Gagal menghubungi server: $e',
+      };
     }
   }
 
@@ -803,6 +816,108 @@ class ApiService {
       }
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// Update order payment status after Midtrans payment
+  /// Endpoint: PUT /api/checkout/update-payment-status/{orderCode}
+  static Future<Map<String, dynamic>> updateOrderPaymentStatus({
+    required String orderCode,
+    required String status,  // 'paid', 'pending', 'failed', 'cancelled'
+  }) async {
+    try {
+      // ✅ Endpoint yang benar
+      final url = '${baseUrl}/checkout/update-payment-status/$orderCode';
+
+      final body = {
+        'status': status,
+      };
+
+      debugPrint('📤 [updateOrderPaymentStatus] URL: $url');
+      debugPrint('📤 [updateOrderPaymentStatus] Body: ${jsonEncode(body)}');
+
+      final response = await http.put(  // ✅ Method PUT
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+
+      debugPrint('📥 [updateOrderPaymentStatus] Status: ${response.statusCode}');
+      debugPrint('📥 [updateOrderPaymentStatus] Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'data': data,
+        };
+      } else {
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            'success': false,
+            'message': errorData['message'] ?? 'Failed to update payment status',
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Server error: ${response.statusCode}',
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ [updateOrderPaymentStatus] Error: $e');
+      return {
+        'success': false,
+        'message': 'Gagal update status pembayaran: $e',
+      };
+    }
+  }
+
+  /// Sync payment status with Midtrans
+  /// Endpoint: POST /api/payment/sync-update
+  static Future<Map<String, dynamic>> syncPaymentStatus({
+    required String orderId,
+  }) async {
+    try {
+      final url = '${baseUrl}/payment/sync-update';
+
+      final body = {
+        'order_id': orderId,
+      };
+
+      debugPrint('📤 [syncPaymentStatus] URL: $url');
+      debugPrint('📤 [syncPaymentStatus] Body: ${jsonEncode(body)}');
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+
+      debugPrint('📥 [syncPaymentStatus] Status: ${response.statusCode}');
+      debugPrint('📥 [syncPaymentStatus] Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          'success': false,
+          'message': 'Sync failed: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ [syncPaymentStatus] Error: $e');
+      return {
+        'success': false,
+        'message': 'Gagal sync status: $e',
+      };
     }
   }
 
@@ -894,6 +1009,81 @@ class ApiService {
       }
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// Create checkout order for point exchange
+  /// - total_price = 0 (paid with points)
+  /// - points_used = actual points deducted
+  /// - shipping_cost = needs to be paid via Midtrans (if any)
+  static Future<Map<String, dynamic>> createCheckoutOrderWithPoints({
+    required String customerId,
+    required List<Map<String, dynamic>> items,
+    required String deliveryAddress,
+    required double customerLat,
+    required double customerLng,
+    required int pointsUsed,
+    double shippingCost = 0.0,
+  }) async {
+    try {
+      final url = '${baseUrl}/checkout/create-order';
+
+      final body = {
+        'id_costomer': customerId,
+        'items': items,
+        'total_price': 0,  // ✅ Harga produk = 0 karena dibayar dengan poin
+        'payment_method': 'points',
+        'delivery_address': deliveryAddress,
+        'customer_lat': customerLat,
+        'customer_lng': customerLng,
+        'is_point_exchange': true,
+        'points_used': pointsUsed,  // ✅ Poin yang digunakan
+        'shipping_cost': shippingCost,  // ✅ Ongkir yang perlu dibayar (jika ada)
+        'expedition_type': 'pribadi',
+      };
+
+      debugPrint('📤 [createCheckoutOrderWithPoints] URL: $url');
+      debugPrint('📤 [createCheckoutOrderWithPoints] Payload: ${jsonEncode(body)}');
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+
+      debugPrint('📥 [createCheckoutOrderWithPoints] Status: ${response.statusCode}');
+      debugPrint('📥 [createCheckoutOrderWithPoints] Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == null) {
+          data['success'] = true;
+        }
+        return data;
+      } else {
+        try {
+          final errorData = jsonDecode(response.body);
+          return {
+            'success': false,
+            'message': errorData['message'] ?? 'Server error: ${response.statusCode}',
+            'errors': errorData['errors'],
+          };
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Server error: ${response.statusCode}',
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ [createCheckoutOrderWithPoints] Error: $e');
+      return {
+        'success': false,
+        'message': 'Gagal menghubungi server: $e',
+      };
     }
   }
 
@@ -1054,133 +1244,6 @@ class ApiService {
         }
       } else {
         throw Exception('Gagal update user voucher: ${response.body}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  // ========================
-  // POINT EXCHANGE ENDPOINTS
-  // ========================
-
-  /// Validasi poin sebelum tukar produk
-  static Future<Map<String, dynamic>> validatePointExchange({
-    required String customerId,
-    required String kodeBarang,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/checkout/validate-point-exchange'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'customerId': customerId,
-          'kodeBarang': kodeBarang,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return data;
-        } else {
-          throw Exception(data['message'] ?? 'Validasi poin gagal');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Proses tukar poin secara atomic (deduct poin + create order)
-  static Future<Map<String, dynamic>> processPointExchange({
-    required String customerId,
-    required String kodeBarang,
-    required Map<String, dynamic> orderData,
-  }) async {
-    try {
-      final payload = {
-        'customerId': customerId,
-        'kodeBarang': kodeBarang,
-        'orderData': orderData,
-      };
-
-      debugPrint('Process point exchange payload: $payload');
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/checkout/process-point-exchange'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(payload),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return data;
-        } else {
-          throw Exception(data['message'] ?? 'Gagal proses tukar poin');
-        }
-      } else {
-        final errorData = json.decode(response.body);
-        throw Exception(
-          errorData['message'] ?? 'HTTP Error: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Tambah poin dari pembelian (otomatis)
-  static Future<Map<String, dynamic>> addPointsFromPurchase({
-    required String customerId,
-    required double purchaseAmount,
-    required String orderCode,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/checkout/add-points-from-purchase'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'customerId': customerId,
-          'purchaseAmount': purchaseAmount,
-          'orderCode': orderCode,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return data;
-        } else {
-          throw Exception(data['message'] ?? 'Gagal menambah poin');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Get riwayat transaksi poin user
-  static Future<List<dynamic>> getPointTransactions(String customerId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/checkout/point-transactions/$customerId'),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return data['data'] ?? [];
-        } else {
-          throw Exception(data['message'] ?? 'Gagal mengambil riwayat poin');
-        }
-      } else {
-        throw Exception('HTTP Error: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
